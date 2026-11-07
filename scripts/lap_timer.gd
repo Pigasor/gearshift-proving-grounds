@@ -33,7 +33,7 @@ func _physics_process(delta: float) -> void:
 		return
 	current_time += delta
 	# Switching car mid-lap cancels the lap
-	if _car and int(_car.get("current_vehicle_type")) != _car_type:
+	if _car and int(_car.get("record_key")) != _car_type:
 		cancel()
 
 func on_gate(body: Node, gate: int) -> void:
@@ -49,7 +49,7 @@ func on_gate(body: Node, gate: int) -> void:
 		running = true
 		current_time = 0.0
 		_next_gate = 1
-		_car_type = int(body.get("current_vehicle_type"))
+		_car_type = int(body.get("record_key")) # car + engine
 	elif running and gate == _next_gate:
 		_next_gate += 1
 

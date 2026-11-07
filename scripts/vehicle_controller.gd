@@ -31,7 +31,21 @@ var wheel_inertia: float = 1.2
 var engine_inertia: float = 0.25
 
 # --- CURRENT VEHICLE TYPE ---
-@export var current_vehicle_type: VehicleType = VehicleType.GT_SPORT
+# Index into CarDatabase.CARS (0-5 are the original cars, same numbers as VehicleType)
+@export var current_vehicle_type: int = VehicleType.GT_SPORT
+var current_engine_index: int = 0
+var record_key: int = 0 # lap records: car index, or car*100+engine for non-default engines
+var engine_cylinders: int = 6
+var engine_fuel: String = "benzin"
+
+# Realistic engines (CarDatabase): a real torque curve instead of the legacy hp formula
+const LEGACY_GEARS: Array[float] = [-3.4, 0.0, 3.62, 2.18, 1.54, 1.21, 1.00, 0.81]
+var use_torque_curve: bool = false
+var torque_peak_nm: float = 0.0
+var torque_rpm_from: float = 0.0
+var torque_rpm_to: float = 0.0
+var power_rpm: float = 6000.0
+const DRIVETRAIN_EFFICIENCY: float = 0.88 # gearbox/diff losses (realistic engines)
 
 # --- TRANSMISSION & DRIVETRAIN ---
 @export_group("Transmission")
@@ -164,7 +178,7 @@ func _ready() -> void:
 	linear_damp = 0.0
 	angular_damp = 3.2
 	continuous_cd = true # fast drops/crashes must not pass through the ground
-	apply_vehicle_preset(current_vehicle_type)
+	apply_car(current_vehicle_type, 0)
 
 func _build_wheel_details() -> void:
 	for i in range(wheel_mounts.size()):
@@ -267,21 +281,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		reset_vehicle()
 	elif event.is_action_pressed("slow_mo", false, true):
 		toggle_slow_mo()
-	elif event is InputEventKey and event.pressed and not event.echo:
-		# Number keys pick a car
-		match event.physical_keycode:
-			KEY_1:
-				apply_vehicle_preset(VehicleType.GT_SPORT)
-			KEY_2:
-				apply_vehicle_preset(VehicleType.MUSCLE_V8)
-			KEY_3:
-				apply_vehicle_preset(VehicleType.TROPHY_TRUCK)
-			KEY_4:
-				apply_vehicle_preset(VehicleType.HYPERCAR)
-			KEY_5:
-				apply_vehicle_preset(VehicleType.SUPRA_MK4)
-			KEY_6:
-				apply_vehicle_preset(VehicleType.MONSTER_TRUCK)
+	# (Cars are picked in the garage menu now - there are too many for the number keys.)
 
 	# Gamepad Button Support
 	elif event is InputEventJoypadButton and event.pressed:
@@ -297,9 +297,142 @@ func _unhandled_input(event: InputEvent) -> void:
 			JOY_BUTTON_BACK: # Select
 				is_automatic = !is_automatic
 
-func apply_vehicle_preset(type: VehicleType) -> void:
+# Pick a car + engine from CarDatabase (garage menu). Legacy cars use their tuned presets below.
+func apply_car(index: int, engine_index: int = 0) -> void:
+	var c: Dictionary = CarDatabase.car(index)
+	index = clampi(index, 0, CarDatabase.count() - 1)
+	engine_index = clampi(engine_index, 0, (c["engines"] as Array).size() - 1)
+	var en: Dictionary = CarDatabase.engine(index, engine_index)
+	if c.has("legacy"):
+		apply_vehicle_preset(int(c["legacy"]))
+		if not en.get("legacy", false):
+			_apply_engine(en)
+			mass += float(en.get("mass_add", 0.0))
+	else:
+		var old_ride: float = tire_radius + suspension_rest_length
+		_apply_sedan(c, en)
+		var new_ride: float = tire_radius + suspension_rest_length
+		if is_inside_tree() and new_ride > old_ride:
+			global_position += Vector3.UP * (new_ride - old_ride + 0.1)
+	current_vehicle_type = index
+	current_engine_index = engine_index
+	record_key = index if engine_index == 0 else index * 100 + engine_index
+	engine_cylinders = int(en.get("cyl", 4))
+	engine_fuel = str(en.get("fuel", "benzin"))
+	_update_wheel_colliders()
+
+func _apply_engine(en: Dictionary) -> void:
+	use_torque_curve = true
+	peak_horsepower = float(en["hp"])
+	torque_peak_nm = float(en["torque"])
+	torque_rpm_from = float(en["tq_from"])
+	torque_rpm_to = float(en["tq_to"])
+	power_rpm = float(en["power_rpm"])
+	idle_rpm = float(en["idle"])
+	limiter_rpm = float(en["limiter"])
+	max_rpm = float(en["max_rpm"])
+	turbo_max_boost_bar = float(en["turbo"])
+	turbo_enabled = turbo_max_boost_bar > 0.0
+	turbo_spool_rate = 1.5 if str(en.get("fuel", "")) == "dizel" else 2.0
+	gear_ratios.assign(en["gears"])
+	final_drive_ratio = float(en["final"])
+	current_rpm = idle_rpm
+	if current_gear >= gear_ratios.size():
+		_engage_gear_now(2)
+
+# Family sedan: front-wheel drive, soft road suspension, eco tyres.
+func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
+	var b: Dictionary = c["body"]
+	_apply_engine(en)
+	mass = float(b["mass"]) + float(en.get("mass_add", 0.0))
+	drivetrain_mode = "FWD"
+	downforce_coefficient = 0.05
+	drag_coefficient = float(b["cd_area"])
+	tire_radius = float(b["tire_r"])
+	suspension_rest_length = 0.24
+	suspension_travel = 0.15
+	spring_stiffness = mass * 26.0
+	damper_bump = mass * 2.1
+	damper_rebound = mass * 2.9
+	anti_roll_stiffness = 8500.0
+	tire_grip_factor = 1.0
+	max_steer_angle_deg = 37.0
+	offroad_tires = false
+	camera_scale = 1.0
+	wheel_inertia = 1.0
+	engine_inertia = 0.16
+	brake_torque_max = mass * 2.9
+	handbrake_torque_max = 9000.0
+	brake_bias_front = 0.68
+	shift_delay_seconds = 0.32 # an ordinary gearbox, not a race DCT
+	var wb: float = float(b["wheelbase"])
+	var tr: float = float(b["track"])
+	wheel_offsets = [Vector3(-tr * 0.5, 0.0, wb * 0.5), Vector3(tr * 0.5, 0.0, wb * 0.5), Vector3(-tr * 0.5, 0.0, -wb * 0.5), Vector3(tr * 0.5, 0.0, -wb * 0.5)]
+	center_of_mass = Vector3(0.0, -0.12, 0.18) # engine up front
+	# Collision: lower body + cabin, sized to the car
+	var ground_y: float = -(tire_radius + suspension_rest_length - 0.09)
+	var L: float = float(b["length"])
+	var W: float = float(b["width"])
+	var H: float = float(b["height"])
+	var z_mid: float = (wb * 0.5 + float(b["front_overhang"]) - (L - wb * 0.5 - float(b["front_overhang"]))) * 0.5
+	var chassis_col := get_node_or_null("CollisionChassis") as CollisionShape3D
+	var cabin_col := get_node_or_null("CollisionCabin") as CollisionShape3D
+	if chassis_col and chassis_col.shape is BoxShape3D:
+		(chassis_col.shape as BoxShape3D).size = Vector3(W - 0.08, 0.62, L - 0.12)
+		chassis_col.position = Vector3(0.0, ground_y + 0.18 + 0.31, z_mid)
+	if cabin_col and cabin_col.shape is BoxShape3D:
+		(cabin_col.shape as BoxShape3D).size = Vector3(W * 0.78, H - 0.95, 2.1)
+		cabin_col.position = Vector3(0.0, ground_y + 0.80 + (H - 0.95) * 0.5, z_mid - 0.15)
+	var s: float = tire_radius / VISUAL_TIRE_RADIUS
+	for roll in wheel_rolls:
+		if roll != null:
+			roll.scale = Vector3(s * 0.85, s, s)
+	for i in range(mini(wheel_mounts.size(), 4)):
+		if wheel_mounts[i] != null:
+			wheel_mounts[i].position = wheel_offsets[i]
+	for i in range(4):
+		_prev_raw_compression[i] = 0.0
+	if visual_models_parent == null:
+		visual_models_parent = get_node_or_null("VisualModel") as Node3D
+	_clear_car_model()
+	if visual_models_parent:
+		var builder := SedanBuilder.new()
+		_brake_light_mats.append_array(builder.build(visual_models_parent, b, ground_y, tire_radius))
+
+# Wheels used to have no collision of their own (raycast suspension), so they sank into walls and
+# platform edges. A cylinder per wheel (a bit smaller than the tyre, at the fully compressed
+# position) blocks that without ever touching the road during normal driving.
+func _update_wheel_colliders() -> void:
+	var monster: bool = current_vehicle_type == VehicleType.MONSTER_TRUCK
+	for i in range(4):
+		var nm: String = "CollisionWheel%d" % i
+		var col := get_node_or_null(nm) as CollisionShape3D
+		if col == null:
+			col = CollisionShape3D.new()
+			col.name = nm
+			col.shape = CylinderShape3D.new()
+			add_child(col)
+		var cyl := col.shape as CylinderShape3D
+		cyl.radius = tire_radius * 0.72
+		cyl.height = 0.75 if monster else 0.22
+		col.rotation = Vector3(0.0, 0.0, PI * 0.5) # axle along X
+		col.position = wheel_offsets[i] + Vector3.DOWN * maxf(suspension_rest_length - suspension_travel, 0.0)
+
+func apply_vehicle_preset(type: int) -> void:
 	var old_ride: float = tire_radius + suspension_rest_length
 	current_vehicle_type = type
+	current_engine_index = 0
+	record_key = type
+	# Values the realistic (database) cars change - restore the legacy defaults
+	use_torque_curve = false
+	gear_ratios.assign(LEGACY_GEARS)
+	idle_rpm = 900.0
+	turbo_spool_rate = 2.4
+	max_steer_angle_deg = 35.0
+	brake_bias_front = 0.65
+	shift_delay_seconds = 0.12
+	if current_gear >= gear_ratios.size():
+		_engage_gear_now(2)
 	match type:
 		VehicleType.GT_SPORT: # Nissan GT-R Style
 			peak_horsepower = 565.0
@@ -433,6 +566,10 @@ func apply_vehicle_preset(type: VehicleType) -> void:
 	var new_ride: float = tire_radius + suspension_rest_length
 	if is_inside_tree() and new_ride > old_ride:
 		global_position += Vector3.UP * (new_ride - old_ride + 0.1)
+	var en: Dictionary = CarDatabase.engine(type, 0)
+	engine_cylinders = int(en.get("cyl", 6))
+	engine_fuel = str(en.get("fuel", "benzin"))
+	_update_wheel_colliders()
 
 # Wheel positions, collision boxes, centre of mass, brakes, wheel mesh size & camera distance.
 func _apply_body_geometry(type: VehicleType) -> void:
@@ -489,13 +626,7 @@ func _build_real_car_model(car_type: String) -> void:
 		visual_models_parent = get_node_or_null("VisualModel") as Node3D
 	if visual_models_parent == null:
 		return
-
-	# Clear existing procedural body parts
-	_dynamic_links.clear()
-	_brake_light_mats.clear()
-	for child in visual_models_parent.get_children():
-		visual_models_parent.remove_child(child)
-		child.queue_free()
+	_clear_car_model()
 
 	match car_type:
 		"SUPRA_MK4":
@@ -510,6 +641,16 @@ func _build_real_car_model(car_type: String) -> void:
 			_build_hypercar_mesh()
 		"MONSTER_TRUCK":
 			_build_monster_truck_mesh()
+
+# Remove the current procedural body parts
+func _clear_car_model() -> void:
+	_dynamic_links.clear()
+	_brake_light_mats.clear()
+	if visual_models_parent == null:
+		return
+	for child in visual_models_parent.get_children():
+		visual_models_parent.remove_child(child)
+		child.queue_free()
 
 func _create_part(m: Mesh, mat: Material, pos: Vector3, rot_deg: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -1417,7 +1558,10 @@ func _update_drivetrain(delta: float) -> void:
 		transmission_rpm = 0.0
 
 	# Rev limiter cut logic (preserved as requested)
-	if current_rpm >= limiter_rpm:
+	# In the top gear the soft limiter (see _get_engine_torque_nm) holds the revs just under the
+	# limit, so the hard cut only fires if something pushes the engine past it (e.g. downhill).
+	var top_gear_now: bool = current_gear == gear_ratios.size() - 1
+	if current_rpm >= limiter_rpm + (90.0 if top_gear_now else 0.0):
 		is_limiter_active = true
 		_limiter_timer = 0.07
 	if is_limiter_active:
@@ -1443,7 +1587,11 @@ func _update_drivetrain(delta: float) -> void:
 
 	# Turbo spool & Boost surge
 	if turbo_enabled:
-		var target_boost: float = turbo_max_boost_bar * _throttle_input * clampf(current_rpm / 4200.0, 0.0, 1.0)
+		# Full boost from ~4200 rpm (legacy cars) or just before the torque plateau (real engines)
+		var spool_rpm: float = maxf(torque_rpm_from * 0.95, idle_rpm * 1.5) if use_torque_curve else 4200.0
+		var target_boost: float = turbo_max_boost_bar * _throttle_input * clampf(current_rpm / spool_rpm, 0.0, 1.0)
+		if _is_shifting and use_torque_curve:
+			target_boost = 0.0 # throttle closes for the gear change: boost drops and must build again
 		if turbo_boost_active:
 			target_boost = turbo_max_boost_bar + 1.6 # Massive overboost!
 		var spool_spd: float = turbo_spool_rate * (3.5 if turbo_boost_active else 1.0)
@@ -1484,6 +1632,21 @@ func _update_drivetrain(delta: float) -> void:
 	# Rolling down a hill can drive the engine past the limiter (no fuel, engine braking only).
 	current_rpm = clampf(current_rpm, idle_rpm * 0.5, max_rpm * 1.12)
 
+# Full-load torque (Nm) of a realistic engine: rises from idle to the peak, stays flat over the
+# turbo plateau, then falls to the torque that gives the rated power, and tails off to the limiter.
+func _curve_torque(rpm: float) -> float:
+	var t_pk: float = torque_peak_nm
+	var t_pw: float = minf(peak_horsepower * 7023.5 / maxf(power_rpm, 1.0), t_pk) # PS -> Nm at power peak
+	# off-boost torque: diesels (big turbo, high compression) are weakest before the turbo wakes up
+	var t_idle: float = t_pk * ((0.32 if engine_fuel == "dizel" else 0.45) if turbo_enabled else 0.62)
+	if rpm <= torque_rpm_from:
+		return lerpf(t_idle, t_pk, smoothstep(idle_rpm * 0.8, torque_rpm_from, rpm))
+	if rpm <= torque_rpm_to:
+		return t_pk
+	if rpm <= power_rpm:
+		return lerpf(t_pk, t_pw, (rpm - torque_rpm_to) / maxf(power_rpm - torque_rpm_to, 1.0))
+	return lerpf(t_pw, t_pw * 0.8, clampf((rpm - power_rpm) / maxf(max_rpm - power_rpm, 1.0), 0.0, 1.0))
+
 func _get_engine_torque_nm() -> float:
 	if current_rpm < idle_rpm * 0.8:
 		return 0.0
@@ -1491,11 +1654,25 @@ func _get_engine_torque_nm() -> float:
 	var torque_curve: float = sin(clampf(rpm_norm, 0.0, 1.0) * PI * 0.88 + 0.25)
 	var base_torque: float = (peak_horsepower * 7120.0 / 5252.0) * torque_curve
 	var boost_multiplier: float = 1.0 + (turbo_boost_bar * 0.7)
+	if use_torque_curve:
+		# Real engine data: the curve is the torque at full boost; with no boost yet (turbo lag)
+		# a turbo engine makes ~60% of it. Gearbox/diff losses are taken off here too.
+		base_torque = _curve_torque(current_rpm) * DRIVETRAIN_EFFICIENCY
+		boost_multiplier = 1.0
+		if turbo_enabled:
+			boost_multiplier = lerpf(0.6, 1.0, clampf(turbo_boost_bar / maxf(turbo_max_boost_bar, 0.01), 0.0, 1.0))
 	if turbo_boost_active:
 		boost_multiplier *= 1.45 # Massive +45% extra torque kick when Shift turbo is active!
 	# Rev limiter is a real FUEL CUT: no drive torque while it's active (it used to be sound only,
 	# so the car kept accelerating at the limiter in every gear, including reverse).
 	var throttle: float = 0.0 if is_limiter_active else _throttle_input
+	# Top speed in the top gear: like a real ECU's top-speed / soft rev limiter, power fades out
+	# smoothly over the last 250 rpm, so the car holds its top speed steadily instead of bouncing
+	# off the hard cut forever (limiter crackle - full revs - limiter ...).
+	if current_gear == gear_ratios.size() - 1 and throttle >= 0.05:
+		throttle *= clampf((limiter_rpm - current_rpm) / 250.0, 0.0, 1.0)
+		if throttle < 0.05:
+			return 0.0
 	if throttle < 0.05:
 		# Engine braking off-throttle / during fuel cut, stronger at high rpm.
 		var over: float = clampf((current_rpm - idle_rpm) / (max_rpm - idle_rpm), 0.0, 1.3)

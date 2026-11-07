@@ -120,7 +120,7 @@ Maks Hız   : %3.0f km/s""" % [t_0_100_str, t_qm_str, jump_str, top_speed_record
 	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
 	if timer:
 		var lt = timer.get_script()
-		var car_type: int = int(vehicle.get("current_vehicle_type"))
+		var car_type: int = int(vehicle.get("record_key"))
 		var cur: String = lt.fmt(timer.current_time) if timer.running else "--:--.--"
 		label_records.text += "\n\n[ YARIŞ PİSTİ ]\nTur        : %s\nSon Tur    : %s%s\nEn İyi Tur : %s" % [
 			cur, lt.fmt(timer.last_lap), "  ★ REKOR!" if timer.last_lap_was_record and timer.last_lap > 0.0 else "",

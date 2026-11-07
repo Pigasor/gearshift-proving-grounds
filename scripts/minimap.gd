@@ -1,5 +1,5 @@
 extends Control
-# Round mini map in the top-left corner: a second, low-resolution orthographic camera looks down
+# Round mini map in the bottom-left corner: a second, low-resolution orthographic camera looks down
 # on the car (heading-up, so "up" on the map is always where the car points).
 # The "minimap" action (default N) switches between the close view and a wide view of the area.
 
@@ -29,8 +29,6 @@ void fragment() {
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(Control.PRESET_TOP_LEFT)
-	position = Vector2(16, 62)
 
 	_vp = SubViewport.new()
 	_vp.size = Vector2i(256, 256)
@@ -72,6 +70,15 @@ func _ready() -> void:
 
 func _apply_size() -> void:
 	var d: float = MAP_SIZE[1 if _wide else 0]
+	# Bottom-left corner, just above the key help line
+	anchor_left = 0.0
+	anchor_right = 0.0
+	anchor_top = 1.0
+	anchor_bottom = 1.0
+	offset_left = 16.0
+	offset_right = 16.0 + d
+	offset_top = -34.0 - d
+	offset_bottom = -34.0
 	size = Vector2(d, d)
 	_tex.position = Vector2.ZERO
 	_tex.size = size

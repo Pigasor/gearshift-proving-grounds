@@ -229,7 +229,7 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 0.6)
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
-text = "1-6: Araç Seç  |  W/S: Gaz/Fren  |  A/D: Direksiyon  |  SHIFT: Turbo Boost  |  TAB: Garaj  |  ESC: Ayarlar"
+text = "W/S: Gaz/Fren  |  A/D: Direksiyon  |  SHIFT: Turbo Boost  |  TAB: Garaj (Araç & Motor Seçimi)  |  N: Harita  |  ESC: Ayarlar"
 
 [node name="LabelSlowMo" type="Label" parent="UIManager/HUD"]
 visible = false
@@ -374,62 +374,6 @@ theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
 theme_override_font_sizes/font_size = 11
 text = "G-LAT: +0.00 G  |  G-LONG: +0.00 G"
 horizontal_alignment = 2
-
-[node name="WheelsDisplay" type="Control" parent="UIManager/HUD"]
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -140.0
-offset_right = 140.0
-offset_bottom = -24.0
-grow_vertical = 0
-
-[node name="VBox" type="VBoxContainer" parent="UIManager/HUD/WheelsDisplay"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Label" type="Label" parent="UIManager/HUD/WheelsDisplay/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 11
-text = "SÜSPANSİYON YÜKÜ"
-
-[node name="HBoxFront" type="HBoxContainer" parent="UIManager/HUD/WheelsDisplay/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="WheelFL" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxFront"]
-layout_mode = 2
-size_flags_horizontal = 3
-fill_mode = 3
-show_percentage = false
-
-[node name="WheelFR" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxFront"]
-layout_mode = 2
-size_flags_horizontal = 3
-fill_mode = 3
-show_percentage = false
-
-[node name="HBoxRear" type="HBoxContainer" parent="UIManager/HUD/WheelsDisplay/VBox"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="WheelRL" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxRear"]
-layout_mode = 2
-size_flags_horizontal = 3
-fill_mode = 3
-show_percentage = false
-
-[node name="WheelRR" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxRear"]
-layout_mode = 2
-size_flags_horizontal = 3
-fill_mode = 3
-show_percentage = false
 
 [node name="TuningPanel" type="PanelContainer" parent="UIManager"]
 visible = false

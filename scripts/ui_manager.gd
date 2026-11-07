@@ -16,12 +16,6 @@ extends CanvasLayer
 @onready var label_slowmo: Label = $HUD/LabelSlowMo
 @onready var label_handbrake: Label = $HUD/LabelHandbrake
 
-# Wheels Visualizer
-@onready var bar_wheel_fl: ProgressBar = $HUD/WheelsDisplay/VBox/HBoxFront/WheelFL
-@onready var bar_wheel_fr: ProgressBar = $HUD/WheelsDisplay/VBox/HBoxFront/WheelFR
-@onready var bar_wheel_rl: ProgressBar = $HUD/WheelsDisplay/VBox/HBoxRear/WheelRL
-@onready var bar_wheel_rr: ProgressBar = $HUD/WheelsDisplay/VBox/HBoxRear/WheelRR
-
 # Quick Action Buttons
 @onready var btn_quick_car: Button = $HUD/TopBar/BtnQuickCar
 @onready var btn_quick_tuning: Button = $HUD/TopBar/BtnQuickTuning
@@ -53,14 +47,7 @@ extends CanvasLayer
 var is_tuning_open: bool = false
 var speed_mph: bool = false # set from Settings
 @onready var label_speed_unit: Label = get_node_or_null("HUD/MarginContainer/VBoxTelemetry/HBoxSpeed/LabelSpeedUnit")
-var car_names: Array[String] = [
-	"🏎️ Apex GT-R (1)",
-	"🏁 Venom V8 Muscle (2)",
-	"🚙 Titan 4x4 Trophy (3)",
-	"⚡ Phantom Hypercar (4)",
-	"🔥 Toyota Supra R-MK4 (5)",
-	"👹 Goliath Canavar 4x4 (6)"
-]
+var option_engine: OptionButton # engine variants of the selected car (built in code)
 
 func _ready() -> void:
 	panel_tuning.visible = false
@@ -80,7 +67,7 @@ func _ready() -> void:
 	get_parent().add_child.call_deferred(menu)
 	GameSettings.apply_scene_start.call_deferred()
 
-	# Mini map (top-left); N switches close / wide view
+	# Mini map (bottom-left); N switches close / wide view
 	var minimap := Control.new()
 	minimap.set_script(load("res://scripts/minimap.gd"))
 	minimap.name = "Minimap"
@@ -135,8 +122,7 @@ func _update_hud() -> void:
 	btn_quick_gear_mode.text = "🕹️ " + ("OTOMATİK" if vehicle.is_automatic else "MANUEL (F/V)")
 
 	# Current vehicle button label
-	var v_type: int = int(vehicle.current_vehicle_type) if "current_vehicle_type" in vehicle else 0
-	btn_quick_car.text = car_names[clampi(v_type, 0, car_names.size() - 1)]
+	btn_quick_car.text = "🚗 " + CarDatabase.display_name(int(vehicle.current_vehicle_type), int(vehicle.current_engine_index))
 
 	# RPM
 	progress_rpm.min_value = vehicle.idle_rpm * 0.5
@@ -175,17 +161,26 @@ func _update_hud() -> void:
 	label_handbrake.visible = vehicle.is_handbrake_active
 	label_slowmo.visible = (Engine.time_scale < 0.9)
 
-	# 4 Wheels Compression
-	if vehicle.wheel_compression.size() >= 4 and vehicle.suspension_travel > 0.0:
-		bar_wheel_fl.value = (vehicle.wheel_compression[0] / vehicle.suspension_travel) * 100.0
-		bar_wheel_fr.value = (vehicle.wheel_compression[1] / vehicle.suspension_travel) * 100.0
-		bar_wheel_rl.value = (vehicle.wheel_compression[2] / vehicle.suspension_travel) * 100.0
-		bar_wheel_rr.value = (vehicle.wheel_compression[3] / vehicle.suspension_travel) * 100.0
-
 func _setup_options() -> void:
 	option_car_select.clear()
-	for i in range(car_names.size()):
-		option_car_select.add_item(car_names[i], i)
+	for i in range(CarDatabase.count()):
+		var c: Dictionary = CarDatabase.car(i)
+		option_car_select.add_item("[%s] %s" % [c["class"], c["name"]], i)
+
+	# Engine choice row (label | dropdown | spacer) right under the car row of the 3-column grid
+	if option_engine == null:
+		var grid: GridContainer = option_car_select.get_parent()
+		var lbl := Label.new()
+		lbl.text = "Motor:"
+		option_engine = OptionButton.new()
+		option_engine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		option_engine.item_selected.connect(_on_option_engine_selected)
+		var spacer := Control.new()
+		var at: int = option_car_select.get_index() + 2
+		for n in [lbl, option_engine, spacer]:
+			grid.add_child(n)
+			grid.move_child(n, at)
+			at += 1
 
 	option_drivetrain.clear()
 	option_drivetrain.add_item("RWD (Arkadan İtiş)", 0)
@@ -196,8 +191,15 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 	if vehicle == null:
 		return
 
-	if "current_vehicle_type" in vehicle:
-		option_car_select.selected = int(vehicle.current_vehicle_type)
+	var car_i: int = int(vehicle.current_vehicle_type)
+	option_car_select.selected = car_i
+	if option_engine:
+		option_engine.clear()
+		var engines: Array = CarDatabase.car(car_i)["engines"]
+		for e in range(engines.size()):
+			option_engine.add_item(str(engines[e]["label"]), e)
+		option_engine.selected = int(vehicle.current_engine_index)
+		option_engine.disabled = engines.size() < 2
 
 	# Ranges wide enough for every car (Hypercar 1150 HP, Monster Truck 1500 HP / stiff springs).
 	# Values are set WITHOUT firing value_changed, so syncing never clamps & writes back into the car
@@ -235,26 +237,31 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 
 # --- Tuning UI Callbacks ---
 func _on_option_car_select_item_selected(index: int) -> void:
-	if vehicle and vehicle.has_method("apply_vehicle_preset"):
-		vehicle.apply_vehicle_preset(index)
+	if vehicle:
+		vehicle.apply_car(index, 0)
+		_sync_tuning_sliders_from_vehicle()
+
+func _on_option_engine_selected(index: int) -> void:
+	if vehicle:
+		vehicle.apply_car(int(vehicle.current_vehicle_type), index)
 		_sync_tuning_sliders_from_vehicle()
 
 func _cycle_next_car() -> void:
-	if vehicle and vehicle.has_method("apply_vehicle_preset"):
-		var next_type: int = (int(vehicle.current_vehicle_type) + 1) % car_names.size()
-		vehicle.apply_vehicle_preset(next_type)
+	if vehicle:
+		vehicle.apply_car((int(vehicle.current_vehicle_type) + 1) % CarDatabase.count(), 0)
 		_sync_tuning_sliders_from_vehicle()
 
 func _cycle_prev_car() -> void:
-	if vehicle and vehicle.has_method("apply_vehicle_preset"):
-		var prev_type: int = (int(vehicle.current_vehicle_type) - 1 + car_names.size()) % car_names.size()
-		vehicle.apply_vehicle_preset(prev_type)
+	if vehicle:
+		vehicle.apply_car((int(vehicle.current_vehicle_type) - 1 + CarDatabase.count()) % CarDatabase.count(), 0)
 		_sync_tuning_sliders_from_vehicle()
 
 func _on_btn_quick_car_pressed() -> void:
 	_cycle_next_car()
 
 func _on_slider_hp_value_changed(val: float) -> void:
+	if vehicle.use_torque_curve and vehicle.peak_horsepower > 0.0:
+		vehicle.torque_peak_nm *= val / vehicle.peak_horsepower # tune power & torque together
 	vehicle.peak_horsepower = val
 	label_hp_val.text = "%d HP" % int(val)
 

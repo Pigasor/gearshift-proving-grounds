@@ -231,15 +231,16 @@ func _build_staging_paddock() -> void:
 	_create_marking(Vector3(18.0, 0.05, -340), Vector3(0.4, 0.01, 170.0), mat_road_yellow)
 
 	# Pit Garages on West Side (6 Huge Race Team Garages)
+	# (They used to run past the paddock edge, with the west barrier cutting through the last two.)
 	for g in range(6):
-		var g_x: float = -42.0 - (g * 17.0)
+		var g_x: float = -31.0 - (g * 14.5)
 		var g_z: float = -340.0
 		# Garage Main Building
-		_create_static_box(Vector3(g_x, 3.8, g_z), Vector3(15.0, 7.6, 22.0), mat_concrete_wall)
+		_create_static_box(Vector3(g_x, 3.8, g_z), Vector3(13.0, 7.6, 22.0), mat_concrete_wall)
 		# Blue Roll-up Shutter Door
-		_create_static_box(Vector3(g_x, 2.6, g_z + 11.1), Vector3(11.5, 5.2, 0.2), mat_metal_blue)
+		_create_static_box(Vector3(g_x, 2.6, g_z + 11.1), Vector3(10.0, 5.2, 0.2), mat_metal_blue)
 		# Red Fascia Trim
-		_create_static_box(Vector3(g_x, 6.8, g_z + 11.2), Vector3(14.5, 1.2, 0.3), mat_barrier_red)
+		_create_static_box(Vector3(g_x, 6.8, g_z + 11.2), Vector3(12.6, 1.2, 0.3), mat_barrier_red)
 
 	# Grandstand on East Side (Z: -340, X: +65)
 	_create_static_box(Vector3(65, 2.5, -340), Vector3(18, 5.0, 90), mat_concrete_wall)
@@ -281,12 +282,15 @@ func _build_mega_highway() -> void:
 		var c: Vector2 = cs[k][0]
 		var a0: float = deg_to_rad(cs[k][1])
 		var a1: float = deg_to_rad(cs[k][2])
-		var corner_steps: int = 40
+		# Fine steps + a bank that eases in/out (sin^2: no sudden twist where the corner starts).
+		# Coarse steps with a fast-changing bank made twisted quads whose diagonal formed a ~6 cm
+		# ridge every 7 m, so cars hopped through the corners.
+		var corner_steps: int = 140
 		for s in range(corner_steps + 1):
 			var t: float = float(s) / float(corner_steps)
 			var a: float = lerpf(a0, a1, t)
 			var n := Vector2(cos(a), sin(a))
-			samples.append([c + n * corner_r, n, deg_to_rad(max_bank_deg) * sin(PI * t)])
+			samples.append([c + n * corner_r, n, deg_to_rad(max_bank_deg) * pow(sin(PI * t), 2.0)])
 		# straight to the next corner
 		var nk: int = (k + 1) % 4
 		var end_c: Vector2 = cs[nk][0]
@@ -331,7 +335,7 @@ func _build_mega_highway() -> void:
 
 	# Road: u = 0..1 across the width (lane markings line up), v repeats every 96 m along it
 	var road_faces := PackedVector3Array()
-	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_ribbon, road_faces)
+	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_ribbon, road_faces, 8)
 	var dirt_faces := PackedVector3Array()
 	_add_strip(sh_in, road_in, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
 	_add_strip(road_out, slope_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
@@ -357,32 +361,45 @@ func _add_collision_body(faces: PackedVector3Array, surface: String) -> StaticBo
 	return body
 
 # A textured strip between two edge polylines (visual mesh + collision faces).
-func _add_strip(left: Array[Vector3], right: Array[Vector3], dist: Array[float], u_left: float, u_right: float, v_scale: float, mat: Material, faces: PackedVector3Array) -> void:
+# `cols` splits the strip across its width too, so a twisting (banked) surface stays smooth.
+func _add_strip(left: Array[Vector3], right: Array[Vector3], dist: Array[float], u_left: float, u_right: float, v_scale: float, mat: Material, faces: PackedVector3Array, cols: int = 1) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var count: int = left.size()
+	var row: int = cols + 1
 	for i in range(count):
 		var fwd: Vector3 = left[mini(i + 1, count - 1)] - left[maxi(i - 1, 0)]
 		var across: Vector3 = right[i] - left[i]
 		var n: Vector3 = across.cross(fwd).normalized()
 		if n.y < 0.0:
 			n = -n
-		for side in range(2):
+		for c in range(row):
+			var k: float = float(c) / float(cols)
 			st.set_normal(n)
-			st.set_uv(Vector2(u_left if side == 0 else u_right, dist[i] * v_scale))
-			st.add_vertex(left[i] if side == 0 else right[i])
+			st.set_uv(Vector2(lerpf(u_left, u_right, k), dist[i] * v_scale))
+			st.add_vertex(left[i].lerp(right[i], k))
 	# Godot draws clockwise triangles as the front face. Which index order is clockwise from above
 	# depends on the strip's direction, so pick it from the first segment.
 	var flip: bool = false
 	if count > 1:
 		flip = (left[1] - left[0]).cross(right[0] - left[0]).y > 0.0
 	for i in range(count - 1):
-		var a: int = i * 2
-		var order: Array = [a, a + 1, a + 2, a + 1, a + 3, a + 2] if flip else [a, a + 2, a + 1, a + 1, a + 2, a + 3]
-		for q in order:
-			st.add_index(q)
-		for p in [left[i], right[i], left[i + 1], right[i], right[i + 1], left[i + 1]]:
-			faces.append(p)
+		for c in range(cols):
+			var a: int = i * row + c # this row, left column
+			var b: int = a + 1 # this row, right column
+			var a2: int = a + row # next row
+			var b2: int = b + row
+			var order: Array = [a, b, a2, b, b2, a2] if flip else [a, a2, b, b, a2, b2]
+			for q in order:
+				st.add_index(q)
+			var k0: float = float(c) / float(cols)
+			var k1: float = float(c + 1) / float(cols)
+			var pa: Vector3 = left[i].lerp(right[i], k0)
+			var pb: Vector3 = left[i].lerp(right[i], k1)
+			var pa2: Vector3 = left[i + 1].lerp(right[i + 1], k0)
+			var pb2: Vector3 = left[i + 1].lerp(right[i + 1], k1)
+			for p in [pa, pb, pa2, pb, pb2, pa2]:
+				faces.append(p)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = mat
