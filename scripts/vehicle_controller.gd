@@ -115,6 +115,8 @@ var _is_shifting: bool = false
 var _shift_timer: float = 0.0
 var _target_gear: int = 2
 var _limiter_timer: float = 0.0
+var _wrong_way_rpm: float = 0.0 # > 0 while the wheels try to turn the engine backwards
+var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
 var _previous_linear_velocity: Vector3 = Vector3.ZERO
 var _prev_raw_compression: Array[float] = [0.0, 0.0, 0.0, 0.0]
@@ -159,6 +161,7 @@ func _ready() -> void:
 	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
 	linear_damp = 0.0
 	angular_damp = 3.2
+	continuous_cd = true # fast drops/crashes must not pass through the ground
 	apply_vehicle_preset(current_vehicle_type)
 
 func _build_wheel_details() -> void:
@@ -440,7 +443,7 @@ func _apply_body_geometry(type: VehicleType) -> void:
 		wheel_offsets = [Vector3(-1.5, 0.0, 1.85), Vector3(1.5, 0.0, 1.85), Vector3(-1.5, 0.0, -1.85), Vector3(1.5, 0.0, -1.85)]
 		center_of_mass = Vector3(0.0, -0.25, 0.0)
 		brake_torque_max = 17000.0
-		handbrake_torque_max = 24000.0
+		handbrake_torque_max = 40000.0
 		camera_scale = 1.9
 		tire_width_scale = 1.45 # extra-wide flotation tyres
 		wheel_inertia = 70.0 # ~250 kg tyre each
@@ -455,7 +458,7 @@ func _apply_body_geometry(type: VehicleType) -> void:
 		wheel_offsets = DEFAULT_WHEEL_OFFSETS.duplicate()
 		center_of_mass = Vector3(0.0, -0.18, 0.0)
 		brake_torque_max = 4600.0
-		handbrake_torque_max = 8500.0
+		handbrake_torque_max = 14000.0
 		camera_scale = 1.15 if type == VehicleType.TROPHY_TRUCK else 1.0
 		wheel_inertia = 3.5 if type == VehicleType.TROPHY_TRUCK else 1.2
 		engine_inertia = 0.25
@@ -1144,6 +1147,7 @@ func toggle_slow_mo() -> void:
 		Engine.time_scale = 0.2
 
 func _physics_process(delta: float) -> void:
+	_prevent_tunnelling()
 	_read_inputs(delta)
 	_calculate_g_forces(delta)
 	_apply_aerodynamics(delta)
@@ -1151,6 +1155,25 @@ func _physics_process(delta: float) -> void:
 	_update_drivetrain(delta)
 	_simulate_suspension_and_tires(delta)
 	_update_wheel_visuals(delta)
+
+# Safety net for big drops: at high speed the body can pass through a thin ground mesh in one
+# physics step and get stuck inside it. If the car's centre crossed a surface since the last
+# step, put it back on the outside and remove the velocity going into it.
+func _prevent_tunnelling() -> void:
+	var pos: Vector3 = global_position
+	if linear_velocity.length() > 10.0 and _prev_body_pos != Vector3.INF:
+		var q := PhysicsRayQueryParameters3D.create(_prev_body_pos, pos)
+		q.exclude = [get_rid()]
+		var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+		if hit:
+			var n: Vector3 = hit.normal
+			var clearance: float = (tire_radius + suspension_rest_length) if n.y > 0.6 else 1.2
+			global_position = hit.position + n * clearance
+			var into: float = linear_velocity.dot(n)
+			if into < 0.0:
+				linear_velocity -= n * into
+			pos = global_position
+	_prev_body_pos = pos
 
 func _read_inputs(delta: float) -> void:
 	# Steering: Key A / Left Arrow / Left Stick turn LEFT
@@ -1225,10 +1248,10 @@ func _read_inputs(delta: float) -> void:
 			# Stopped and holding S -> reverse. Rolling backwards (e.g. couldn't make it up a hill)
 			# -> the gearbox follows the car into R instead of staying in 1st.
 			# (Only at low speed - a car that spins round in a slide must not drop into R.)
-			if (forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1) or (forward_speed < -2.0 and forward_speed > -6.0):
+			if (forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1) or (forward_speed < -1.2 and forward_speed > -6.0):
 				_engage_gear_now(0)
 		elif current_gear == 0:
-			if (forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1) or (forward_speed > 2.0 and forward_speed < 6.0):
+			if (forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1) or (forward_speed > 1.2 and forward_speed < 6.0):
 				_engage_gear_now(2)
 		elif current_gear == 1: # neutral in auto mode: pick a direction from the pedals
 			if raw_throttle > 0.2:
@@ -1367,6 +1390,22 @@ func _update_drivetrain(delta: float) -> void:
 	var active_ratio: float = gear_ratios[current_gear]
 	var transmission_rpm: float = avg_drive_wheel_speed * absf(active_ratio) * final_drive_ratio * (60.0 / TAU)
 
+	# Is the drivetrain trying to turn the engine BACKWARDS? (rolling back in a forward gear, or
+	# rolling forward in R). An engine can't run backwards: it holds near idle and its compression
+	# resists the wheels instead (it used to read |speed|, so the revs rose and engine braking
+	# pushed the car even faster the wrong way).
+	var signed_wheel: float = 0.0
+	if count > 0:
+		for i in range(4):
+			if _is_driven(i):
+				signed_wheel += wheel_angular_velocity[i]
+		signed_wheel /= float(count)
+	var engine_dir_speed: float = signed_wheel * signf(active_ratio)
+	_wrong_way_rpm = 0.0
+	if active_ratio != 0.0 and engine_dir_speed < -0.3:
+		_wrong_way_rpm = -engine_dir_speed * absf(active_ratio) * final_drive_ratio * (60.0 / TAU)
+		transmission_rpm = 0.0
+
 	# Rev limiter cut logic (preserved as requested)
 	if current_rpm >= limiter_rpm:
 		is_limiter_active = true
@@ -1448,7 +1487,12 @@ func _get_engine_torque_nm() -> float:
 	if throttle < 0.05:
 		# Engine braking off-throttle / during fuel cut, stronger at high rpm.
 		var over: float = clampf((current_rpm - idle_rpm) / (max_rpm - idle_rpm), 0.0, 1.3)
-		return -(peak_horsepower * 7120.0 / 5252.0) * 0.18 * over * sqrt(over)
+		var eb: float = -(peak_horsepower * 7120.0 / 5252.0) * 0.18 * over * sqrt(over)
+		# Limiter cut with the pedal still down: throttle is wide open, so there are hardly any
+		# pumping losses. Only a little drag, and the car holds the limiter instead of surging.
+		if is_limiter_active and _throttle_input > 0.05:
+			eb *= 0.25
+		return eb
 	return base_torque * boost_multiplier * throttle
 
 func _simulate_suspension_and_tires(delta: float) -> void:
@@ -1466,26 +1510,35 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	var active_gear_ratio: float = gear_ratios[current_gear]
 	var clutch_engagement: float = 1.0 - clutch_pedal
 	var engine_torque: float = _get_engine_torque_nm()
-	var total_drive_torque: float = engine_torque * active_gear_ratio * final_drive_ratio * clutch_engagement
-
-	var drive_torque_fl: float = 0.0
-	var drive_torque_fr: float = 0.0
-	var drive_torque_rl: float = 0.0
-	var drive_torque_rr: float = 0.0
-
-	if drivetrain_mode == "RWD":
-		drive_torque_rl = total_drive_torque * 0.5
-		drive_torque_rr = total_drive_torque * 0.5
-	elif drivetrain_mode == "FWD":
-		drive_torque_fl = total_drive_torque * 0.5
-		drive_torque_fr = total_drive_torque * 0.5
+	var gear_mult_abs: float = absf(active_gear_ratio) * final_drive_ratio * clutch_engagement
+	# Positive engine torque drives the car in the gear's direction. Engine braking (and the
+	# resistance of an engine being forced backwards) instead acts like a brake on the driven
+	# wheels: it always opposes their spin, whichever way they turn, and can stop them but never
+	# spin them the other way.
+	var total_drive_torque: float = 0.0
+	var engine_drag_total: float = 0.0
+	if engine_torque >= 0.0:
+		total_drive_torque = engine_torque * active_gear_ratio * final_drive_ratio * clutch_engagement
 	else:
-		drive_torque_fl = total_drive_torque * 0.225
-		drive_torque_fr = total_drive_torque * 0.225
-		drive_torque_rl = total_drive_torque * 0.275
-		drive_torque_rr = total_drive_torque * 0.275
+		engine_drag_total = -engine_torque * gear_mult_abs
+	if _wrong_way_rpm > 0.0:
+		var peak_tq: float = peak_horsepower * 7120.0 / 5252.0
+		# Manual: the clutch is locked, so the engine's compression nearly holds the car (like
+		# parking in gear). Automatic: the torque converter slips, giving only a gentle resistance,
+		# and the box then follows the car into R.
+		var hold: float = 0.15 if is_automatic else 0.6
+		engine_drag_total += peak_tq * hold * clampf(_wrong_way_rpm / 300.0, 0.0, 1.0) * gear_mult_abs
 
-	var drive_torques: Array[float] = [drive_torque_fl, drive_torque_fr, drive_torque_rl, drive_torque_rr]
+	var split: Array[float] = [0.0, 0.0, 0.5, 0.5] # RWD
+	if drivetrain_mode == "FWD":
+		split = [0.5, 0.5, 0.0, 0.0]
+	elif drivetrain_mode != "RWD":
+		split = [0.225, 0.225, 0.275, 0.275]
+	var drive_torques: Array[float] = [0.0, 0.0, 0.0, 0.0]
+	var engine_drag: Array[float] = [0.0, 0.0, 0.0, 0.0]
+	for i in range(4):
+		drive_torques[i] = total_drive_torque * split[i]
+		engine_drag[i] = engine_drag_total * split[i]
 
 	if tcs_enabled and _throttle_input > 0.1:
 		for i in range(4):
@@ -1525,14 +1578,21 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# Damper works on how fast the spring is actually compressing, measured against the ground.
 			# (Using body velocity along the car's up axis made the damper pull the car down whenever
 			# the body pitched slightly at speed, so the suspension collapsed and the belly hit the road.)
-			var comp_vel: float = clampf((raw_compression - _prev_raw_compression[i]) / maxf(delta, 0.001), -6.0, 6.0)
+			var comp_vel: float = clampf((raw_compression - _prev_raw_compression[i]) / maxf(delta, 0.001), -12.0, 12.0)
 			_prev_raw_compression[i] = raw_compression
 
 			var f_spring: float = compression * spring_stiffness
 			var f_damper: float = comp_vel * (damper_bump if comp_vel > 0.0 else damper_rebound)
 			# Bump stop: a very stiff rubber stop once travel runs out, so the chassis never grounds.
 			var f_bump: float = maxf(raw_compression - suspension_travel, 0.0) * spring_stiffness * 12.0
-			var normal_force: float = clampf(f_spring + f_damper + f_bump, 0.0, mass * 9.81 * 3.5)
+			if f_bump > 0.0:
+				# Rubber bump stops are heavily damped: they absorb a hard landing and give very little
+				# of it back (an elastic stop launched the car metres back into the air like a trampoline).
+				if comp_vel > 0.0:
+					f_bump += comp_vel * damper_bump * 4.0
+				else:
+					f_bump *= 0.1
+			var normal_force: float = clampf(f_spring + f_damper + f_bump, 0.0, mass * 9.81 * 7.0)
 
 			# Front wheel steering direction (wheel_steer is negative for Left, positive for Right)
 			var wheel_steer: float = deg_to_rad(_current_steer_angle) if i < 2 else 0.0
@@ -1553,8 +1613,10 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			wheel_surface[i] = surface
 			var surf_table: Dictionary = SURFACE_GRIP_OFFROAD if offroad_tires else SURFACE_GRIP_ROAD
 			var grip_mult: float = tire_grip_factor * float(surf_table.get(surface, 1.0))
+			# Handbrake at speed: locked rear tyres slide (drift entry). Slow or parked, the tyres keep
+			# their full grip so the handbrake really holds the car (e.g. on a hill).
 			if is_handbrake_active and i >= 2:
-				grip_mult *= 0.30
+				grip_mult *= lerpf(1.0, 0.40, clampf((speed_now - 3.0) / 9.0, 0.0, 1.0))
 
 			# Slip-angle based tyre model (simplified Pacejka "magic formula").
 			# Lateral force depends on slip ANGLE, not raw sideways speed, and can never exceed
@@ -1578,6 +1640,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var total_brake_torque: float = _brake_input * brake_torque_max * brake_factor
 			if not is_front:
 				total_brake_torque += _handbrake_input * handbrake_torque_max
+			var engine_brake_only: bool = total_brake_torque <= 0.0
+			total_brake_torque += engine_drag[i]
 
 			# Friction circle: grip is shared between accelerating/braking and cornering.
 			# Cornering gets priority: drive/brake grip is trimmed first (keeping at least 35% of the
@@ -1597,7 +1661,7 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			if absf(fx_needed) <= long_room:
 				long_mag = fx_needed # tyre grips: wheel rolls with the road
 				wheel_angular_velocity[i] = w_roll
-			elif abs_enabled and total_brake_torque > 0.0 and fx_needed * forward_vel < 0.0 and not (is_handbrake_active and not is_front):
+			elif abs_enabled and not engine_brake_only and fx_needed * forward_vel < 0.0 and not (is_handbrake_active and not is_front):
 				long_mag = signf(fx_needed) * long_room # ABS: brake right at the grip limit, never lock
 				wheel_angular_velocity[i] = w_roll
 			else:
@@ -1639,6 +1703,7 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var air_brake: float = _brake_input * brake_torque_max * (brake_bias_front if i < 2 else 1.0 - brake_bias_front)
 			if i >= 2:
 				air_brake += _handbrake_input * handbrake_torque_max
+			air_brake += engine_drag[i]
 			wheel_angular_velocity[i] = move_toward(wheel_angular_velocity[i], 0.0, air_brake / inertia * delta)
 			wheel_angular_velocity[i] *= (1.0 - 0.3 * delta)
 
@@ -1715,6 +1780,7 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_deg)), Vector3(ground_pos.x, ground_y + tire_radius + suspension_rest_length + 0.15, ground_pos.z))
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_prev_body_pos = Vector3.INF
 	current_rpm = idle_rpm
 	_engage_gear_now(2)
 	for i in range(4):
@@ -1729,6 +1795,7 @@ func reset_vehicle() -> void:
 	global_position += Vector3.UP * maxf(tire_radius + suspension_rest_length - DEFAULT_RIDE, 0.0)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_prev_body_pos = Vector3.INF
 	current_rpm = idle_rpm
 	_engage_gear_now(2) # also cancels a gear change that was in progress
 	turbo_boost_bar = 0.0

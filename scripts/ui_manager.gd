@@ -136,7 +136,8 @@ func _update_hud() -> void:
 	progress_rpm.max_value = vehicle.max_rpm
 	progress_rpm.value = vehicle.current_rpm
 	label_rpm.text = "%4.0f RPM" % vehicle.current_rpm
-	if vehicle.is_limiter_active:
+	# Red zone: the bar stays red near the limiter (not only during the short fuel-cut pulses)
+	if vehicle.is_limiter_active or vehicle.current_rpm >= vehicle.limiter_rpm - 250.0:
 		progress_rpm.modulate = Color(1.0, 0.15, 0.15)
 	else:
 		progress_rpm.modulate = Color(1.0, 1.0, 1.0)
