@@ -62,6 +62,18 @@ var defaults: Dictionary = {
 	"mouse_sensitivity": 0.004,
 	"invert_camera_y": false,
 	"default_automatic": true,
+	# Steering wheel set (racing wheel + pedals). Axes/buttons are found by the detect wizard.
+	"wheel_enabled": false,
+	"wheel_device": 0,
+	"wheel_range": 900.0, # wheel rotation lock-to-lock (degrees)
+	"wheel_steer_axis": 0,
+	"wheel_steer_invert": false,
+	"wheel_throttle_axis": -1, "wheel_throttle_rest": 1.0, "wheel_throttle_full": -1.0,
+	"wheel_brake_axis": -1, "wheel_brake_rest": 1.0, "wheel_brake_full": -1.0,
+	"wheel_clutch_axis": -1, "wheel_clutch_rest": 1.0, "wheel_clutch_full": -1.0,
+	"wheel_shift_up_btn": -1,
+	"wheel_shift_down_btn": -1,
+	"wheel_handbrake_btn": -1,
 }
 
 var values: Dictionary = {}
@@ -250,6 +262,15 @@ func apply_scene() -> void:
 	if car:
 		car.set("steer_sensitivity", float(get_value("steer_sensitivity")))
 		car.set("joy_deadzone", float(get_value("joy_deadzone")))
+		car.set("wheel_cfg", wheel_config())
+
+# Steering-wheel settings as one dictionary for the car
+func wheel_config() -> Dictionary:
+	var d: Dictionary = {}
+	for k in defaults:
+		if str(k).begins_with("wheel_"):
+			d[str(k).trim_prefix("wheel_")] = get_value(k)
+	return d
 
 # Called once when the game scene starts (also sets the default gearbox mode)
 func apply_scene_start() -> void:

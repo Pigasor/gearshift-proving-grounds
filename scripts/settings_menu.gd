@@ -34,6 +34,13 @@ func close() -> void:
 	get_viewport().gui_release_focus() # so Space/Enter don't press menu buttons while driving
 
 func _input(event: InputEvent) -> void:
+	# Steering wheel wizard waiting for a button
+	if _det_kind.ends_with("_btn") and event is InputEventJoypadButton and event.pressed \
+			and event.device == int(GameSettings.get_value("wheel_device")):
+		GameSettings.set_value("wheel_" + _det_kind, event.button_index)
+		_finish_detect("✔ Buton %d atandı" % event.button_index)
+		get_viewport().set_input_as_handled()
+		return
 	# Waiting for a key to bind
 	if _capture_action != "" and event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
@@ -280,6 +287,7 @@ func _build_tabs() -> void:
 	_add_check(k, "Kamera Dikey Eksenini Ters Çevir", "invert_camera_y")
 	_add_option(k, "Başlangıç Şanzımanı", "default_automatic", ["Manuel", "Otomatik"])
 	_note(k, "Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık = turbo · X = kamera · Y = başlangıca dön · Select = otomatik/manuel · D-pad ◀▶ = araç · Start = bu menü")
+	_build_wheel_section(k)
 
 	# ATAMALAR
 	var b := _new_tab("Tuş Atamaları")
@@ -307,13 +315,191 @@ func _build_tabs() -> void:
 			_bind_buttons["%s:%d" % [action, slot]] = btn
 			b.add_child(btn)
 	var tip := Label.new()
-	tip.text = "Tıkla → yeni tuşa bas (ESC: iptal) · Sağ tık: tuşu kaldır · 1–6: araç seçimi · ESC: bu menü"
+	tip.text = "Tıkla → yeni tuşa bas (ESC: iptal) · Sağ tık: tuşu kaldır · Araç seçimi: TAB (garaj) · ESC: bu menü"
 	tip.add_theme_font_size_override("font_size", 14)
 	tip.add_theme_color_override("font_color", Color(0.65, 0.72, 0.82))
 	b.add_child(tip)
 	_refresh_bindings()
 
 	_tabs.current_tab = clampi(current, 0, _tabs.get_tab_count() - 1)
+
+# ---------------- Steering wheel set ----------------
+# Detect wizard: the player moves the wheel / presses a pedal or button, we find which axis or
+# button it is (and the pedal's rest & fully-pressed values). No per-brand presets needed.
+var _det_kind: String = "" # steer / throttle / brake / clutch / shift_up_btn / shift_down_btn / handbrake_btn
+var _det_base: Array = []
+var _det_axis: int = -1
+var _det_extreme: float = 0.0
+var _det_timer: float = 0.0
+var _det_hold: float = 0.0
+var _wheel_labels: Dictionary = {} # kind -> Label showing the current assignment
+var _wheel_status: Label
+var _wheel_live: Label
+
+const WHEEL_ROWS: Array = [
+	["steer", "Direksiyon Ekseni", "Direksiyonu SAĞA çevir"],
+	["throttle", "Gaz Pedalı", "Gaz pedalına SONUNA KADAR bas ve tut"],
+	["brake", "Fren Pedalı", "Fren pedalına SONUNA KADAR bas ve tut"],
+	["clutch", "Debriyaj Pedalı (isteğe bağlı)", "Debriyaja SONUNA KADAR bas ve tut"],
+	["shift_up_btn", "Vites Yükselt (kulakçık)", "Vites yükseltme butonuna bas"],
+	["shift_down_btn", "Vites Düşür (kulakçık)", "Vites düşürme butonuna bas"],
+	["handbrake_btn", "El Freni Butonu (isteğe bağlı)", "El freni olarak kullanılacak butona bas"],
+]
+
+func _build_wheel_section(k: GridContainer) -> void:
+	var head := Label.new()
+	head.text = "🎮  DİREKSİYON SETİ"
+	head.add_theme_font_size_override("font_size", 19)
+	head.add_theme_color_override("font_color", COL_ACCENT)
+	k.add_child(head)
+	k.add_child(Control.new())
+	_add_check(k, "Direksiyon Seti Kullan", "wheel_enabled")
+
+	# Device list (connected joypads, by their real id)
+	_label(k, "Cihaz")
+	var ob := OptionButton.new()
+	ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pads: Array[int] = Input.get_connected_joypads()
+	if pads.is_empty():
+		ob.add_item("(bağlı cihaz yok)")
+		ob.disabled = true
+	for i in range(pads.size()):
+		ob.add_item("%d: %s" % [pads[i], Input.get_joy_name(pads[i])], pads[i])
+		if pads[i] == int(GameSettings.get_value("wheel_device")):
+			ob.selected = i
+	ob.item_selected.connect(func(idx: int): GameSettings.set_value("wheel_device", ob.get_item_id(idx)))
+	k.add_child(ob)
+	_add_slider(k, "Direksiyon Dönüş Açısı (uçtan uca)", "wheel_range", 180.0, 1080.0, 10.0, 1.0, "°")
+	_add_check(k, "Direksiyon Yönünü Ters Çevir", "wheel_steer_invert")
+
+	_wheel_labels.clear()
+	for row in WHEEL_ROWS:
+		_label(k, row[1])
+		var hb := HBoxContainer.new()
+		hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var val := Label.new()
+		val.custom_minimum_size = Vector2(170, 0)
+		val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(val)
+		_wheel_labels[row[0]] = val
+		var det := Button.new()
+		det.text = "Algıla"
+		det.custom_minimum_size = Vector2(110, 32)
+		det.pressed.connect(_start_wheel_detect.bind(row[0], row[2]))
+		hb.add_child(det)
+		var clr := Button.new()
+		clr.text = "Kaldır"
+		clr.custom_minimum_size = Vector2(90, 32)
+		clr.pressed.connect(func():
+			var key: String = "wheel_" + (row[0] if str(row[0]).ends_with("_btn") else row[0] + "_axis")
+			GameSettings.set_value(key, -1)
+			_refresh_wheel_labels())
+		hb.add_child(clr)
+		k.add_child(hb)
+
+	_wheel_status = Label.new()
+	_wheel_status.add_theme_font_size_override("font_size", 16)
+	_wheel_status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	k.add_child(_wheel_status)
+	_wheel_live = Label.new()
+	_wheel_live.add_theme_font_size_override("font_size", 15)
+	k.add_child(_wheel_live)
+	_note(k, "Algıla'ya bas, ekrandaki talimatı uygula (8 sn). Pedallar bırakılmış hâldeyken başla. Kuvvet geri bildirimi (FFB) şu an desteklenmiyor: Godot motoru bunu yerleşik olarak sağlamıyor.")
+	_refresh_wheel_labels()
+
+func _refresh_wheel_labels() -> void:
+	for row in WHEEL_ROWS:
+		var kind: String = row[0]
+		var lab: Label = _wheel_labels.get(kind)
+		if lab == null:
+			continue
+		if kind.ends_with("_btn"):
+			var b: int = int(GameSettings.get_value("wheel_" + kind))
+			lab.text = "—" if b < 0 else "Buton %d" % b
+		else:
+			var a: int = int(GameSettings.get_value("wheel_" + kind + "_axis"))
+			lab.text = "—" if a < 0 else "Eksen %d" % a
+
+func _start_wheel_detect(kind: String, prompt: String) -> void:
+	var dev: int = int(GameSettings.get_value("wheel_device"))
+	if not Input.get_connected_joypads().has(dev):
+		_wheel_status.text = "⚠ Seçili cihaz bağlı değil."
+		return
+	_det_kind = kind
+	_det_base.clear()
+	for a in range(10):
+		_det_base.append(Input.get_joy_axis(dev, a))
+	_det_axis = -1
+	_det_extreme = 0.0
+	_det_timer = 8.0
+	_det_hold = 0.0
+	_wheel_status.text = "▶ " + prompt + " …"
+
+func _process(delta: float) -> void:
+	if not is_open() or _wheel_live == null or not is_instance_valid(_wheel_live):
+		return
+	var dev: int = int(GameSettings.get_value("wheel_device"))
+	var connected: bool = Input.get_connected_joypads().has(dev)
+	# Live readout of the configured controls (handy to check the calibration)
+	if connected:
+		var cfg: Dictionary = GameSettings.wheel_config()
+		var parts: PackedStringArray = []
+		var sa: int = int(cfg.get("steer_axis", -1))
+		if sa >= 0:
+			parts.append("Direksiyon %+.0f°" % (Input.get_joy_axis(dev, sa) * (-1.0 if cfg.get("steer_invert", false) else 1.0) * float(cfg.get("range", 900.0)) * 0.5))
+		for p in ["throttle", "brake", "clutch"]:
+			var ax: int = int(cfg.get(p + "_axis", -1))
+			if ax >= 0:
+				var rest: float = float(cfg.get(p + "_rest", 1.0))
+				var full: float = float(cfg.get(p + "_full", -1.0))
+				var v: float = clampf((Input.get_joy_axis(dev, ax) - rest) / (full - rest), 0.0, 1.0) if absf(full - rest) > 0.05 else 0.0
+				parts.append("%s %%%d" % [{"throttle": "Gaz", "brake": "Fren", "clutch": "Debriyaj"}[p], roundi(v * 100.0)])
+		_wheel_live.text = "Canlı: " + "  ·  ".join(parts) if parts.size() > 0 else ""
+	if _det_kind == "" or _det_kind.ends_with("_btn"):
+		if _det_kind != "":
+			_det_timer -= delta
+			if _det_timer <= 0.0:
+				_det_kind = ""
+				_wheel_status.text = "⏱ Süre doldu, buton algılanamadı."
+		return
+	_det_timer -= delta
+	if not connected or _det_timer <= 0.0:
+		_det_kind = ""
+		_wheel_status.text = "⏱ Süre doldu, hareket algılanamadı."
+		return
+	# Find the axis that moved most from where it was when "Algıla" was pressed
+	var best: int = -1
+	var best_d: float = 0.0
+	for a in range(10):
+		var d: float = Input.get_joy_axis(dev, a) - float(_det_base[a])
+		if absf(d) > absf(best_d):
+			best_d = d
+			best = a
+	if _det_kind == "steer":
+		if absf(best_d) > 0.3:
+			GameSettings.set_value("wheel_steer_axis", best)
+			GameSettings.set_value("wheel_steer_invert", best_d < 0.0) # turned right -> must read positive
+			_finish_detect("✔ Direksiyon: eksen %d" % best)
+		return
+	# Pedals: wait until one axis moved clearly, follow it to its extreme, then save rest/full
+	if _det_axis < 0 and absf(best_d) > 0.5:
+		_det_axis = best
+	if _det_axis >= 0:
+		var v: float = Input.get_joy_axis(dev, _det_axis)
+		var base: float = float(_det_base[_det_axis])
+		if absf(v - base) >= absf(_det_extreme - base):
+			_det_extreme = v
+		_det_hold += delta
+		if _det_hold > 0.8:
+			GameSettings.set_value("wheel_" + _det_kind + "_axis", _det_axis)
+			GameSettings.set_value("wheel_" + _det_kind + "_rest", base)
+			GameSettings.set_value("wheel_" + _det_kind + "_full", _det_extreme)
+			_finish_detect("✔ %s: eksen %d (bırakılmış %.2f → basılı %.2f)" % [_det_kind, _det_axis, base, _det_extreme])
+
+func _finish_detect(msg: String) -> void:
+	_det_kind = ""
+	_wheel_status.text = msg + " — pedalı / direksiyonu bırakabilirsin."
+	_refresh_wheel_labels()
 
 func _refresh_bindings() -> void:
 	for key in _bind_buttons:

@@ -24,6 +24,10 @@ var wheel_surface: Array[String] = ["asphalt", "asphalt", "asphalt", "asphalt"]
 var input_blocked: bool = false # true while the garage menu is open (car parks itself)
 var steer_sensitivity: float = 1.0 # how fast the wheel turns with keys (Settings)
 var joy_deadzone: float = 0.08 # gamepad stick dead zone (Settings)
+# Steering wheel set (Settings > Kontroller): axes, pedal calibration, buttons
+var wheel_cfg: Dictionary = {}
+var using_wheel: bool = false # a configured wheel is connected and driving the car
+const STEER_RATIO: float = 14.0 # steering-wheel degrees per road-wheel degree (typical car)
 var pedal_throttle: float = 0.0
 var pedal_brake: float = 0.0
 var _brake_light_mats: Array[StandardMaterial3D] = []
@@ -282,6 +286,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("slow_mo", false, true):
 		toggle_slow_mo()
 	# (Cars are picked in the garage menu now - there are too many for the number keys.)
+
+	# Steering wheel buttons (paddle shifters) - set up in Settings > Kontroller
+	elif event is InputEventJoypadButton and event.pressed and _is_wheel_device(event.device):
+		if event.button_index == int(wheel_cfg.get("shift_up_btn", -1)):
+			shift_up()
+		elif event.button_index == int(wheel_cfg.get("shift_down_btn", -1)):
+			shift_down()
 
 	# Gamepad Button Support
 	elif event is InputEventJoypadButton and event.pressed:
@@ -1318,6 +1329,21 @@ func _prevent_tunnelling() -> void:
 			pos = global_position
 	_prev_body_pos = pos
 
+# Calibrated pedal position 0..1 from its axis value at rest and fully pressed.
+func _wheel_pedal(dev: int, pedal: String) -> float:
+	var axis: int = int(wheel_cfg.get(pedal + "_axis", -1))
+	if axis < 0:
+		return 0.0
+	var rest: float = float(wheel_cfg.get(pedal + "_rest", 1.0))
+	var full: float = float(wheel_cfg.get(pedal + "_full", -1.0))
+	if absf(full - rest) < 0.05:
+		return 0.0
+	var p: float = clampf((Input.get_joy_axis(dev, axis) - rest) / (full - rest), 0.0, 1.0)
+	return 0.0 if p < 0.02 else p # tiny dead zone at rest
+
+func _is_wheel_device(dev: int) -> bool:
+	return bool(wheel_cfg.get("enabled", false)) and dev == int(wheel_cfg.get("device", 0))
+
 func _read_inputs(delta: float) -> void:
 	# Steering: Key A / Left Arrow / Left Stick turn LEFT
 	#           Key D / Right Arrow / Right Stick turn RIGHT
@@ -1328,8 +1354,34 @@ func _read_inputs(delta: float) -> void:
 	if Input.is_action_pressed("steer_right"):
 		raw_steer -= 1.0
 
+	# Steering wheel set: the car's front wheels follow the real wheel 1:1 through a normal steering
+	# ratio (e.g. 900° wheel: full lock at ~490° of rotation), pedals use their calibrated range.
+	using_wheel = false
+	var gamepad_ok: bool = true # device 0 is read as a gamepad unless it is the wheel
+	var w_throttle: float = 0.0
+	var w_brake: float = 0.0
+	var w_clutch: float = -1.0
+	var w_handbrake: bool = false
+	if bool(wheel_cfg.get("enabled", false)):
+		var dev: int = int(wheel_cfg.get("device", 0))
+		if Input.get_connected_joypads().has(dev):
+			using_wheel = true
+			gamepad_ok = dev != 0
+			var v: float = Input.get_joy_axis(dev, int(wheel_cfg.get("steer_axis", 0)))
+			if bool(wheel_cfg.get("steer_invert", false)):
+				v = -v
+			var wheel_deg: float = v * float(wheel_cfg.get("range", 900.0)) * 0.5
+			if raw_steer == 0.0: # keyboard keys still win while pressed
+				raw_steer = clampf(-wheel_deg / (max_steer_angle_deg * STEER_RATIO), -1.0, 1.0)
+			w_throttle = _wheel_pedal(dev, "throttle")
+			w_brake = _wheel_pedal(dev, "brake")
+			if int(wheel_cfg.get("clutch_axis", -1)) >= 0:
+				w_clutch = _wheel_pedal(dev, "clutch")
+			var hb: int = int(wheel_cfg.get("handbrake_btn", -1))
+			w_handbrake = hb >= 0 and Input.is_joy_button_pressed(dev, hb)
+
 	# Gamepad Left Analog Stick Steering (dead zone from Settings)
-	var joy_steer: float = Input.get_joy_axis(0, JOY_AXIS_LEFT_X)
+	var joy_steer: float = Input.get_joy_axis(0, JOY_AXIS_LEFT_X) if gamepad_ok else 0.0
 	if absf(joy_steer) > joy_deadzone:
 		# rescale so steering starts smoothly at the edge of the dead zone
 		raw_steer = -signf(joy_steer) * (absf(joy_steer) - joy_deadzone) / (1.0 - joy_deadzone)
@@ -1345,32 +1397,40 @@ func _read_inputs(delta: float) -> void:
 	# Speed-sensitive steering (like a real steering rack + driver input):
 	# ~35 deg when parking, ~18 deg at 70 km/h, ~11 deg at 145 km/h, ~9 deg at 180 km/h, ~6.5 deg at 250 km/h.
 	var speed_steer_factor: float = clampf(1.0 / (1.0 + pow(speed_mps / 24.0, 1.4)), 0.14, 1.0)
+	if using_wheel:
+		speed_steer_factor = 1.0 # a real wheel: the driver's hands decide, no speed limiting
 	var target_steer: float = raw_steer * max_steer_angle_deg * speed_steer_factor
 	# Keyboard steering ramps in more gently at speed, but always returns to centre quickly.
 	var steering_in: bool = absf(target_steer) > absf(_current_steer_angle) and signf(target_steer) == signf(_current_steer_angle) or absf(_current_steer_angle) < 0.01
 	var steer_rate: float = 18.0
 	if steering_in and absf(raw_steer) > 0.0:
 		steer_rate = lerpf(14.0, 8.5, clampf(speed_mps / 50.0, 0.0, 1.0))
+	if using_wheel and absf(raw_steer) > 0.0 and not (Input.is_action_pressed("steer_left") or Input.is_action_pressed("steer_right")):
+		steer_rate = 40.0 # the wheel itself is the input: follow it almost directly
 	_current_steer_angle = lerpf(_current_steer_angle, target_steer, clampf(delta * steer_rate * steer_sensitivity, 0.0, 1.0))
 
 	# Keyboard & Gamepad Throttle
-	var raw_throttle: float = Input.get_action_raw_strength("throttle")
+	var raw_throttle: float = maxf(Input.get_action_raw_strength("throttle"), w_throttle)
 	# Gamepad Right Trigger (RT / R2)
-	var joy_rt: float = Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
+	var joy_rt: float = Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT) if gamepad_ok else 0.0
 	if joy_rt > 0.05:
 		raw_throttle = maxf(raw_throttle, joy_rt)
 
 	# Keyboard & Gamepad Brake
-	var raw_brake: float = Input.get_action_raw_strength("brake")
+	var raw_brake: float = maxf(Input.get_action_raw_strength("brake"), w_brake)
 	# Gamepad Left Trigger (LT / L2)
-	var joy_lt: float = Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
+	var joy_lt: float = Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT) if gamepad_ok else 0.0
 	if joy_lt > 0.05:
 		raw_brake = maxf(raw_brake, joy_lt)
 
 	# Keyboard & Gamepad Handbrake
 	var raw_handbrake: float = 0.0
-	if Input.is_action_pressed("handbrake") or Input.is_joy_button_pressed(0, JOY_BUTTON_B) or Input.is_joy_button_pressed(0, JOY_BUTTON_A):
+	if Input.is_action_pressed("handbrake") or w_handbrake or (gamepad_ok and (Input.is_joy_button_pressed(0, JOY_BUTTON_B) or Input.is_joy_button_pressed(0, JOY_BUTTON_A))):
 		raw_handbrake = 1.0
+
+	# Clutch pedal (wheel sets): only in manual mode and never fighting an automatic gear change
+	if w_clutch >= 0.0 and not is_automatic and not _is_shifting:
+		clutch_pedal = w_clutch
 
 	# Garage menu open: park the car (no throttle, brakes + handbrake on)
 	if input_blocked:
@@ -1611,7 +1671,7 @@ func _update_drivetrain(delta: float) -> void:
 		# Gear change: revs drop/rise to match the gear being engaged (rev-matching), no flare
 		var next_rpm: float = avg_drive_wheel_speed * absf(gear_ratios[_target_gear]) * final_drive_ratio * (60.0 / TAU)
 		current_rpm = move_toward(current_rpm, maxf(next_rpm, idle_rpm), 25000.0 * delta)
-	elif current_gear == 1 or clutch_engagement < 0.05:
+	elif current_gear == 1 or clutch_engagement < 0.5: # neutral, or clutch pedal (wheel set) pressed
 		# Neutral: the engine revs freely. Throttle spins it up quickly, internal friction slows
 		# it down. Part throttle settles at a steady rpm; full throttle bounces just under the
 		# limiter (a short, tight cut) instead of the old big swings down towards idle.
