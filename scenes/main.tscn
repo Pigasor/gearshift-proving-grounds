@@ -140,10 +140,10 @@ directional_shadow_max_distance = 650.0
 script = ExtResource("2_map")
 
 [node name="Vehicle" parent="." instance=ExtResource("3_vehicle")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -340)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 185, 0.5, -510)
 
 [node name="CameraController" type="Node3D" parent="." node_paths=PackedStringArray("target_vehicle")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -346)
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 185, 2.5, -503)
 script = ExtResource("4_camera")
 target_vehicle = NodePath("../Vehicle")
 

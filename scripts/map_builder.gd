@@ -4,9 +4,8 @@ extends Node3D
 func _ready() -> void:
 	_load_textured_materials()
 	_build_floor_and_perimeter()
-	_build_staging_paddock()
 	_build_mega_highway()
-	_build_airport_drag_strip()
+	AirportBuilder.new().build(self) # runway, taxiways, apron, terminal, tower, hangars, planes
 	_build_grand_prix_circuit()
 	_build_drift_arena()
 	_build_stunt_superpark()
@@ -204,60 +203,6 @@ func _build_floor_and_perimeter() -> void:
 	_create_static_box(Vector3(boundary, wall_h * 0.5, 0), Vector3(wall_t, wall_h, boundary * 2.0), mat_concrete_wall)
 	_create_static_box(Vector3(-boundary, wall_h * 0.5, 0), Vector3(wall_t, wall_h, boundary * 2.0), mat_concrete_wall)
 
-# --- 2. STAGING PADDOCK & PIT LANE (Starting Spawn Plaza at Z: -340) ---
-func _build_staging_paddock() -> void:
-	var pad_center := Vector3(0, 0.02, -340)
-
-	# Main Paddock Plaza Tarmac (240m Wide x 180m Deep)
-	_create_static_box(pad_center, Vector3(240, 0.04, 180), mat_asphalt)
-
-	# Gravel runoff shoulder around paddock perimeter
-	_create_static_box(pad_center + Vector3(0, -0.01, -95), Vector3(256, 0.03, 12), mat_dirt_dunes)
-	_create_static_box(pad_center + Vector3(0, -0.01, 95), Vector3(256, 0.03, 12), mat_dirt_dunes)
-	_create_static_box(pad_center + Vector3(-125, -0.01, 0), Vector3(12, 0.03, 190), mat_dirt_dunes)
-	_create_static_box(pad_center + Vector3(125, -0.01, 0), Vector3(12, 0.03, 190), mat_dirt_dunes)
-
-	# Painted Staging Grid Lines & Vehicle Starting Bays
-	for bay in range(4):
-		var b_x: float = -9.0 + (bay * 6.0)
-		# Staging bay white outline
-		_create_marking(Vector3(b_x, 0.05, -340), Vector3(4.0, 0.01, 7.5), mat_road_white)
-		_create_marking(Vector3(b_x, 0.06, -340), Vector3(3.6, 0.01, 7.1), mat_asphalt)
-		# Yellow stop bar
-		_create_marking(Vector3(b_x, 0.07, -336.5), Vector3(3.6, 0.01, 0.4), mat_road_yellow)
-
-	# Pit Lane Demarcation Yellow Solid Lines
-	_create_marking(Vector3(-18.0, 0.05, -340), Vector3(0.4, 0.01, 170.0), mat_road_yellow)
-	_create_marking(Vector3(18.0, 0.05, -340), Vector3(0.4, 0.01, 170.0), mat_road_yellow)
-
-	# Pit Garages on West Side (6 Huge Race Team Garages)
-	# (They used to run past the paddock edge, with the west barrier cutting through the last two.)
-	for g in range(6):
-		var g_x: float = -31.0 - (g * 14.5)
-		var g_z: float = -340.0
-		# Garage Main Building
-		_create_static_box(Vector3(g_x, 3.8, g_z), Vector3(13.0, 7.6, 22.0), mat_concrete_wall)
-		# Blue Roll-up Shutter Door
-		_create_static_box(Vector3(g_x, 2.6, g_z + 11.1), Vector3(10.0, 5.2, 0.2), mat_metal_blue)
-		# Red Fascia Trim
-		_create_static_box(Vector3(g_x, 6.8, g_z + 11.2), Vector3(12.6, 1.2, 0.3), mat_barrier_red)
-
-	# Grandstand on East Side (Z: -340, X: +65)
-	_create_static_box(Vector3(65, 2.5, -340), Vector3(18, 5.0, 90), mat_concrete_wall)
-	_create_static_box(Vector3(65, 5.2, -340), Vector3(17, 0.4, 88), mat_metal_blue)
-	for tier in range(5):
-		var tz: float = -340.0
-		var tx: float = 58.0 + (tier * 2.8)
-		var ty: float = 1.0 + (tier * 1.0)
-		_create_static_box(Vector3(tx, ty, tz), Vector3(2.4, 0.4, 84), mat_ramp_orange)
-
-	# Paddock concrete safety barriers
-	# South barrier has a gap where the drag strip runs through (runway + shoulders are x -23..23)
-	_create_static_box(Vector3(-69.0, 0.7, -425), Vector3(92, 1.4, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(69.0, 0.7, -425), Vector3(92, 1.4, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(115, 0.7, -340), Vector3(0.8, 1.4, 170), mat_concrete_wall)
-	_create_static_box(Vector3(-115, 0.7, -340), Vector3(0.8, 1.4, 170), mat_concrete_wall)
-
 # --- 3. MEGA HIGHWAY RING (2.6km x 2.6km With Real Road Textures) ---
 func _build_mega_highway() -> void:
 	# One continuous road ribbon: 4 straights joined by rounded, smoothly banked corners.
@@ -404,42 +349,6 @@ func _add_strip(left: Array[Vector3], right: Array[Vector3], dist: Array[float],
 	mi.mesh = st.commit()
 	mi.material_override = mat
 	add_child(mi)
-
-# --- 4. AIRPORT RUNWAY / HYPER DRAG STRIP (1.8 km Long) ---
-func _build_airport_drag_strip() -> void:
-	# Main runway with realistic asphalt texture (X: 0, Z: -850 to +950)
-	_create_static_box(Vector3(0, 0.02, 50), Vector3(28, 0.04, 1800), mat_asphalt)
-
-	# Gravel / Dirt Shoulders on both sides of runway
-	_create_static_box(Vector3(-18.5, 0.015, 50), Vector3(9.0, 0.03, 1800), mat_dirt_dunes)
-	_create_static_box(Vector3(18.5, 0.015, 50), Vector3(9.0, 0.03, 1800), mat_dirt_dunes)
-
-	# Dashed runway centerline
-	for z in range(-800, 900, 24):
-		_create_marking(Vector3(0, 0.05, z), Vector3(1.2, 0.01, 14.0), mat_road_white)
-
-	# Solid yellow safety boundaries
-	_create_marking(Vector3(-13.8, 0.05, 50), Vector3(0.4, 0.01, 1800), mat_road_yellow)
-	_create_marking(Vector3(13.8, 0.05, 50), Vector3(0.4, 0.01, 1800), mat_road_yellow)
-
-	# Start Staging Line (Z: -340)
-	_create_marking(Vector3(0, 0.06, -340), Vector3(27.6, 0.02, 3.0), mat_road_white)
-
-	# 1/4 Mile (402m) Finish Gate (Z: +62)
-	_create_marking(Vector3(0, 0.06, 62), Vector3(27.6, 0.02, 4.0), mat_kerb_striped)
-	# Overhead Truss Gantry
-	_create_static_box(Vector3(-14.5, 4.5, 62), Vector3(0.8, 9.0, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(14.5, 4.5, 62), Vector3(0.8, 9.0, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(0, 9.0, 62), Vector3(30.0, 1.2, 1.0), mat_metal_blue)
-
-	# 1/2 Mile Mark (Z: +464)
-	_create_marking(Vector3(0, 0.06, 464), Vector3(27.6, 0.02, 3.0), mat_road_yellow)
-
-	# 1 Mile Top-Speed Mark (Z: +800)
-	_create_marking(Vector3(0, 0.06, 800), Vector3(27.6, 0.02, 5.0), mat_kerb_striped)
-
-	# Sand trap runoff at runway end
-	_create_static_box(Vector3(0, 0.04, 980), Vector3(36, 0.08, 120), mat_sand)
 
 # --- 5. GRAND PRIX CIRCUIT (West Sector) ---
 # A real closed circuit (~3.3 km): smooth spline corners, kerbs on the corners, start/finish
@@ -624,18 +533,26 @@ func _build_offroad_dunes() -> void:
 	# 700m x 700m Textured Dirt Park
 	_create_static_box(off_center, Vector3(700, 0.06, 700), mat_dirt_dunes)
 
-	# Rolling Hills & Dirt Mounds
-	var dune_positions: Array[Vector3] = [
-		Vector3(380, 3.2, 180), Vector3(480, 4.8, 260),
-		Vector3(580, 4.0, 350), Vector3(420, 5.5, 440),
-		Vector3(560, 3.5, 520), Vector3(320, 4.2, 360)
+	# Rolling dirt mounds (real bumpy hills; they used to be tilted 80 m boxes floating half in the air)
+	var dunes: Array = [
+		[Vector3(380, 0, 170), 34.0, 4.5], [Vector3(590, 0, 330), 38.0, 6.0], [Vector3(420, 0, 450), 30.0, 5.0],
+		[Vector3(570, 0, 530), 36.0, 4.0], [Vector3(300, 0, 380), 28.0, 3.5], [Vector3(660, 0, 160), 32.0, 5.5],
 	]
+	for i in range(dunes.size()):
+		_create_hill(dunes[i][0], dunes[i][1], dunes[i][2], mat_dirt_dunes, 40 + i)
 
-	for d_pos in dune_positions:
-		_create_static_box(d_pos, Vector3(80, 5.5, 80), mat_dirt_dunes, Vector3(8, 25, 6))
-
-	# Off-road Table-top Jump
-	_create_static_box(off_center + Vector3(0, 3.8, 0), Vector3(28, 4.2, 50), mat_dirt_dunes)
+	# Off-road table-top jump: sits ON the ground (it used to float 1.7 m up, so a car falling off
+	# its edge got stuck underneath it), with a take-off ramp and a landing ramp
+	var tt: Vector3 = Vector3(off_center.x, 0.0, off_center.z)
+	var top_h: float = 3.0
+	var table_len: float = 30.0
+	_create_static_box(tt + Vector3(0, top_h * 0.5, 0), Vector3(20, top_h, table_len), mat_dirt_dunes)
+	var ramp_run: float = 12.0
+	var ramp_ang: float = rad_to_deg(atan2(top_h, ramp_run))
+	var ramp_len: float = sqrt(ramp_run * ramp_run + top_h * top_h) + 0.8
+	for s in [-1.0, 1.0]:
+		var mid_z: float = s * (table_len * 0.5 + ramp_run * 0.5)
+		_create_static_box(tt + Vector3(0, top_h * 0.5 - 0.3, mid_z), Vector3(20, 0.6, ramp_len), mat_dirt_dunes, Vector3(s * ramp_ang, 0, 0))
 
 # --- 9. SUSPENSION TEST ZONE (Between Runway and Circuit) ---
 func _build_suspension_zone() -> void:
@@ -775,13 +692,9 @@ func _create_hill(center: Vector3, radius: float, height: float, mat: Material, 
 
 # --- 10. FLOODLIGHT TOWERS & PIT BUILDINGS ---
 func _build_environment_props() -> void:
+	# (The masts that stood beside the old drag strip are gone: the runway has its own edge lights,
+	# and the apron has flood-light masts - see AirportBuilder.)
 	var light_positions: Array[Vector3] = [
-		Vector3(-45, 0, -500), Vector3(45, 0, -500),
-		Vector3(-45, 0, -250), Vector3(45, 0, -250),
-		Vector3(-45, 0, 0),    Vector3(45, 0, 0),
-		Vector3(-45, 0, 250),  Vector3(45, 0, 250),
-		Vector3(-45, 0, 500),  Vector3(45, 0, 500),
-		Vector3(-45, 0, 750),  Vector3(45, 0, 750),
 		Vector3(250, 0, -120), Vector3(250, 0, -320),
 		Vector3(-220, 0, -250), Vector3(-220, 0, 250),
 		Vector3(150, 0, 200),  Vector3(150, 0, 450),

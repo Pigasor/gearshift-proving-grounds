@@ -221,9 +221,12 @@ func _build_tabs() -> void:
 	# KONUMLAR (teleport)
 	var loc := _new_tab("Konumlar")
 	var places: Array = [
+		["🅿️  Apron / Paddock (başlangıç)", Vector3(185, 0, -510), 180.0],
+		["🛫  Pist 18 başı (kuzey)", Vector3(0, 0, -1125), 0.0],
+		["🚦  Drag Start Çizgisi", Vector3(0, 0, -1096), 0.0],
+		["🛬  Pist 36 başı (güney)", Vector3(0, 0, 1125), 180.0],
+		["🏠  Hangarlar", Vector3(235, 0, -1045), 180.0],
 		["🏁  Yarış Pisti (start çizgisi)", Vector3(-200, 0, -255), 0.0],
-		["🅿️  Başlangıç / Pit Alanı", Vector3(0, 0, -340), 0.0],
-		["🛫  Drag Pisti (1/4 mil başı)", Vector3(0, 0, -345), 0.0],
 		["🛣️  Otoyol Halkası", Vector3(0, 0, 1300), 90.0],
 		["🌀  Drift Alanı", Vector3(250, 0, -300), 0.0],
 		["🚀  Stunt Parkı", Vector3(150, 0, 40), 0.0],
