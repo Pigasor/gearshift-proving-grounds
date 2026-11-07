@@ -15,6 +15,20 @@ var _overrun_timer: float = 0.0
 var _smoothed_rpm: float = 900.0
 var _smoothed_throttle: float = 0.0
 var _lp_state: float = 0.0
+# Turbo / blow-off: smoothed per sample so nothing switches on or off abruptly
+var _turbo_gain: float = 0.0
+var _turbo_gain_target: float = 0.0
+var _turbo_freq_s: float = 400.0
+var _turbo_freq_target: float = 400.0
+var _hiss_lp: float = 0.0
+var _bov_amp: float = 0.0
+var _bov_env: float = 0.0
+var _bov_attack: float = 0.0
+var _bov_cooldown: float = 0.0
+var _bov_lp1: float = 0.0
+var _bov_lp2: float = 0.0
+var _bov_t: float = 0.0
+var _burble_lp: float = 0.0
 
 @onready var audio_player: AudioStreamPlayer = $AudioStreamPlayer
 
@@ -42,11 +56,27 @@ func _physics_process(delta: float) -> void:
 
 	_smoothed_throttle = lerpf(_smoothed_throttle, current_thr, delta * 15.0)
 
-	if _previous_throttle > 0.5 and current_thr < 0.15 and vehicle.turbo_boost_bar > 0.3:
-		_bov_timer = 0.32 # Realistic blow-off turbo flutter
+	# Blow-off valve: only when real boost pressure is dumped. Its loudness follows the pressure,
+	# so quick pumping of the pedal (no boost built up yet) stays quiet instead of hissing every time.
+	if _bov_cooldown > 0.0:
+		_bov_cooldown -= delta
+	if _previous_throttle > 0.5 and current_thr < 0.15:
 		_overrun_timer = 0.65 # Exhaust overrun crackles
+		if vehicle.turbo_boost_bar > 0.45 and _bov_cooldown <= 0.0:
+			_bov_amp = clampf((vehicle.turbo_boost_bar - 0.45) / 1.2, 0.15, 1.0)
+			_bov_attack = 1.0
+			_bov_t = 0.0
+			_bov_cooldown = 0.35
 
 	_previous_throttle = current_thr
+
+	# Turbo whistle targets (smoothed per sample in the buffer fill)
+	var is_nitro_now: bool = vehicle.get("turbo_boost_active") == true
+	var boost_ratio_now: float = 0.0
+	if vehicle.turbo_enabled or is_nitro_now:
+		boost_ratio_now = clampf((vehicle.turbo_boost_bar - 0.25) / 1.5, 0.0, 1.0)
+	_turbo_gain_target = boost_ratio_now * boost_ratio_now * (0.35 + 0.65 * _smoothed_throttle) * (2.0 if is_nitro_now else 1.0)
+	_turbo_freq_target = 380.0 + clampf(vehicle.turbo_boost_bar, 0.0, 2.5) * 240.0
 
 	if _bov_timer > 0.0:
 		_bov_timer -= delta
@@ -124,9 +154,6 @@ func _fill_audio_buffer() -> void:
 	if lowpass_hz > 0.0:
 		lp_alpha = 1.0 - exp(-TAU * lowpass_hz / sample_rate)
 
-	# 2. Warm, Non-Fatiguing Turbo Spool Tone (Deeper frequency range)
-	var turbo_freq: float = 320.0 + (clampf(vehicle.turbo_boost_bar, 0.0, 2.5) * 260.0)
-
 	# 3. Tire Skid
 	var max_slip: float = 0.0
 	for i in range(4):
@@ -160,36 +187,49 @@ func _fill_audio_buffer() -> void:
 			_lp_state += (engine_sample - _lp_state) * lp_alpha
 			engine_sample = _lp_state * 1.15
 
-		# Deceleration Overrun Burble (smooth transition when lifting off throttle)
+		# Deceleration Overrun Burble: low, muffled rumble (low-passed noise, not a bright hiss)
 		if _overrun_timer > 0.0 and _smoothed_throttle < 0.2:
-			var burble: float = (randf() * 2.0 - 1.0) * (_overrun_timer / 0.65) * 0.06
-			engine_sample += burble
+			_burble_lp += ((randf() * 2.0 - 1.0) - _burble_lp) * 0.06
+			engine_sample += _burble_lp * (_overrun_timer / 0.65) * 0.10
 
 		# Rev Limiter Cut (PRESERVED EXACTLY AS PRAISED BY USER!)
 		if vehicle.is_limiter_active:
 			engine_sample *= randf_range(0.0, 1.2) if _pop_timer > 0.02 else 0.0
 
 		# 2. Turbo Whistle (Gentle, realistic turbine spool - completely silent at low bar!)
+		# Gain and pitch glide smoothly (~60 ms), so lifting/pressing never clicks it on or off.
+		_turbo_gain += (_turbo_gain_target - _turbo_gain) * 0.0004
+		_turbo_freq_s += (_turbo_freq_target - _turbo_freq_s) * 0.0002
 		var turbo_sample: float = 0.0
 		var is_nitro: bool = vehicle.get("turbo_boost_active") == true
-		# Only audible under actual positive boost (> 0.35 bar) and active throttle load
-		if (vehicle.turbo_enabled or is_nitro) and vehicle.turbo_boost_bar > 0.35 and _smoothed_throttle > 0.15:
-			var turbo_phase_inc: float = (turbo_freq * 2.0 * PI) / sample_rate
-			_turbo_phase = fmod(_turbo_phase + turbo_phase_inc, 2.0 * PI)
-			# Quadratic volume curve: completely inaudible at low bar, subtle background spool at high boost
-			var boost_ratio: float = clampf((vehicle.turbo_boost_bar - 0.35) / 1.45, 0.0, 1.0)
-			var boost_gain: float = boost_ratio * boost_ratio * _smoothed_throttle
-			var whistle: float = sin(_turbo_phase) * (0.010 if is_nitro else 0.005) * boost_gain
-			var air_flow: float = (randf() * 2.0 - 1.0) * (0.006 if is_nitro else 0.0025) * boost_gain
-			turbo_sample = whistle + air_flow
-			if is_nitro:
-				engine_sample *= 1.15
+		_turbo_phase = fmod(_turbo_phase + _turbo_freq_s * TAU / sample_rate, TAU)
+		if _turbo_gain > 0.0005:
+			# Soft whine (fundamental + a quiet octave) plus a breathy intake rush
+			var whine: float = sin(_turbo_phase) + 0.25 * sin(_turbo_phase * 2.0)
+			_hiss_lp += ((randf() * 2.0 - 1.0) - _hiss_lp) * 0.25
+			turbo_sample = (whine * 0.006 + _hiss_lp * 0.004) * _turbo_gain
+		if is_nitro:
+			engine_sample *= 1.15
 
-		# 3. Blow-off Valve Hiss / Flutter
+		# 3. Blow-off valve: a short "pssh" of band-limited air (not raw white noise), quick attack,
+		# smooth decay, gentle flutter.
 		var bov_sample: float = 0.0
-		if _bov_timer > 0.0:
-			var flutter: float = sin(_bov_timer * 45.0) * 0.5 + 0.5
-			bov_sample = (randf() * 2.0 - 1.0) * (_bov_timer / 0.32) * flutter * 0.12
+		if _bov_amp > 0.001:
+			_bov_t += 1.0 / sample_rate
+			if _bov_attack > 0.0:
+				_bov_env = minf(_bov_env + 1.0 / (0.012 * sample_rate), 1.0)
+				if _bov_env >= 1.0:
+					_bov_attack = 0.0
+			else:
+				_bov_env *= 0.99985 # ~0.15 s decay
+			var noise: float = randf() * 2.0 - 1.0
+			_bov_lp1 += (noise - _bov_lp1) * 0.30 # ~2.3 kHz low-pass
+			_bov_lp2 += (noise - _bov_lp2) * 0.07 # ~500 Hz (removed: band-pass)
+			var flutter: float = 0.8 + 0.2 * sin(_bov_t * TAU * 22.0)
+			bov_sample = (_bov_lp1 - _bov_lp2) * _bov_env * flutter * _bov_amp * 0.09
+			if _bov_attack == 0.0 and _bov_env < 0.002:
+				_bov_amp = 0.0
+				_bov_env = 0.0
 
 		# 4. Tire Squeal
 		var skid_sample: float = 0.0

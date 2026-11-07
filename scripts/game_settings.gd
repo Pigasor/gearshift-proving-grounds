@@ -26,6 +26,7 @@ const ACTIONS: Array = [
 	["toggle_tuning", "Garaj Menüsü", [KEY_TAB]],
 	["repair", "Aracı Düzelt", [KEY_R]],
 	["reset_car", "Başlangıca Dön", [KEY_ENTER]],
+	["minimap", "Mini Harita Yakın / Geniş", [KEY_N]],
 ]
 
 var defaults: Dictionary = {

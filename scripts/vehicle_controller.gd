@@ -87,7 +87,9 @@ var turbo_boost_ready: bool = true
 # --- ASSISTS ---
 @export_group("Assists")
 @export var abs_enabled: bool = true
-@export var tcs_enabled: bool = false
+@export var tcs_enabled: bool = true
+var tcs_active: bool = false # TCS is cutting power right now (for the HUD)
+var _tcs_cut: Array[float] = [0.0, 0.0, 0.0, 0.0]
 @export var esp_enabled: bool = false
 
 # --- TELEMETRY ---
@@ -1319,8 +1321,16 @@ func _process_automatic_transmission(delta: float) -> void:
 
 	if current_gear < top_gear:
 		var next_rpm: float = _ground_rpm(current_gear + 1)
-		var near_limit: bool = g_rpm > limiter_rpm - 300.0 or (current_rpm > limiter_rpm - 150.0 and g_rpm > limiter_rpm * 0.82)
-		if near_limit and next_rpm > idle_rpm * 1.6:
+		# A real gearbox reads its output shaft (the driven wheels), so with wheelspin at speed it
+		# still shifts at the limiter instead of bouncing off it. Pulling away slowly (e.g. on a hill)
+		# only the car's speed counts, so spinning wheels there never cause an early upshift.
+		var moving: bool = absf(linear_velocity.dot(global_transform.basis.z)) > 7.0
+		var near_limit: bool = g_rpm > limiter_rpm - 300.0 or (current_rpm > limiter_rpm - 200.0 and (g_rpm > limiter_rpm * 0.82 or moving))
+		# Shift point follows the pedal like a real automatic: gentle throttle or cruising shifts
+		# early (low revs), only a floored pedal holds the gear up to the limiter.
+		var shift_rpm: float = lerpf(limiter_rpm * 0.42, limiter_rpm - 300.0, clampf(_throttle_input / 0.9, 0.0, 1.0))
+		var early: bool = _throttle_input < 0.85 and _brake_input < 0.1 and g_rpm > shift_rpm and next_rpm > limiter_rpm * 0.34
+		if (near_limit or early) and next_rpm > idle_rpm * 1.6:
 			shift_up()
 			_auto_shift_cooldown = 0.5
 			return
@@ -1437,6 +1447,8 @@ func _update_drivetrain(delta: float) -> void:
 		if turbo_boost_active:
 			target_boost = turbo_max_boost_bar + 1.6 # Massive overboost!
 		var spool_spd: float = turbo_spool_rate * (3.5 if turbo_boost_active else 1.0)
+		if target_boost < turbo_boost_bar and _throttle_input < 0.15:
+			spool_spd *= 5.0 # lifting off: the blow-off valve dumps the pressure at once
 		turbo_boost_bar = lerpf(turbo_boost_bar, target_boost, delta * spool_spd)
 	else:
 		if turbo_boost_active:
@@ -1540,10 +1552,21 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		drive_torques[i] = total_drive_torque * split[i]
 		engine_drag[i] = engine_drag_total * split[i]
 
-	if tcs_enabled and _throttle_input > 0.1:
-		for i in range(4):
-			if absf(wheel_slip_lateral[i]) > 0.4 or _wheel_spin_speed(i) > 2.0:
-				drive_torques[i] *= 0.35
+	# Traction control, like a real ECU: lets the driven tyre slip a little (that's where the grip
+	# peaks) and smoothly trims engine torque on a wheel that spins beyond that, then gives it back.
+	# (The old on/off 35% cut chattered; with TCS off the powerful cars spun up in every gear.)
+	var speed_for_tcs: float = linear_velocity.length()
+	for i in range(4):
+		var want_cut: float = 0.0
+		if tcs_enabled and _throttle_input > 0.1 and _is_driven(i) and wheel_is_grounded[i]:
+			var allowed_spin: float = 1.2 + 0.06 * speed_for_tcs
+			want_cut = clampf((_wheel_spin_speed(i) - allowed_spin) / 3.0, 0.0, 0.9)
+			if absf(wheel_slip_lateral[i]) > 0.45 and speed_for_tcs > 8.0:
+				want_cut = maxf(want_cut, 0.4) # power oversteer: ease off
+		var rate: float = 10.0 if want_cut > _tcs_cut[i] else 4.0
+		_tcs_cut[i] = move_toward(_tcs_cut[i], want_cut, rate * delta)
+		drive_torques[i] *= 1.0 - _tcs_cut[i]
+	tcs_active = _tcs_cut.max() > 0.05
 
 	# Each wheel's rotational inertia: tyre+rim, plus the engine/gearbox spinning with it in gear.
 	var n_driven: int = 0

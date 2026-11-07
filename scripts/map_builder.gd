@@ -598,12 +598,7 @@ func _build_stunt_superpark() -> void:
 	_create_static_box(Vector3(s_x + 55, 7.2, 420), Vector3(20, 0.8, 42), mat_ramp_orange, Vector3(34, 0, 0))
 	_create_static_box(Vector3(s_x + 55, 0.04, 465), Vector3(26, 0.06, 48), mat_sand)
 	_create_static_box(Vector3(s_x + 55, 5.8, 510), Vector3(22, 0.8, 46), mat_metal_blue, Vector3(-22, 0, 0))
-
-	# Ramp 4: Giant Banked Wall-Ride (Z: -30)
-	_create_static_box(Vector3(s_x + 90, 5.5, -30), Vector3(18, 0.8, 75), mat_asphalt, Vector3(0, 0, 42))
-
-	# Ramp 5: Corkscrew Launch Ramp (Z: -460)
-	_create_static_box(Vector3(s_x, 4.5, -460), Vector3(16, 0.6, 35), mat_ramp_orange, Vector3(22, 12, 16))
+	# (The floating wall-ride slab and the odd-angled corkscrew ramp were removed.)
 
 # --- 8. OFF-ROAD & DESERT DUNES PARK (East-North Sector) ---
 func _build_offroad_dunes() -> void:

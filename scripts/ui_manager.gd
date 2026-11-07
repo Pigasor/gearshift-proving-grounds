@@ -80,6 +80,13 @@ func _ready() -> void:
 	get_parent().add_child.call_deferred(menu)
 	GameSettings.apply_scene_start.call_deferred()
 
+	# Mini map (top-left); N switches close / wide view
+	var minimap := Control.new()
+	minimap.set_script(load("res://scripts/minimap.gd"))
+	minimap.name = "Minimap"
+	minimap.set("vehicle", vehicle)
+	$HUD.add_child(minimap)
+
 func _unhandled_input(event: InputEvent) -> void:
 	# Garage menu (rebindable, default TAB). ESC / gamepad Start open the pause & settings menu.
 	if event.is_action_pressed("toggle_tuning", false, true):
