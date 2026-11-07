@@ -211,6 +211,28 @@ func _build_tabs() -> void:
 		c.queue_free()
 	_bind_buttons.clear()
 
+	# KONUMLAR (teleport)
+	var loc := _new_tab("Konumlar")
+	var places: Array = [
+		["🏁  Yarış Pisti (start çizgisi)", Vector3(-200, 0, -255), 0.0],
+		["🅿️  Başlangıç / Pit Alanı", Vector3(0, 0, -340), 0.0],
+		["🛫  Drag Pisti (1/4 mil başı)", Vector3(0, 0, -345), 0.0],
+		["🛣️  Otoyol Halkası", Vector3(0, 0, 1300), 90.0],
+		["🌀  Drift Alanı", Vector3(250, 0, -300), 0.0],
+		["🚀  Stunt Parkı", Vector3(150, 0, 40), 0.0],
+		["🏜️  Off-road Alanı", Vector3(480, 0, 60), 0.0],
+		["⛰️  Tepe Parkı", Vector3(-800, 0, -380), 0.0],
+		["🔧  Süspansiyon Test Yolu", Vector3(-75, 0, -235), 0.0],
+	]
+	for p in places:
+		_label(loc, p[0])
+		var go := Button.new()
+		go.text = "Işınlan"
+		go.custom_minimum_size = Vector2(160, 34)
+		go.size_flags_horizontal = Control.SIZE_SHRINK_END
+		go.pressed.connect(_teleport.bind(p[1], p[2]))
+		loc.add_child(go)
+
 	# GÖRÜNTÜ
 	var g := _new_tab("Görüntü")
 	_add_option(g, "Pencere Modu", "window_mode", ["Pencere", "Tam Ekran (Kenarlıksız)", "Tam Ekran (Özel)"])
@@ -319,6 +341,16 @@ func _on_reset_car() -> void:
 	var car: Node = get_tree().current_scene.get_node_or_null("Vehicle")
 	if car:
 		car.reset_vehicle()
+	close()
+
+func _teleport(pos: Vector3, yaw: float) -> void:
+	var car: Node = get_tree().current_scene.get_node_or_null("Vehicle")
+	if car:
+		car.teleport_to(pos, yaw)
+		var cam: Node = get_tree().current_scene.get_node_or_null("CameraController")
+		if cam:
+			cam.set("_orbit_yaw", deg_to_rad(yaw))
+			cam.global_position = car.global_position + Basis(Vector3.UP, deg_to_rad(yaw)) * Vector3(0, 2.5, -7.0)
 	close()
 
 func _on_defaults() -> void:

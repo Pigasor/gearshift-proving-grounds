@@ -93,6 +93,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func toggle_tuning_panel() -> void:
 	is_tuning_open = !is_tuning_open
 	panel_tuning.visible = is_tuning_open
+	if vehicle:
+		vehicle.set("input_blocked", is_tuning_open) # park the car while tuning
 	if is_tuning_open:
 		_sync_tuning_sliders_from_vehicle()
 	else:

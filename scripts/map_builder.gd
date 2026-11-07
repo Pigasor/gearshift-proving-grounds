@@ -30,10 +30,33 @@ var mat_road_white: StandardMaterial3D
 var mat_road_yellow: StandardMaterial3D
 var mat_barrier_red: StandardMaterial3D
 
+# Surface type of a map material (the car reads it under each wheel for grip)
+func _surface_for(mat: Material) -> String:
+	var sm := mat as StandardMaterial3D
+	if sm == null:
+		return "asphalt"
+	if mat == mat_kerb_striped:
+		return "kerb"
+	if mat == mat_concrete_wall:
+		return "concrete"
+	if mat == mat_sand:
+		return "sand"
+	if sm.albedo_texture != null and mat_grass and sm.albedo_texture == mat_grass.albedo_texture:
+		return "grass"
+	if sm.albedo_texture != null and mat_dirt_dunes and sm.albedo_texture == mat_dirt_dunes.albedo_texture:
+		return "dirt"
+	return "asphalt"
+
 func _load_tex(path: String) -> Texture2D:
+	# Load the IMPORTED texture (works in exported builds; the raw .png isn't shipped there).
+	# Mipmaps are enabled in the .import settings so distant ground doesn't shimmer.
+	if ResourceLoader.exists(path):
+		var tex := load(path) as Texture2D
+		if tex:
+			return tex
+	# Fallback (e.g. textures just regenerated and not imported yet)
 	var img := Image.load_from_file(path)
 	if img:
-		# Mipmaps: without them distant ground shimmers and looks noisy/corrupted
 		img.generate_mipmaps()
 		return ImageTexture.create_from_image(img)
 	return null
@@ -137,6 +160,7 @@ func _create_static_box(pos: Vector3, size: Vector3, mat: Material, rot_deg: Vec
 	var body: StaticBody3D = StaticBody3D.new()
 	body.position = pos
 	body.rotation_degrees = rot_deg
+	body.set_meta("surface", _surface_for(mat)) # tyre grip depends on it
 
 	var col: CollisionShape3D = CollisionShape3D.new()
 	var shape: BoxShape3D = BoxShape3D.new()
@@ -305,13 +329,24 @@ func _build_mega_highway() -> void:
 	var mat_shoulder: StandardMaterial3D = mat_dirt_dunes.duplicate() as StandardMaterial3D
 	mat_shoulder.cull_mode = BaseMaterial3D.CULL_DISABLED
 
-	var faces := PackedVector3Array()
 	# Road: u = 0..1 across the width (lane markings line up), v repeats every 96 m along it
-	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_ribbon, faces)
-	_add_strip(sh_in, road_in, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, faces)
-	_add_strip(road_out, slope_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, faces)
+	var road_faces := PackedVector3Array()
+	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_ribbon, road_faces)
+	var dirt_faces := PackedVector3Array()
+	_add_strip(sh_in, road_in, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
+	_add_strip(road_out, slope_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
+	_add_collision_body(road_faces, "asphalt")
+	_add_collision_body(dirt_faces, "dirt")
 
+	# Concrete guardrails along the outer edge of the north & south straights
+	var straight_len: float = (d - corner_r) * 2.0
+	_create_static_box(Vector3(0, 0.8, d + 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
+	_create_static_box(Vector3(0, 0.8, -d - 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
+
+# Static trimesh body from collected faces, tagged with its surface type.
+func _add_collision_body(faces: PackedVector3Array, surface: String) -> StaticBody3D:
 	var body := StaticBody3D.new()
+	body.set_meta("surface", surface)
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
 	shape.set_faces(faces)
@@ -319,11 +354,7 @@ func _build_mega_highway() -> void:
 	col.shape = shape
 	body.add_child(col)
 	add_child(body)
-
-	# Concrete guardrails along the outer edge of the north & south straights
-	var straight_len: float = (d - corner_r) * 2.0
-	_create_static_box(Vector3(0, 0.8, d + 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(0, 0.8, -d - 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
+	return body
 
 # A textured strip between two edge polylines (visual mesh + collision faces).
 func _add_strip(left: Array[Vector3], right: Array[Vector3], dist: Array[float], u_left: float, u_right: float, v_scale: float, mat: Material, faces: PackedVector3Array) -> void:
@@ -340,9 +371,15 @@ func _add_strip(left: Array[Vector3], right: Array[Vector3], dist: Array[float],
 			st.set_normal(n)
 			st.set_uv(Vector2(u_left if side == 0 else u_right, dist[i] * v_scale))
 			st.add_vertex(left[i] if side == 0 else right[i])
+	# Godot draws clockwise triangles as the front face. Which index order is clockwise from above
+	# depends on the strip's direction, so pick it from the first segment.
+	var flip: bool = false
+	if count > 1:
+		flip = (left[1] - left[0]).cross(right[0] - left[0]).y > 0.0
 	for i in range(count - 1):
 		var a: int = i * 2
-		for q in [a, a + 2, a + 1, a + 1, a + 2, a + 3]: # clockwise = front face in Godot
+		var order: Array = [a, a + 1, a + 2, a + 1, a + 3, a + 2] if flip else [a, a + 2, a + 1, a + 1, a + 2, a + 3]
+		for q in order:
 			st.add_index(q)
 		for p in [left[i], right[i], left[i + 1], right[i], right[i + 1], left[i + 1]]:
 			faces.append(p)
@@ -388,34 +425,140 @@ func _build_airport_drag_strip() -> void:
 	_create_static_box(Vector3(0, 0.04, 980), Vector3(36, 0.08, 120), mat_sand)
 
 # --- 5. GRAND PRIX CIRCUIT (West Sector) ---
+# A real closed circuit (~3.3 km): smooth spline corners, kerbs on the corners, start/finish
+# gantry and timing gates for lap times. Driven clockwise-ish, start line on the east straight.
+const CIRCUIT_WIDTH: float = 14.0
+const CIRCUIT_START := Vector3(-200, 0.0, -200) # start/finish line (car heads +Z)
+const CIRCUIT_POINTS: Array[Vector2] = [
+	Vector2(-200, -300), Vector2(-200, -80), Vector2(-200, 140), Vector2(-200, 380),
+	Vector2(-218, 520), Vector2(-275, 590), Vector2(-355, 598), Vector2(-415, 555), Vector2(-432, 470),
+	Vector2(-395, 395), Vector2(-320, 360), Vector2(-300, 285), Vector2(-340, 205), Vector2(-420, 160),
+	Vector2(-455, 60), Vector2(-448, -60), Vector2(-390, -125), Vector2(-335, -185), Vector2(-360, -265),
+	Vector2(-430, -335), Vector2(-455, -425), Vector2(-415, -505), Vector2(-330, -535), Vector2(-255, -505),
+	Vector2(-212, -420),
+]
+
 func _build_grand_prix_circuit() -> void:
-	var gp_x: float = -220.0
+	var y: float = 0.08
+	var half: float = CIRCUIT_WIDTH * 0.5
+	# 1) Closed Catmull-Rom spline through the control points
+	var pts: Array[Vector2] = []
+	var n_cp: int = CIRCUIT_POINTS.size()
+	var steps: int = 14
+	for i in range(n_cp):
+		var p0: Vector2 = CIRCUIT_POINTS[(i - 1 + n_cp) % n_cp]
+		var p1: Vector2 = CIRCUIT_POINTS[i]
+		var p2: Vector2 = CIRCUIT_POINTS[(i + 1) % n_cp]
+		var p3: Vector2 = CIRCUIT_POINTS[(i + 2) % n_cp]
+		for s in range(steps):
+			var t: float = float(s) / float(steps)
+			var t2: float = t * t
+			var t3: float = t2 * t
+			pts.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
+	# Rotate the list so it starts at the sample nearest the start line
+	var best_i: int = 0
+	for i in range(pts.size()):
+		if pts[i].distance_to(Vector2(CIRCUIT_START.x, CIRCUIT_START.z)) < pts[best_i].distance_to(Vector2(CIRCUIT_START.x, CIRCUIT_START.z)):
+			best_i = i
+	pts = pts.slice(best_i) + pts.slice(0, best_i)
+	pts.append(pts[0]) # close the loop
+	var count: int = pts.size()
 
-	# West Main Straight (1200m)
-	_create_static_box(Vector3(gp_x, 0.03, 50), Vector3(20, 0.05, 1200), mat_track)
-	_create_static_box(Vector3(gp_x - 14, 0.02, 50), Vector3(8, 0.04, 1200), mat_dirt_dunes)
-	_create_static_box(Vector3(gp_x + 14, 0.02, 50), Vector3(8, 0.04, 1200), mat_dirt_dunes)
+	# 2) Edges, distance along the track and curvature
+	var left: Array[Vector3] = []
+	var right: Array[Vector3] = []
+	var dist: Array[float] = []
+	var curv: Array[float] = []
+	var tangents: Array[Vector2] = []
+	var acc: float = 0.0
+	for i in range(count):
+		var prev: Vector2 = pts[(i - 1 + count - 1) % (count - 1)]
+		var next: Vector2 = pts[(i + 1) % (count - 1)] if i < count - 1 else pts[1]
+		var tan: Vector2 = (next - prev).normalized()
+		tangents.append(tan)
+		var nrm := Vector2(-tan.y, tan.x)
+		if i > 0:
+			acc += pts[i].distance_to(pts[i - 1])
+		dist.append(acc)
+		left.append(Vector3(pts[i].x + nrm.x * half, y, pts[i].y + nrm.y * half))
+		right.append(Vector3(pts[i].x - nrm.x * half, y, pts[i].y - nrm.y * half))
+		var seg: float = maxf(prev.distance_to(next), 0.01)
+		var t_prev: Vector2 = (pts[i] - prev).normalized()
+		var t_next: Vector2 = (next - pts[i]).normalized()
+		curv.append(absf(t_prev.angle_to(t_next)) / (seg * 0.5)) # 1 / radius
 
-	# Return Backstraight
-	_create_static_box(Vector3(gp_x - 150, 0.03, 50), Vector3(20, 0.05, 1200), mat_track)
-	_create_static_box(Vector3(gp_x - 164, 0.02, 50), Vector3(8, 0.04, 1200), mat_dirt_dunes)
-	_create_static_box(Vector3(gp_x - 136, 0.02, 50), Vector3(8, 0.04, 1200), mat_dirt_dunes)
+	# 3) Tarmac + painted white edge lines (visual)
+	var track_faces := PackedVector3Array()
+	_add_strip(left, right, dist, 0.0, 1.0, 1.0 / 20.0, mat_track, track_faces)
+	_add_collision_body(track_faces, "asphalt")
+	var unused := PackedVector3Array()
+	var edge_l: Array[Vector3] = []
+	var edge_r: Array[Vector3] = []
+	var line_l: Array[Vector3] = []
+	var line_r: Array[Vector3] = []
+	var lift := Vector3(0, 0.006, 0)
+	for i in range(count):
+		var inward: Vector3 = (right[i] - left[i]).normalized()
+		edge_l.append(left[i] + lift)
+		edge_r.append(right[i] + lift)
+		line_l.append(left[i] + inward * 0.35 + lift)
+		line_r.append(right[i] - inward * 0.35 + lift)
+	_add_strip(edge_l, line_l, dist, 0.0, 1.0, 0.1, mat_road_white, unused)
+	_add_strip(line_r, edge_r, dist, 0.0, 1.0, 0.1, mat_road_white, unused)
 
-	# North 180° Sweeping Turn
-	_create_static_box(Vector3(gp_x - 75, 0.03, 650), Vector3(170, 0.05, 24), mat_track)
+	# 4) Red/white kerbs on both edges wherever the corner is tighter than ~220 m radius
+	var kerb_faces := PackedVector3Array()
+	var i0: int = -1
+	for i in range(count + 1):
+		var tight: bool = i < count and curv[i] > 1.0 / 220.0
+		if tight and i0 == -1:
+			i0 = maxi(i - 2, 0)
+		elif not tight and i0 != -1:
+			var i1: int = mini(i + 2, count)
+			var kl_in: Array[Vector3] = []
+			var kl_out: Array[Vector3] = []
+			var kr_in: Array[Vector3] = []
+			var kr_out: Array[Vector3] = []
+			var kd: Array[float] = []
+			for k in range(i0, i1):
+				var across: Vector3 = (left[k] - right[k]).normalized()
+				kl_in.append(left[k] + Vector3(0, 0.02, 0))
+				kl_out.append(left[k] + across * 1.6 + Vector3(0, 0.02, 0))
+				kr_in.append(right[k] + Vector3(0, 0.02, 0))
+				kr_out.append(right[k] - across * 1.6 + Vector3(0, 0.02, 0))
+				kd.append(dist[k])
+			_add_strip(kl_in, kl_out, kd, 0.0, 1.0, 1.0 / 8.0, mat_kerb_striped, kerb_faces)
+			_add_strip(kr_out, kr_in, kd, 0.0, 1.0, 1.0 / 8.0, mat_kerb_striped, kerb_faces)
+			i0 = -1
+	if kerb_faces.size() > 0:
+		_add_collision_body(kerb_faces, "kerb")
 
-	# South 180° Technical Hairpin
-	_create_static_box(Vector3(gp_x - 75, 0.03, -550), Vector3(170, 0.05, 24), mat_track)
+	# 5) Start/finish line & gantry
+	_create_marking(CIRCUIT_START + Vector3(0, y + 0.012, 0), Vector3(CIRCUIT_WIDTH, 0.01, 1.2), mat_road_white)
+	_create_static_box(CIRCUIT_START + Vector3(-(half + 3.0), 3.5, 0), Vector3(0.8, 7.0, 0.8), mat_concrete_wall)
+	_create_static_box(CIRCUIT_START + Vector3(half + 3.0, 3.5, 0), Vector3(0.8, 7.0, 0.8), mat_concrete_wall)
+	_create_static_box(CIRCUIT_START + Vector3(0, 7.2, 0), Vector3(CIRCUIT_WIDTH + 7.0, 1.0, 1.0), mat_kerb_striped)
 
-	# S-Chicane on West Straight
-	_create_static_box(Vector3(gp_x + 24, 0.03, -80), Vector3(22, 0.05, 150), mat_track, Vector3(0, 22, 0))
-	_create_static_box(Vector3(gp_x + 24, 0.03, 70), Vector3(22, 0.05, 150), mat_track, Vector3(0, -22, 0))
-
-	# Red & White Striped Kerbs along corners
-	for i in range(24):
-		_create_static_box(Vector3(gp_x + 36, 0.12, -150 + i * 6.0), Vector3(1.8, 0.22, 5.5), mat_kerb_striped)
-		_create_static_box(Vector3(gp_x - 162, 0.12, -540 + i * 6.0), Vector3(1.8, 0.22, 5.5), mat_kerb_striped)
-		_create_static_box(Vector3(gp_x - 162, 0.12, 520 + i * 6.0), Vector3(1.8, 0.22, 5.5), mat_kerb_striped)
+	# 6) Timing gates (gate 0 = start/finish) for the lap timer
+	var timer := Node.new()
+	timer.set_script(load("res://scripts/lap_timer.gd"))
+	timer.name = "LapTimer"
+	add_child(timer)
+	var gate_count: int = 10
+	for g in range(gate_count):
+		var idx: int = int(float(g) / float(gate_count) * float(count - 1))
+		var area := Area3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(CIRCUIT_WIDTH + 24.0, 10.0, 4.0)
+		var col := CollisionShape3D.new()
+		col.shape = shape
+		area.add_child(col)
+		var tan3 := Vector3(tangents[idx].x, 0, tangents[idx].y)
+		area.transform = Transform3D(Basis.looking_at(-tan3, Vector3.UP), Vector3(pts[idx].x, 3.0, pts[idx].y))
+		area.body_entered.connect(timer.on_gate.bind(g))
+		add_child(area)
+	timer.set("gate_count", gate_count)
+	timer.set("track_length_m", dist[count - 1])
 
 # --- 6. DRIFT ARENA & GYMKHANA (East Sector) ---
 func _build_drift_arena() -> void:
@@ -605,6 +748,7 @@ func _create_hill(center: Vector3, radius: float, height: float, mat: Material, 
 
 	var body := StaticBody3D.new()
 	body.position = center
+	body.set_meta("surface", _surface_for(mat))
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.mesh = st.commit()
 	mesh_inst.material_override = mat

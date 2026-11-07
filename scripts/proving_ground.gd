@@ -16,6 +16,7 @@ var time_quarter_mile: float = 0.0
 var speed_quarter_mile: float = 0.0
 
 var top_speed_record: float = 0.0
+var _last_pos: Vector3 = Vector3.ZERO
 
 # Jump Tracking
 var is_in_air: bool = false
@@ -32,6 +33,13 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if vehicle == null:
 		return
+
+	# Teleport / reset (car jumped > 30 m in one step): drop measurements in progress
+	if vehicle.global_position.distance_to(_last_pos) > 30.0:
+		is_measuring_accel = false
+		is_measuring_quarter_mile = false
+		is_in_air = false
+	_last_pos = vehicle.global_position
 
 	_track_acceleration(delta)
 	_track_jumps(delta)
@@ -107,3 +115,15 @@ func _update_stats_display() -> void:
 400m Süresi: %s
 Son Atlama : %s
 Maks Hız   : %3.0f km/s""" % [t_0_100_str, t_qm_str, jump_str, top_speed_record]
+
+	# Race circuit lap times
+	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
+	if timer:
+		var lt = timer.get_script()
+		var car_type: int = int(vehicle.get("current_vehicle_type"))
+		var cur: String = lt.fmt(timer.current_time) if timer.running else "--:--.--"
+		label_records.text += "\n\n[ YARIŞ PİSTİ ]\nTur        : %s\nSon Tur    : %s%s\nEn İyi Tur : %s" % [
+			cur, lt.fmt(timer.last_lap), "  ★ REKOR!" if timer.last_lap_was_record and timer.last_lap > 0.0 else "",
+			lt.fmt(timer.best_for(car_type))]
+		if timer.invalid_message_timer > 0.0:
+			label_records.text += "\n⚠ Tur geçersiz (kapı atlandı)"

@@ -13,6 +13,15 @@ var camera_scale: float = 1.0
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
 # Pedal positions 0..1 as the driver presses them (HUD), and the tail-light materials
+# Tyre grip per surface. Road tyres: great on tarmac, poor on loose ground.
+# Off-road tyres (Trophy Truck, monster truck): a bit less on tarmac, far better off-road.
+const SURFACE_GRIP_ROAD: Dictionary = {"asphalt": 1.0, "concrete": 0.95, "kerb": 0.92, "dirt": 0.68, "grass": 0.6, "sand": 0.5}
+const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "kerb": 0.88, "dirt": 0.95, "grass": 0.85, "sand": 0.8}
+# Extra rolling resistance (fraction of wheel load) on soft ground
+const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
+var offroad_tires: bool = false
+var wheel_surface: Array[String] = ["asphalt", "asphalt", "asphalt", "asphalt"]
+var input_blocked: bool = false # true while the garage menu is open (car parks itself)
 var steer_sensitivity: float = 1.0 # how fast the wheel turns with keys (Settings)
 var joy_deadzone: float = 0.08 # gamepad stick dead zone (Settings)
 var pedal_throttle: float = 0.0
@@ -425,6 +434,7 @@ func _apply_body_geometry(type: VehicleType) -> void:
 	var chassis_col := get_node_or_null("CollisionChassis") as CollisionShape3D
 	var cabin_col := get_node_or_null("CollisionCabin") as CollisionShape3D
 	var tire_width_scale: float = 1.0
+	offroad_tires = type == VehicleType.TROPHY_TRUCK or type == VehicleType.MONSTER_TRUCK
 
 	if type == VehicleType.MONSTER_TRUCK:
 		wheel_offsets = [Vector3(-1.5, 0.0, 1.85), Vector3(1.5, 0.0, 1.85), Vector3(-1.5, 0.0, -1.85), Vector3(1.5, 0.0, -1.85)]
@@ -1158,8 +1168,11 @@ func _read_inputs(delta: float) -> void:
 		# rescale so steering starts smoothly at the edge of the dead zone
 		raw_steer = -signf(joy_steer) * (absf(joy_steer) - joy_deadzone) / (1.0 - joy_deadzone)
 
+	if input_blocked:
+		raw_steer = 0.0
+
 	# Turbo Boost (rebindable key, or gamepad left stick click)
-	if Input.is_action_pressed("turbo") or Input.is_joy_button_pressed(0, JOY_BUTTON_LEFT_STICK):
+	if not input_blocked and (Input.is_action_pressed("turbo") or Input.is_joy_button_pressed(0, JOY_BUTTON_LEFT_STICK)):
 		trigger_turbo_boost()
 
 	var speed_mps: float = linear_velocity.length()
@@ -1191,6 +1204,12 @@ func _read_inputs(delta: float) -> void:
 	# Keyboard & Gamepad Handbrake
 	var raw_handbrake: float = 0.0
 	if Input.is_action_pressed("handbrake") or Input.is_joy_button_pressed(0, JOY_BUTTON_B) or Input.is_joy_button_pressed(0, JOY_BUTTON_A):
+		raw_handbrake = 1.0
+
+	# Garage menu open: park the car (no throttle, brakes + handbrake on)
+	if input_blocked:
+		raw_throttle = 0.0
+		raw_brake = 0.0
 		raw_handbrake = 1.0
 
 	_handbrake_input = raw_handbrake
@@ -1225,6 +1244,9 @@ func _read_inputs(delta: float) -> void:
 	else:
 		_throttle_input = raw_throttle
 		_brake_input = raw_brake
+	if input_blocked:
+		_throttle_input = 0.0
+		_brake_input = 1.0
 
 func _engage_gear_now(g: int) -> void:
 	current_gear = g
@@ -1523,7 +1545,14 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var slip_ratio_lat: float = clampf(lateral_vel / maxf(absf(forward_vel) + 1.0, 1.0), -2.0, 2.0)
 			wheel_slip_lateral[i] = slip_ratio_lat
 
-			var grip_mult: float = tire_grip_factor
+			# Surface under this wheel (tagged on the map's bodies): grip & rolling drag depend on it
+			var surface: String = "asphalt"
+			var hit_obj: Object = result.get("collider")
+			if hit_obj and hit_obj.has_meta("surface"):
+				surface = str(hit_obj.get_meta("surface"))
+			wheel_surface[i] = surface
+			var surf_table: Dictionary = SURFACE_GRIP_OFFROAD if offroad_tires else SURFACE_GRIP_ROAD
+			var grip_mult: float = tire_grip_factor * float(surf_table.get(surface, 1.0))
 			if is_handbrake_active and i >= 2:
 				grip_mult *= 0.30
 
@@ -1581,6 +1610,9 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 				var scale_f: float = total_grip / combined
 				long_mag *= scale_f
 				lateral_force = lateral_force * scale_f
+			# Soft ground (grass, dirt, sand) drags the tyre back: extra rolling resistance
+			var rr: float = float(SURFACE_ROLLING_DRAG.get(surface, 0.0)) * (0.5 if offroad_tires else 1.0)
+			long_mag -= rr * normal_force * clampf(forward_vel, -1.0, 1.0)
 			var longitudinal_force: Vector3 = wheel_forward * long_mag
 
 			# Apply normal spring force upward at axle mount
@@ -1673,6 +1705,24 @@ func _update_wheel_visuals(delta: float) -> void:
 	# Tail lights: dim running lights, brighter the harder the brake pedal is pressed
 	for m in _brake_light_mats:
 		m.emission_energy_multiplier = 1.2 + 7.0 * _brake_input
+
+# Place the car on the ground at a map location, facing yaw_deg (0 = +Z), standing still.
+func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
+	var up_probe := PhysicsRayQueryParameters3D.create(ground_pos + Vector3.UP * 60.0, ground_pos + Vector3.DOWN * 20.0)
+	up_probe.exclude = [get_rid()]
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(up_probe)
+	var ground_y: float = hit.position.y if hit else ground_pos.y
+	global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_deg)), Vector3(ground_pos.x, ground_y + tire_radius + suspension_rest_length + 0.15, ground_pos.z))
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	current_rpm = idle_rpm
+	_engage_gear_now(2)
+	for i in range(4):
+		wheel_angular_velocity[i] = 0.0
+		_prev_raw_compression[i] = 0.0
+	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
+	if timer:
+		timer.cancel()
 
 func reset_vehicle() -> void:
 	global_transform = _initial_transform
