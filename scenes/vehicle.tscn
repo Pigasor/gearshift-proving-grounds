@@ -1,0 +1,107 @@
+[gd_scene load_steps=9 format=3 uid="uid://c8vehicle004"]
+
+[ext_resource type="Script" path="res://scripts/vehicle_controller.gd" id="1_controller"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_car"]
+friction = 0.5
+bounce = 0.02
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_chassis"]
+size = Vector3(1.76, 0.36, 4.15)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_cabin"]
+size = Vector3(1.36, 0.42, 1.7)
+
+[sub_resource type="StandardMaterial3D" id="Mat_Tire"]
+albedo_color = Color(0.12, 0.12, 0.13, 1)
+roughness = 0.88
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tire"]
+material = SubResource("Mat_Tire")
+top_radius = 0.32
+bottom_radius = 0.32
+height = 0.26
+radial_segments = 28
+
+[sub_resource type="StandardMaterial3D" id="Mat_Rim"]
+albedo_color = Color(0.92, 0.93, 0.95, 1)
+metallic = 0.92
+roughness = 0.12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_rim"]
+material = SubResource("Mat_Rim")
+top_radius = 0.22
+bottom_radius = 0.22
+height = 0.25
+radial_segments = 20
+
+[node name="Vehicle" type="RigidBody3D"]
+mass = 1380.0
+physics_material_override = SubResource("PhysicsMaterial_car")
+center_of_mass_mode = 1
+center_of_mass = Vector3(0, -0.18, 0)
+linear_damp = 0.02
+angular_damp = 3.2
+script = ExtResource("1_controller")
+
+[node name="CollisionChassis" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12, 0)
+shape = SubResource("BoxShape3D_chassis")
+
+[node name="CollisionCabin" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.48, -0.2)
+shape = SubResource("BoxShape3D_cabin")
+
+[node name="VisualModel" type="Node3D" parent="."]
+
+[node name="WheelFL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.86, 0, 1.32)
+
+[node name="RollNode" type="Node3D" parent="WheelFL"]
+
+[node name="TireMesh" type="MeshInstance3D" parent="WheelFL/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_tire")
+
+[node name="RimMesh" type="MeshInstance3D" parent="WheelFL/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_rim")
+
+[node name="WheelFR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.86, 0, 1.32)
+
+[node name="RollNode" type="Node3D" parent="WheelFR"]
+
+[node name="TireMesh" type="MeshInstance3D" parent="WheelFR/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_tire")
+
+[node name="RimMesh" type="MeshInstance3D" parent="WheelFR/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_rim")
+
+[node name="WheelRL" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, 0, -1.32)
+
+[node name="RollNode" type="Node3D" parent="WheelRL"]
+
+[node name="TireMesh" type="MeshInstance3D" parent="WheelRL/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_tire")
+
+[node name="RimMesh" type="MeshInstance3D" parent="WheelRL/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_rim")
+
+[node name="WheelRR" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.88, 0, -1.32)
+
+[node name="RollNode" type="Node3D" parent="WheelRR"]
+
+[node name="TireMesh" type="MeshInstance3D" parent="WheelRR/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_tire")
+
+[node name="RimMesh" type="MeshInstance3D" parent="WheelRR/RollNode"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_rim")

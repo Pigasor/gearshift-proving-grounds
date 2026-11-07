@@ -1,0 +1,648 @@
+[gd_scene load_steps=22 format=3 uid="uid://dmmain003"]
+
+[ext_resource type="Script" path="res://scripts/proving_ground.gd" id="1_ground"]
+[ext_resource type="Script" path="res://scripts/map_builder.gd" id="2_map"]
+[ext_resource type="PackedScene" path="res://scenes/vehicle.tscn" id="3_vehicle"]
+[ext_resource type="Script" path="res://scripts/camera_controller.gd" id="4_camera"]
+[ext_resource type="Script" path="res://scripts/ui_manager.gd" id="5_ui"]
+[ext_resource type="Script" path="res://scripts/audio_synth.gd" id="6_synth"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat_1"]
+sky_top_color = Color(0.24, 0.44, 0.82, 1)
+sky_horizon_color = Color(0.72, 0.8, 0.88, 1)
+ground_bottom_color = Color(0.15, 0.17, 0.19, 1)
+ground_horizon_color = Color(0.65, 0.72, 0.76, 1)
+sun_angle_max = 35.0
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("SkyMat_1")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_color = Color(0.72, 0.78, 0.85, 1)
+tonemap_mode = 2
+tonemap_exposure = 1.05
+glow_enabled = true
+glow_intensity = 0.25
+fog_enabled = true
+fog_light_color = Color(0.72, 0.8, 0.88, 1)
+fog_density = 0.0003
+
+[sub_resource type="BoxShape3D" id="BoxShape_MainFloor"]
+size = Vector3(3400, 2, 3400)
+
+[sub_resource type="StandardMaterial3D" id="Mat_MainFloor"]
+albedo_color = Color(0.11, 0.12, 0.13, 1)
+roughness = 0.92
+
+[sub_resource type="BoxMesh" id="BoxMesh_MainFloor"]
+material = SubResource("Mat_MainFloor")
+size = Vector3(3400, 2, 3400)
+
+[sub_resource type="StyleBoxFlat" id="Style_PanelDark"]
+bg_color = Color(0.06, 0.07, 0.09, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.45, 0.7, 0.6)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 10.0
+
+[sub_resource type="StyleBoxFlat" id="Style_TuningPanel"]
+bg_color = Color(0.04, 0.05, 0.07, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.65, 1, 0.85)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 20.0
+content_margin_top = 18.0
+content_margin_right = 20.0
+content_margin_bottom = 18.0
+
+[sub_resource type="StyleBoxFlat" id="Style_QuickBtn"]
+bg_color = Color(0.12, 0.16, 0.22, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.55, 0.85, 0.8)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="Style_RPM_BG"]
+bg_color = Color(0.1, 0.12, 0.15, 0.8)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="Style_RPM_Fill"]
+bg_color = Color(0.15, 0.75, 1, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="Style_Clutch_Fill"]
+bg_color = Color(0.95, 0.65, 0.1, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="Style_Brake_Fill"]
+bg_color = Color(0.95, 0.18, 0.18, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="Style_Throttle_Fill"]
+bg_color = Color(0.15, 0.88, 0.35, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="Main" type="Node3D" node_paths=PackedStringArray("vehicle")]
+script = ExtResource("1_ground")
+vehicle = NodePath("Vehicle")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 120, 0)
+shadow_enabled = true
+directional_shadow_max_distance = 650.0
+
+[node name="ProvingGroundArena" type="Node3D" parent="."]
+script = ExtResource("2_map")
+
+[node name="Vehicle" parent="." instance=ExtResource("3_vehicle")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -340)
+
+[node name="CameraController" type="Node3D" parent="." node_paths=PackedStringArray("target_vehicle")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -346)
+script = ExtResource("4_camera")
+target_vehicle = NodePath("../Vehicle")
+
+[node name="Camera3D" type="Camera3D" parent="CameraController"]
+current = true
+fov = 75.0
+far = 4000.0
+
+[node name="AudioSynth" type="Node" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("6_synth")
+vehicle = NodePath("../Vehicle")
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="AudioSynth"]
+
+[node name="UIManager" type="CanvasLayer" parent="." node_paths=PackedStringArray("vehicle")]
+script = ExtResource("5_ui")
+vehicle = NodePath("../Vehicle")
+
+[node name="HUD" type="Control" parent="UIManager"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="HBoxContainer" parent="UIManager/HUD"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 18.0
+offset_top = 12.0
+offset_right = -18.0
+offset_bottom = 48.0
+grow_horizontal = 2
+theme_override_constants/separation = 8
+
+[node name="BtnQuickCar" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "🏎️ Apex GT-R (1)"
+
+[node name="BtnQuickTuning" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "🛠️ GARAJ (TAB)"
+
+[node name="BtnQuickGearMode" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "🕹️ OTOMATİK"
+
+[node name="BtnQuickSlowMo" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "⏳ AĞIR ÇEKİM (T)"
+
+[node name="BtnQuickCamera" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "🎥 KAMERA (C)"
+
+[node name="BtnQuickReset" type="Button" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_styles/normal = SubResource("Style_QuickBtn")
+text = "🔄 SIFIRLA (Enter)"
+
+[node name="Spacer" type="Control" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LabelHelp" type="Label" parent="UIManager/HUD/TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.85, 0.95, 0.85)
+theme_override_font_sizes/font_size = 11
+text = "1-6: Araç Seç  |  W/S: Gaz/Fren  |  A/D: Direksiyon  |  SHIFT: Turbo Boost  |  TAB: Garaj  |  ESC: Ayarlar"
+
+[node name="LabelSlowMo" type="Label" parent="UIManager/HUD"]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -160.0
+offset_top = 65.0
+offset_right = 160.0
+offset_bottom = 105.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 0.25, 0.25, 1)
+theme_override_font_sizes/font_size = 24
+text = "⏳ AĞIR ÇEKİM AKTİF (0.2x)"
+horizontal_alignment = 1
+
+[node name="LabelHandbrake" type="Label" parent="UIManager/HUD"]
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -120.0
+offset_right = 100.0
+offset_bottom = -90.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 18
+text = "(P) EL FRENİ ÇEKİLİ"
+horizontal_alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="UIManager/HUD"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -340.0
+offset_top = -260.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="VBoxTelemetry" type="VBoxContainer" parent="UIManager/HUD/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HBoxSpeed" type="HBoxContainer" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+layout_mode = 2
+alignment = 2
+
+[node name="LabelSpeedValue" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxSpeed"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 46
+text = "  0"
+
+[node name="LabelSpeedUnit" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxSpeed"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.7, 0.75, 1)
+theme_override_font_sizes/font_size = 18
+text = " KM/H"
+
+[node name="HBoxGear" type="HBoxContainer" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+layout_mode = 2
+alignment = 2
+
+[node name="LabelGearTitle" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxGear"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 14
+text = "VİTES: "
+
+[node name="LabelGearValue" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxGear"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "[A] 1"
+
+[node name="ProgressRPM" type="ProgressBar" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+theme_override_styles/background = SubResource("Style_RPM_BG")
+theme_override_styles/fill = SubResource("Style_RPM_Fill")
+max_value = 8000.0
+value = 900.0
+show_percentage = false
+
+[node name="LabelRPM" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/ProgressRPM"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "900 RPM"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxPedals" type="HBoxContainer" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ProgressClutch" type="ProgressBar" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxPedals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/fill = SubResource("Style_Clutch_Fill")
+show_percentage = false
+
+[node name="ProgressBrake" type="ProgressBar" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxPedals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/fill = SubResource("Style_Brake_Fill")
+show_percentage = false
+
+[node name="ProgressThrottle" type="ProgressBar" parent="UIManager/HUD/MarginContainer/VBoxTelemetry/HBoxPedals"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/fill = SubResource("Style_Throttle_Fill")
+show_percentage = false
+
+[node name="LabelTurbo" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "TURBO: +0.00 BAR"
+horizontal_alignment = 2
+
+[node name="LabelGForce" type="Label" parent="UIManager/HUD/MarginContainer/VBoxTelemetry"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 11
+text = "G-LAT: +0.00 G  |  G-LONG: +0.00 G"
+horizontal_alignment = 2
+
+[node name="WheelsDisplay" type="Control" parent="UIManager/HUD"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -140.0
+offset_right = 140.0
+offset_bottom = -24.0
+grow_vertical = 0
+
+[node name="VBox" type="VBoxContainer" parent="UIManager/HUD/WheelsDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Label" type="Label" parent="UIManager/HUD/WheelsDisplay/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "SÜSPANSİYON YÜKÜ"
+
+[node name="HBoxFront" type="HBoxContainer" parent="UIManager/HUD/WheelsDisplay/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="WheelFL" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxFront"]
+layout_mode = 2
+size_flags_horizontal = 3
+fill_mode = 3
+show_percentage = false
+
+[node name="WheelFR" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxFront"]
+layout_mode = 2
+size_flags_horizontal = 3
+fill_mode = 3
+show_percentage = false
+
+[node name="HBoxRear" type="HBoxContainer" parent="UIManager/HUD/WheelsDisplay/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="WheelRL" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxRear"]
+layout_mode = 2
+size_flags_horizontal = 3
+fill_mode = 3
+show_percentage = false
+
+[node name="WheelRR" type="ProgressBar" parent="UIManager/HUD/WheelsDisplay/VBox/HBoxRear"]
+layout_mode = 2
+size_flags_horizontal = 3
+fill_mode = 3
+show_percentage = false
+
+[node name="TuningPanel" type="PanelContainer" parent="UIManager"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -300.0
+offset_right = 280.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("Style_TuningPanel")
+
+[node name="MarginContainer" type="MarginContainer" parent="UIManager/TuningPanel"]
+layout_mode = 2
+
+[node name="VBoxTuning" type="VBoxContainer" parent="UIManager/TuningPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LabelTitle" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 0.7, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "🛠️ MEKANİK VE AYAR GARAJI"
+horizontal_alignment = 1
+
+[node name="Grid" type="GridContainer" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="Label0" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Araba Modeli:"
+
+[node name="OptionCarSelect" type="OptionButton" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+
+[node name="Empty0" type="Control" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+
+[node name="Label1" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Motor Gücü:"
+
+[node name="SliderHP" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+size_flags_vertical = 4
+min_value = 180.0
+max_value = 1000.0
+step = 10.0
+value = 480.0
+
+[node name="LabelHPVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "480 HP"
+
+[node name="Label2" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Turbo Basıncı:"
+
+[node name="SliderTurbo" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+max_value = 2.5
+step = 0.1
+value = 1.4
+
+[node name="LabelTurboVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "1.4 BAR"
+
+[node name="Label3" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Yay Sertliği:"
+
+[node name="SliderSuspStiff" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+min_value = 15000.0
+max_value = 65000.0
+step = 1000.0
+value = 36000.0
+
+[node name="LabelSuspStiffVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "36000 N/m"
+
+[node name="Label4" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Sönümleme:"
+
+[node name="SliderSuspDamp" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+min_value = 1000.0
+max_value = 7000.0
+step = 200.0
+value = 3500.0
+
+[node name="LabelSuspDampVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "3500 Ns/m"
+
+[node name="Label5" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Ön Kamber:"
+
+[node name="SliderCamber" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+min_value = -6.0
+max_value = 1.0
+step = 0.2
+value = -2.5
+
+[node name="LabelCamberVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "-2.5°"
+
+[node name="Label6" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Lastik Tutuşu:"
+
+[node name="SliderGrip" type="HSlider" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+size_flags_vertical = 4
+min_value = 0.6
+max_value = 1.6
+step = 0.05
+value = 1.15
+
+[node name="LabelGripVal" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "1.15"
+
+[node name="Label7" type="Label" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+text = "Çekiş Sistemi:"
+
+[node name="OptionDrivetrain" type="OptionButton" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+
+[node name="Empty" type="Control" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid"]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning"]
+layout_mode = 2
+
+[node name="GridAssists" type="HBoxContainer" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="CheckABS" type="CheckBox" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists"]
+layout_mode = 2
+button_pressed = true
+text = "ABS Fren"
+
+[node name="CheckTCS" type="CheckBox" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists"]
+layout_mode = 2
+text = "TCS Çekiş Kontrol"
+
+[node name="CheckAutoTrans" type="CheckBox" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists"]
+layout_mode = 2
+button_pressed = true
+text = "Otomatik Vites"
+
+[node name="BtnCloseTuning" type="Button" parent="UIManager/TuningPanel/MarginContainer/VBoxTuning"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+text = "Ayarları Kapat & Sürüşe Dön (TAB)"
+
+[node name="CanvasLayerStats" type="CanvasLayer" parent="."]
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayerStats"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -270.0
+offset_top = 60.0
+offset_right = -18.0
+offset_bottom = 195.0
+grow_horizontal = 0
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayerStats/Margin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("Style_PanelDark")
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayerStats/Margin/Panel"]
+layout_mode = 2
+
+[node name="LabelRecords" type="Label" parent="CanvasLayerStats/Margin/Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "[ TEST SAHASI TELEMETRİSİ ]
+0-100 km/s : --
+400m Süresi: --
+Son Atlama : --
+Maks Hız   :   0 km/s"
+
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickCar" to="UIManager" method="_on_btn_quick_car_pressed"]
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickTuning" to="UIManager" method="_on_btn_quick_tuning_pressed"]
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickGearMode" to="UIManager" method="_on_btn_quick_gear_mode_pressed"]
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickSlowMo" to="UIManager" method="_on_btn_quick_slowmo_pressed"]
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickCamera" to="UIManager" method="_on_btn_quick_camera_pressed"]
+[connection signal="pressed" from="UIManager/HUD/TopBar/BtnQuickReset" to="UIManager" method="_on_btn_quick_reset_pressed"]
+[connection signal="item_selected" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/OptionCarSelect" to="UIManager" method="_on_option_car_select_item_selected"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderHP" to="UIManager" method="_on_slider_hp_value_changed"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderTurbo" to="UIManager" method="_on_slider_turbo_value_changed"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderSuspStiff" to="UIManager" method="_on_slider_susp_stiff_value_changed"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderSuspDamp" to="UIManager" method="_on_slider_susp_damp_value_changed"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderCamber" to="UIManager" method="_on_slider_camber_value_changed"]
+[connection signal="value_changed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/SliderGrip" to="UIManager" method="_on_slider_grip_value_changed"]
+[connection signal="item_selected" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/Grid/OptionDrivetrain" to="UIManager" method="_on_option_drivetrain_item_selected"]
+[connection signal="toggled" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists/CheckABS" to="UIManager" method="_on_check_abs_toggled"]
+[connection signal="toggled" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists/CheckTCS" to="UIManager" method="_on_check_tcs_toggled"]
+[connection signal="toggled" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/GridAssists/CheckAutoTrans" to="UIManager" method="_on_check_auto_trans_toggled"]
+[connection signal="pressed" from="UIManager/TuningPanel/MarginContainer/VBoxTuning/BtnCloseTuning" to="UIManager" method="_on_btn_close_tuning_pressed"]

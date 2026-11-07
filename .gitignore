@@ -1,0 +1,20 @@
+# Godot editor cache (regenerated automatically)
+.godot/
+
+# Godot engine binaries & downloads (not part of the game; too large for GitHub)
+Godot_v*.exe
+*.zip
+bin/
+
+# Exported builds
+export/
+builds/
+*.pck
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+.vscode/
+.idea/
