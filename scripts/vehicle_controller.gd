@@ -117,6 +117,7 @@ var clutch_pedal: float = 0.0
 var current_speed_kmh: float = 0.0
 var turbo_boost_bar: float = 0.0
 var is_limiter_active: bool = false
+var limiter_zone: bool = false # pedal down with the revs at the limiter (any gear): the sound is the limiter
 var wheel_compression: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var wheel_angular_velocity: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var wheel_slip_lateral: Array[float] = [0.0, 0.0, 0.0, 0.0]
@@ -145,6 +146,7 @@ var _auto_clutch: float = 0.0 # 0..1 engagement of the game's automatic clutch (
 var _tc_mult: float = 1.0 # torque converter multiplication
 var _prev_clutch_rpm: float = 900.0
 var _since_upshift: float = 10.0
+var _dir_change_armed: bool = true # auto box: may switch D<->R with the next pedal press
 var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
 var _previous_linear_velocity: Vector3 = Vector3.ZERO
@@ -303,15 +305,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == int(wheel_cfg.get("shift_down_btn", -1)):
 			shift_down()
 
-	# Gamepad Button Support
-	elif event is InputEventJoypadButton and event.pressed:
+	# Gamepad Button Support (A/B = handbrake, turbo = left stick click)
+	elif event is InputEventJoypadButton and event.pressed and not _is_wheel_device(event.device):
 		match event.button_index:
 			JOY_BUTTON_RIGHT_SHOULDER: # RB
 				shift_up()
 			JOY_BUTTON_LEFT_SHOULDER: # LB
 				shift_down()
-			JOY_BUTTON_A: # A button nitro
-				trigger_turbo_boost()
+			JOY_BUTTON_DPAD_DOWN:
+				toggle_slow_mo()
 			JOY_BUTTON_Y: # Triangle / Y
 				reset_vehicle()
 			JOY_BUTTON_BACK: # Select
@@ -1482,14 +1484,20 @@ func _read_inputs(delta: float) -> void:
 	# Automatic gearbox direction logic (forward is +Z).
 	if is_automatic:
 		var forward_speed: float = linear_velocity.dot(global_transform.basis.z)
+		# Braking to a stop keeps the car stopped (brake held = car held). Only a NEW press of the
+		# pedal once standing (both pedals released in between) selects the other direction.
+		if absf(forward_speed) > 1.5:
+			_dir_change_armed = false
+		elif absf(forward_speed) < 0.5 and raw_brake < 0.1 and raw_throttle < 0.1:
+			_dir_change_armed = true
 		if current_gear >= 2:
-			# Stopped and holding S -> reverse. Rolling backwards (e.g. couldn't make it up a hill)
-			# -> the gearbox follows the car into R instead of staying in 1st.
+			# Stopped and pressing S again -> reverse. Rolling backwards (e.g. couldn't make it up a
+			# hill) -> the gearbox follows the car into R instead of staying in 1st.
 			# (Only at low speed - a car that spins round in a slide must not drop into R.)
-			if (forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1) or (forward_speed < -1.2 and forward_speed > -6.0):
+			if (_dir_change_armed and forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1) or (forward_speed < -1.2 and forward_speed > -6.0):
 				_engage_gear_now(0)
 		elif current_gear == 0:
-			if (forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1) or (forward_speed > 1.2 and forward_speed < 6.0):
+			if (_dir_change_armed and forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1) or (forward_speed > 1.2 and forward_speed < 6.0):
 				_engage_gear_now(2)
 		elif current_gear == 1: # neutral in auto mode: pick a direction from the pedals
 			if raw_throttle > 0.2:
@@ -1667,6 +1675,7 @@ func _update_drivetrain(delta: float) -> void:
 		_limiter_timer -= delta
 		if _limiter_timer <= 0.0:
 			is_limiter_active = false
+	limiter_zone = _throttle_input > 0.3 and current_rpm >= limiter_rpm - 80.0
 
 	# Turbo Boost (Shift Key) Timer & Cooldown Update
 	if turbo_boost_active:
@@ -1861,7 +1870,7 @@ func _get_engine_torque_nm() -> float:
 	# smoothly over the last 250 rpm, so the car holds its top speed steadily instead of bouncing
 	# off the hard cut forever (limiter crackle - full revs - limiter ...).
 	if current_gear == gear_ratios.size() - 1 and throttle >= 0.05:
-		throttle *= clampf((limiter_rpm - current_rpm) / 250.0, 0.0, 1.0)
+		throttle *= clampf((limiter_rpm + 20.0 - current_rpm) / 60.0, 0.0, 1.0) # holds the revs right at the limiter
 		if throttle < 0.05:
 			return 0.0
 	if throttle < 0.05:
@@ -1957,6 +1966,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		gear_mult = 0.0 # a slipping clutch doesn't tie the engine's inertia to the wheels
 	var engine_share: float = engine_inertia * gear_mult * gear_mult / float(maxi(n_driven, 1))
 	var speed_now: float = linear_velocity.length()
+	# How many grounded wheels are braking (they share the job of holding the car)
+	var n_braked: int = 0
+	for i in range(4):
+		if wheel_is_grounded[i] and (_brake_input > 0.01 or (i >= 2 and _handbrake_input > 0.01) or engine_drag[i] > 0.0):
+			n_braked += 1
 
 	for i in range(4):
 		var r_tyre: float = maxf(tire_radius, 0.05)
@@ -2061,6 +2075,18 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			w_pred = move_toward(w_pred, 0.0, total_brake_torque / inertia * delta) # brakes can stop a wheel, not reverse it
 			# 2) Force the tyre must put on the road to keep the wheel rolling with the road:
 			var fx_needed: float = inertia * (w_pred - w_roll) / (r_tyre * delta)
+			# A wheel the brake has stopped (slow or standing): the brake must hold the CAR, not just
+			# the wheel. Static friction - up to the brake's capacity, then the tyre's grip below -
+			# cancels this wheel's share of the car's motion and of any drive torque, so the car
+			# stops and stays put, also on a ramp. (Before, only the force to stop the light wheel
+			# itself was used, so at low speed the brakes and the handbrake did almost nothing.)
+			if total_brake_torque > 0.0 and absf(w_pred) < 0.001:
+				var brake_cap: float = total_brake_torque / r_tyre
+				var drive_f: float = drive_torques[i] / r_tyre
+				var stop_f: float = mass * forward_vel / delta / float(maxi(n_braked, 1))
+				var hold_f: float = drive_f + clampf(-(stop_f + drive_f), -brake_cap, brake_cap)
+				if absf(hold_f) > absf(fx_needed):
+					fx_needed = hold_f
 			var long_mag: float = 0.0
 			if absf(fx_needed) <= long_room:
 				long_mag = fx_needed # tyre grips: wheel rolls with the road

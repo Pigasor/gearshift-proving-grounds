@@ -30,7 +30,7 @@ Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatab
 | Shift | Turbo boost |
 | E / Q | Vites yükselt / düşür (manuel) |
 | G | Otomatik / manuel şanzıman |
-| M | Büyük harita (oyun durur; tıklanan yere ışınlanma) |
+| M | Büyük harita (oyun durur; çift tıklanan yere ışınlanma) |
 | N | Mini harita yakın / geniş |
 | C | Kamera |
 | T | Ağır çekim |

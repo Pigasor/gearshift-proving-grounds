@@ -85,7 +85,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_tuning", false, true):
 		toggle_tuning_panel()
 	elif event is InputEventJoypadButton and event.pressed:
-		if event.button_index == JOY_BUTTON_DPAD_RIGHT:
+		if event.button_index == JOY_BUTTON_DPAD_UP:
+			toggle_tuning_panel()
+		elif event.button_index == JOY_BUTTON_DPAD_RIGHT:
 			_cycle_next_car()
 		elif event.button_index == JOY_BUTTON_DPAD_LEFT:
 			_cycle_prev_car()
@@ -125,7 +127,7 @@ func _update_hud() -> void:
 			label_gear.text = mode_prefix + str(vehicle.current_gear - 1)
 			label_gear.modulate = Color(0.2, 0.85, 1.0)
 
-	btn_quick_gear_mode.text = "🕹️ " + tr("OTOMATİK" if vehicle.is_automatic else "MANUEL (F/V)")
+	_update_control_hints()
 
 	# Current vehicle button label
 	btn_quick_car.text = "🚗 " + CarDatabase.display_name(int(vehicle.current_vehicle_type), int(vehicle.current_engine_index))
@@ -326,3 +328,41 @@ func _on_btn_quick_reset_pressed() -> void:
 
 func _on_btn_close_tuning_pressed() -> void:
 	toggle_tuning_panel()
+
+# ---------------- Control hints for the device in use ----------------
+# The top-bar buttons and the help line show the controls of whatever the player is using right
+# now (keyboard - with their own key bindings -, gamepad or steering wheel).
+func _key(action: String) -> String:
+	var keys: Array = GameSettings.bindings.get(action, [])
+	return GameSettings.key_name(keys[0]) if keys.size() > 0 else "—"
+
+func _update_control_hints() -> void:
+	var dev: String = GameSettings.input_device
+	var help := get_node_or_null("HUD/LabelHelp") as Label
+	var garage: String
+	var slowmo: String
+	var cam: String
+	var reset: String
+	var gears: String
+	match dev:
+		"gamepad":
+			garage = "D-pad ▲"; slowmo = "D-pad ▼"; cam = "X"; reset = "Y"; gears = "RB/LB"
+			if help:
+				help.text = tr("RT/LT: Gaz/Fren  |  Sol çubuk: Direksiyon  |  A/B: El freni  |  RB/LB: Vites  |  L3: Turbo  |  Select: Oto/Manuel  |  D-pad ▲: Garaj  |  D-pad ◀▶: Araç  |  Start: Ayarlar")
+		_:
+			garage = _key("toggle_tuning"); slowmo = _key("slow_mo"); cam = _key("camera_view"); reset = _key("reset_car")
+			gears = "%s/%s" % [_key("gear_up"), _key("gear_down")]
+			if dev == "wheel":
+				var cfg: Dictionary = GameSettings.wheel_config()
+				gears = "H" if int(cfg.get("h1_btn", -1)) >= 0 else tr("Kulakçık")
+				if help:
+					help.text = tr("Pedallar: Gaz / Fren / Debriyaj  |  Kulakçık / H kolu: Vites  |  %s: Garaj  |  %s: Büyük harita  |  ESC: Ayarlar") % [garage, _key("full_map")]
+			elif help:
+				help.text = tr("%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  ESC: Ayarlar") % [
+					_key("throttle"), _key("brake"), _key("steer_left"), _key("steer_right"), _key("handbrake"), _key("turbo"),
+					gears, _key("toggle_transmission"), garage, _key("minimap"), _key("full_map")]
+	btn_quick_tuning.text = tr("🛠️ GARAJ (%s)") % garage
+	btn_quick_slowmo.text = tr("⏳ AĞIR ÇEKİM (%s)") % slowmo
+	btn_quick_camera.text = tr("🎥 KAMERA (%s)") % cam
+	btn_quick_reset.text = tr("🔄 SIFIRLA (%s)") % reset
+	btn_quick_gear_mode.text = "🕹️ " + (tr("OTOMATİK") if vehicle.is_automatic else tr("MANUEL (%s)") % gears)

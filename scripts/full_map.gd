@@ -1,7 +1,7 @@
 extends CanvasLayer
 # Big map (M): the whole proving ground seen from above, north up. The game pauses while it is
 # open (nothing happens to the car while you look around).
-#   Left click  - teleport the car there (and close the map)
+#   Double click - teleport the car there (and close the map)
 #   Mouse wheel - zoom, right/middle drag - pan, M / ESC - close
 # The top-down view is rendered by an orthographic camera in a SubViewport that only exists while
 # the map is open, so it costs nothing while driving.
@@ -64,7 +64,7 @@ func _ready() -> void:
 	title.position = Vector2(24, 16)
 	_root.add_child(title)
 	_hint = Label.new()
-	_hint.text = "Sol tık: oraya ışınlan   ·   Tekerlek: yakınlaştır   ·   Sağ tık sürükle: kaydır   ·   M / ESC: kapat"
+	_hint.text = "Çift tık: oraya ışınlan   ·   Tekerlek: yakınlaştır   ·   Sağ tık sürükle: kaydır   ·   M / ESC: kapat"
 	_hint.add_theme_font_size_override("font_size", 15)
 	_hint.add_theme_color_override("font_color", Color(0.75, 0.82, 0.92))
 	_hint.anchor_top = 1.0
@@ -172,7 +172,8 @@ func _on_map_input(event: InputEvent) -> void:
 				_center += before - after
 				_update_camera()
 			MOUSE_BUTTON_LEFT:
-				_teleport_to(_screen_to_world(mouse))
+				if event.double_click: # double click so a stray click never moves the car
+					_teleport_to(_screen_to_world(mouse))
 			MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
 				_dragging = true
 	elif event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
@@ -224,7 +225,7 @@ func _draw_overlay() -> void:
 	if r.has_point(m):
 		_overlay.draw_circle(m, 6.0, Color(1, 1, 1, 0.5))
 		var wp: Vector2 = _screen_to_world(m)
-		_overlay.draw_string(font, m + Vector2(12, -10), tr("ışınlan (%.0f, %.0f)") % [wp.x, wp.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
+		_overlay.draw_string(font, m + Vector2(12, -10), tr("çift tık: ışınlan (%.0f, %.0f)") % [wp.x, wp.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
 	# scale bar (always 100 m / 500 m)
 	var bar_m: float = 500.0 if _span > 1200.0 else 100.0
 	var bar_px: float = bar_m / _span * r.size.x

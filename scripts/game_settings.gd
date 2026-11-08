@@ -339,3 +339,26 @@ func current_language() -> String:
 
 func apply_language() -> void:
 	TranslationServer.set_locale(current_language())
+
+# ---------------- Active input device ----------------
+# Which controls the player is using right now, so the HUD shows the matching hints:
+# "keyboard", "gamepad" or "wheel". Switches on the first real input from another device.
+signal input_device_changed(device: String)
+var input_device: String = "keyboard"
+
+func _input(event: InputEvent) -> void:
+	var dev: String = ""
+	if event is InputEventKey and event.pressed:
+		dev = "keyboard"
+	elif event is InputEventJoypadButton and event.pressed:
+		dev = _joy_kind(event.device)
+	elif event is InputEventJoypadMotion and absf(event.axis_value) > 0.5:
+		dev = _joy_kind(event.device)
+	if dev != "" and dev != input_device:
+		input_device = dev
+		input_device_changed.emit(dev)
+
+func _joy_kind(device: int) -> String:
+	if bool(get_value("wheel_enabled")) and device == int(get_value("wheel_device")):
+		return "wheel"
+	return "gamepad"

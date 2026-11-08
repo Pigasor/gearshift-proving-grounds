@@ -18,6 +18,18 @@ const EN: Dictionary = {
 	"VİTES: ": "GEAR: ",
 	"OTOMATİK": "AUTOMATIC",
 	"MANUEL (F/V)": "MANUAL (F/V)",
+	"MANUEL (%s)": "MANUAL (%s)",
+	"🛠️ GARAJ (%s)": "🛠️ GARAGE (%s)",
+	"⏳ AĞIR ÇEKİM (%s)": "⏳ SLOW-MO (%s)",
+	"🎥 KAMERA (%s)": "🎥 CAMERA (%s)",
+	"🔄 SIFIRLA (%s)": "🔄 RESET (%s)",
+	"Kulakçık": "Paddles",
+	"RT/LT: Gaz/Fren  |  Sol çubuk: Direksiyon  |  A/B: El freni  |  RB/LB: Vites  |  L3: Turbo  |  Select: Oto/Manuel  |  D-pad ▲: Garaj  |  D-pad ◀▶: Araç  |  Start: Ayarlar":
+		"RT/LT: Throttle/Brake  |  Left stick: Steer  |  A/B: Handbrake  |  RB/LB: Gears  |  L3: Turbo  |  Select: Auto/Manual  |  D-pad ▲: Garage  |  D-pad ◀▶: Car  |  Start: Settings",
+	"Pedallar: Gaz / Fren / Debriyaj  |  Kulakçık / H kolu: Vites  |  %s: Garaj  |  %s: Büyük harita  |  ESC: Ayarlar":
+		"Pedals: Throttle / Brake / Clutch  |  Paddles / H-shifter: Gears  |  %s: Garage  |  %s: Big map  |  ESC: Settings",
+	"%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  ESC: Ayarlar":
+		"%s/%s: Throttle/Brake  |  %s/%s: Steer  |  %s: Handbrake  |  %s: Turbo  |  %s: Gears  |  %s: Auto/Manual  |  %s: Garage  |  %s: Minimap  |  %s: Big map  |  ESC: Settings",
 	"🔥 TURBO AKTİF! (%1.1fs) +%1.2f BAR": "🔥 TURBO BOOST! (%1.1fs) +%1.2f BAR",
 	"⏳ SOĞUMA: %1.1fs (+%1.2f BAR)": "⏳ COOLDOWN: %1.1fs (+%1.2f BAR)",
 	"⚡ TURBO [SHIFT]: HAZIR (+%1.2f BAR)": "⚡ TURBO [SHIFT]: READY (+%1.2f BAR)",
@@ -59,9 +71,9 @@ const EN: Dictionary = {
 	": Geniş": ": Wide",
 	": Yakın": ": Close",
 	"🗺  HARİTA  —  OYUN DURAKLATILDI": "🗺  MAP  —  GAME PAUSED",
-	"Sol tık: oraya ışınlan   ·   Tekerlek: yakınlaştır   ·   Sağ tık sürükle: kaydır   ·   M / ESC: kapat":
-		"Left click: teleport there   ·   Wheel: zoom   ·   Right-drag: pan   ·   M / ESC: close",
-	"ışınlan (%.0f, %.0f)": "teleport (%.0f, %.0f)",
+	"Çift tık: oraya ışınlan   ·   Tekerlek: yakınlaştır   ·   Sağ tık sürükle: kaydır   ·   M / ESC: kapat":
+		"Double click: teleport there   ·   Wheel: zoom   ·   Right-drag: pan   ·   M / ESC: close",
+	"çift tık: ışınlan (%.0f, %.0f)": "double click: teleport (%.0f, %.0f)",
 	"K": "N",
 	"APRON / PADDOCK": "APRON / PADDOCK",
 	"HANGARLAR": "HANGARS",
@@ -143,8 +155,8 @@ const EN: Dictionary = {
 	"Başlangıç Şanzımanı": "Default Gearbox",
 	"Manuel": "Manual",
 	"Otomatik": "Automatic",
-	"Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık = turbo · X = kamera · Y = başlangıca dön · Select = otomatik/manuel · D-pad ◀▶ = araç · Start = bu menü":
-		"Gamepad: Left stick = steer · RT = throttle · LT = brake · A/B = handbrake · RB/LB = gears · Left stick click = turbo · X = camera · Y = reset · Select = auto/manual · D-pad ◀▶ = car · Start = this menu",
+	"Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık (L3) = turbo · X = kamera · Y = başlangıca dön · Select = otomatik/manuel · D-pad ▲ = garaj · D-pad ▼ = ağır çekim · D-pad ◀▶ = araç · Start = bu menü":
+		"Gamepad: Left stick = steer · RT = throttle · LT = brake · A/B = handbrake · RB/LB = gears · Left stick click (L3) = turbo · X = camera · Y = reset · Select = auto/manual · D-pad ▲ = garage · D-pad ▼ = slow-mo · D-pad ◀▶ = car · Start = this menu",
 	"Eylem": "Action",
 	"Birincil Tuş": "Primary Key",
 	"İkincil Tuş": "Secondary Key",

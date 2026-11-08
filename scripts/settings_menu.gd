@@ -305,7 +305,7 @@ func _build_tabs() -> void:
 	_add_slider(k, "Kamera Fare Hassasiyeti", "mouse_sensitivity", 0.001, 0.010, 0.0005, 1000.0, "")
 	_add_check(k, "Kamera Dikey Eksenini Ters Çevir", "invert_camera_y")
 	_add_option(k, "Başlangıç Şanzımanı", "default_automatic", ["Manuel", "Otomatik"])
-	_note(k, "Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık = turbo · X = kamera · Y = başlangıca dön · Select = otomatik/manuel · D-pad ◀▶ = araç · Start = bu menü")
+	_note(k, "Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık (L3) = turbo · X = kamera · Y = başlangıca dön · Select = otomatik/manuel · D-pad ▲ = garaj · D-pad ▼ = ağır çekim · D-pad ◀▶ = araç · Start = bu menü")
 	_build_wheel_section(k)
 
 	# ATAMALAR

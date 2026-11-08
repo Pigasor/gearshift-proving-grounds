@@ -34,6 +34,10 @@ var _bov_lp1: float = 0.0
 var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
+var _skid_gain: float = 0.0
+var _skid_lp1: float = 0.0
+var _skid_lp2: float = 0.0
+var _skid_phase: float = 0.0
 
 # --- Engine model state ---
 var _cycle_phase: float = 0.0 # 0..1 over one 4-stroke cycle (720° crank)
@@ -124,7 +128,7 @@ func _physics_process(delta: float) -> void:
 		_overrun_timer -= delta
 
 	# Preserved Limiter Pop timing
-	if vehicle.is_limiter_active and _pop_timer <= 0.0:
+	if (vehicle.is_limiter_active or bool(vehicle.get("limiter_zone"))) and _pop_timer <= 0.0:
 		_pop_timer = 0.07 # Rapid pop bursts
 	if _pop_timer > 0.0:
 		_pop_timer -= delta
@@ -200,13 +204,16 @@ func generate(frames_available: int) -> PackedVector2Array:
 	var bq2: Array = _bq[1]
 	var target_rpm: float = maxf(_smoothed_rpm, 300.0)
 	var target_load: float = _smoothed_throttle
-	var limiter: bool = vehicle.is_limiter_active
+	# On the limiter (or held right at it, e.g. top speed in top gear) it always sounds like the
+	# limiter bouncing - no switching between "limiter" and "max revs" sounds.
+	var limiter: bool = vehicle.is_limiter_active or bool(vehicle.get("limiter_zone"))
 
 	# Tire Skid
 	var max_slip: float = 0.0
 	for i in range(4):
 		max_slip = maxf(max_slip, absf(vehicle.wheel_slip_lateral[i]))
 	var is_skidding: bool = max_slip > 0.28 and vehicle.current_speed_kmh > 12.0
+	var skid_target: float = clampf((max_slip - 0.28) * 1.6, 0.0, 1.0)
 	var is_nitro: bool = vehicle.get("turbo_boost_active") == true
 
 	for i in range(frames_available):
@@ -301,11 +308,16 @@ func generate(frames_available: int) -> PackedVector2Array:
 				_bov_amp = 0.0
 				_bov_env = 0.0
 
-		# Tyre squeal
+		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
+		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
+		_skid_gain += ((skid_target if is_skidding else 0.0) - _skid_gain) * 0.0005
 		var skid_sample: float = 0.0
-		if is_skidding:
-			var skid_intensity: float = clampf((max_slip - 0.28) * 1.6, 0.0, 1.0)
-			skid_sample = noise * skid_intensity * 0.14
+		if _skid_gain > 0.0005:
+			_skid_lp1 += (noise - _skid_lp1) * 0.22
+			_skid_lp2 += (_skid_lp1 - _skid_lp2) * 0.06
+			_skid_phase = fmod(_skid_phase + (880.0 + 120.0 * sin(_skid_phase * 0.0007)) * TAU * dt, TAU * 1000.0)
+			var squeal: float = (_skid_lp1 - _skid_lp2) * 0.8 + sin(_skid_phase) * 0.25
+			skid_sample = squeal * _skid_gain * 0.045
 
 		var mixed: float = clampf(engine_sample + turbo_sample + bov_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
