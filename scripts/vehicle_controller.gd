@@ -45,6 +45,8 @@ var engine_fuel: String = "benzin"
 # Realistic engines (CarDatabase): a real torque curve instead of the legacy hp formula
 const LEGACY_GEARS: Array[float] = [-3.4, 0.0, 3.62, 2.18, 1.54, 1.21, 1.00, 0.81]
 var use_torque_curve: bool = false
+var speed_limit_kmh: float = 0.0 # factory electronic top-speed limiter (0 = none)
+var gearbox_type: String = "tc" # automatic: "tc" torque converter, "dct" dual clutch
 var torque_peak_nm: float = 0.0
 var torque_rpm_from: float = 0.0
 var torque_rpm_to: float = 0.0
@@ -327,9 +329,26 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	var en: Dictionary = CarDatabase.engine(index, engine_index)
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
-		if not en.get("legacy", false):
-			_apply_engine(en)
+		_apply_engine(en)
+		if en.has("mass"):
+			# real kerb weight: scale springs, dampers, anti-roll bars and brakes with it so the
+			# suspension keeps its ride height and character
+			var k: float = float(en["mass"]) / maxf(mass, 1.0)
+			mass = float(en["mass"])
+			spring_stiffness *= k
+			damper_bump *= k
+			damper_rebound *= k
+			anti_roll_stiffness *= k
+			brake_torque_max *= k
+			handbrake_torque_max *= k
+		else:
 			mass += float(en.get("mass_add", 0.0))
+		if c.has("body"):
+			# realistic body for this model, on the legacy chassis' wheel positions
+			var bd: Dictionary = (c["body"] as Dictionary).duplicate()
+			bd["wheelbase"] = absf(wheel_offsets[0].z - wheel_offsets[2].z)
+			bd["track"] = absf(wheel_offsets[0].x - wheel_offsets[1].x)
+			_rebuild_body(bd)
 	else:
 		var old_ride: float = tire_radius + suspension_rest_length
 		_apply_sedan(c, en)
@@ -359,6 +378,14 @@ func _apply_engine(en: Dictionary) -> void:
 	gear_ratios.assign(en["gears"])
 	final_drive_ratio = float(en["final"])
 	current_rpm = idle_rpm
+	speed_limit_kmh = float(en.get("vmax", 0.0))
+	gearbox_type = str(en.get("trans", "tc"))
+	if en.has("drag"):
+		drag_coefficient = float(en["drag"])
+	if en.has("grip"):
+		tire_grip_factor = float(en["grip"])
+	if en.has("shift"):
+		shift_delay_seconds = float(en["shift"])
 	if current_gear >= gear_ratios.size():
 		_engage_gear_now(2)
 
@@ -416,10 +443,19 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 		_prev_raw_compression[i] = 0.0
 	if visual_models_parent == null:
 		visual_models_parent = get_node_or_null("VisualModel") as Node3D
+	_rebuild_body(b)
+
+# Procedural body (BodyBuilder) sitting at the car's real ride height
+func _rebuild_body(b: Dictionary) -> void:
+	if visual_models_parent == null:
+		visual_models_parent = get_node_or_null("VisualModel") as Node3D
 	_clear_car_model()
-	if visual_models_parent:
-		var builder := SedanBuilder.new()
-		_brake_light_mats.append_array(builder.build(visual_models_parent, b, ground_y, tire_radius))
+	if visual_models_parent == null:
+		return
+	var sag: float = mass * 9.81 / 4.0 / maxf(spring_stiffness, 1.0)
+	var ground_y: float = -(tire_radius + suspension_rest_length - sag)
+	var builder := BodyBuilder.new()
+	_brake_light_mats.append_array(builder.build(visual_models_parent, b, ground_y, tire_radius))
 
 # Wheels used to have no collision of their own (raycast suspension), so they sank into walls and
 # platform edges. A cylinder per wheel (a bit smaller than the tyre, at the fully compressed
@@ -447,6 +483,8 @@ func apply_vehicle_preset(type: int) -> void:
 	record_key = type
 	# Values the realistic (database) cars change - restore the legacy defaults
 	use_torque_curve = false
+	speed_limit_kmh = 0.0
+	gearbox_type = "tc"
 	gear_ratios.assign(LEGACY_GEARS)
 	idle_rpm = 900.0
 	turbo_spool_rate = 2.4
@@ -1698,7 +1736,7 @@ func _update_drivetrain(delta: float) -> void:
 		# Full boost from ~4200 rpm (legacy cars) or just before the torque plateau (real engines)
 		var spool_rpm: float = maxf(torque_rpm_from * 0.95, idle_rpm * 1.5) if use_torque_curve else 4200.0
 		var target_boost: float = turbo_max_boost_bar * _throttle_input * clampf(current_rpm / spool_rpm, 0.0, 1.0)
-		if _is_shifting and use_torque_curve:
+		if _is_shifting and use_torque_curve and not (is_automatic and gearbox_type == "dct"): # a DCT shifts without lifting
 			target_boost = 0.0 # throttle closes for the gear change: boost drops and must build again
 		if turbo_boost_active:
 			target_boost = turbo_max_boost_bar + 1.6 # Massive overboost!
@@ -1779,10 +1817,13 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 	var slip: float = current_rpm - w_rpm
 	var cap: float = 0.0 # most torque the clutch can pass right now
 	var eng: float = 1.0
-	if is_automatic:
+	# Automatic with a torque converter - or a dual-clutch box (GT-R, Chiron), which pulls away
+	# on a clutch like the manual one, just with a higher launch speed
+	var use_tc: bool = is_automatic and gearbox_type != "dct"
+	var stall_rpm: float = idle_rpm + (limiter_rpm - idle_rpm) * 0.36
+	if use_tc:
 		# Torque converter: passes torque ~ slip², stalls at ~36% of the rev range at full load,
 		# multiplies torque (up to 2x) while the car is slow, then locks up.
-		var stall_rpm: float = idle_rpm + (limiter_rpm - idle_rpm) * 0.36
 		var k: float = _full_load_torque(stall_rpm) / (stall_rpm * stall_rpm)
 		cap = k * slip * slip
 		var speed_ratio: float = clampf(w_rpm / maxf(current_rpm, 1.0), 0.0, 1.0)
@@ -1797,12 +1838,18 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 			# throttle, and eases off when they drop below it - so the revs flare, dip as the clutch
 			# bites, settle, then rise with the car. Old engines are launched lower (revs may sag
 			# under idle at little throttle); it lets go when stopping so the engine never stalls.
-			var launch: float = idle_rpm * (0.78 if engine_classic else 1.15) + _throttle_input * (limiter_rpm - idle_rpm) * 0.30
+			var launch_frac: float = 0.36 if (is_automatic and gearbox_type == "dct") else 0.30 # DCT launch control revs a bit higher
+			var launch: float = idle_rpm * (0.78 if engine_classic else 1.15) + _throttle_input * (limiter_rpm - idle_rpm) * launch_frac
 			launch = maxf(launch, floor_rpm * 1.03)
 			# look a little ahead: ease off before the revs fall through the launch speed
 			var rpm_ahead: float = current_rpm + (current_rpm - prev_rpm_for_rate) / maxf(delta, 0.001) * 0.15
 			if _throttle_input > 0.05:
-				_auto_clutch += delta * clampf((rpm_ahead - launch) / 400.0, -4.0, 1.2 + _throttle_input)
+				if current_rpm > launch + 1000.0:
+					# far above the launch speed (e.g. a big engine bouncing off the limiter):
+					# just keep feeding the clutch in - the look-ahead would misread the limiter's dips
+					_auto_clutch += delta * (1.2 + _throttle_input) * 1.5
+				else:
+					_auto_clutch += delta * clampf((rpm_ahead - launch) / 400.0, -4.0, 1.2 + _throttle_input)
 				if current_rpm < floor_rpm:
 					_auto_clutch -= delta * 4.0
 				if absf(slip) < 150.0:
@@ -1820,15 +1867,17 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 	# Engine and gearbox speeds meet: lock up if the clutch can hold the engine's torque
 	if slip != 0.0 and signf(new_rpm - w_rpm) != signf(slip):
 		var can_lock: bool = cap >= absf(t_net) * 0.9 and eng > 0.95 and w_rpm >= floor_rpm
-		if is_automatic:
+		if use_tc:
 			can_lock = w_rpm > idle_rpm * 1.25
 		if can_lock:
 			_clutch_slipping = false
 			_clutch_torque = 0.0
 			_tc_mult = 1.0
 		new_rpm = w_rpm
-	elif is_automatic and w_rpm > idle_rpm * 1.25 and slip > 0.0 and w_rpm / maxf(current_rpm, 1.0) > 0.93:
-		_clutch_slipping = false # lock-up clutch closes
+	elif use_tc and w_rpm > idle_rpm * 1.25 and slip > 0.0 and (w_rpm / maxf(current_rpm, 1.0) > 0.93 or w_rpm > stall_rpm * 0.85):
+		# lock-up clutch closes once the car is rolling (it used to wait for a 93% speed ratio,
+		# which never came under full load - the converter kept slipping ~3000 rpm at top speed)
+		_clutch_slipping = false
 		new_rpm = w_rpm
 	current_rpm = maxf(new_rpm, idle_rpm * 0.5)
 
@@ -1866,6 +1915,9 @@ func _get_engine_torque_nm() -> float:
 	# Rev limiter is a real FUEL CUT: no drive torque while it's active (it used to be sound only,
 	# so the car kept accelerating at the limiter in every gear, including reverse).
 	var throttle: float = 0.0 if is_limiter_active else _throttle_input
+	# Factory top-speed limiter: smooth fuel trim over the last few km/h (no limiter crackle)
+	if speed_limit_kmh > 0.0:
+		throttle *= clampf((speed_limit_kmh - current_speed_kmh) / 4.0, 0.0, 1.0)
 	# Top speed in the top gear: like a real ECU's top-speed / soft rev limiter, power fades out
 	# smoothly over the last 250 rpm, so the car holds its top speed steadily instead of bouncing
 	# off the hard cut forever (limiter crackle - full revs - limiter ...).
@@ -1979,14 +2031,13 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		var ray_dir: Vector3 = -up_vec
 		var ray_length: float = suspension_rest_length + suspension_travel + tire_radius
 
-		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(mount_pos, mount_pos + ray_dir * ray_length)
-		query.exclude = [get_rid()]
-		var result: Dictionary = space_state.intersect_ray(query)
+		var result: Dictionary = _wheel_contact(space_state, mount_pos, up_vec, forward_vec, right_vec, ray_length, r_tyre)
 
 		if result:
 			wheel_is_grounded[i] = true
 			wheel_contact_point[i] = result.position
-			var hit_dist: float = (result.position - mount_pos).length() - tire_radius
+			var hit_dist: float = result.hub_dist
+			var n_contact: Vector3 = result.normal # from the contact point to the wheel hub
 			var raw_compression: float = suspension_rest_length - hit_dist
 			var compression: float = clampf(raw_compression, 0.0, suspension_travel)
 			wheel_compression[i] = compression
@@ -2016,6 +2067,10 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var wheel_steer: float = deg_to_rad(_current_steer_angle) if i < 2 else 0.0
 			var wheel_forward: Vector3 = forward_vec.rotated(up_vec, wheel_steer)
 			var wheel_right: Vector3 = right_vec.rotated(up_vec, wheel_steer)
+			# Touching an edge or slope ahead (round tyre): the tyre's driving direction follows the
+			# surface it touches - pushing against a step's face drives the wheel UP it.
+			if n_contact.dot(up_vec) < 0.995:
+				wheel_forward = (wheel_forward - n_contact * wheel_forward.dot(n_contact)).normalized()
 
 			var forward_vel: float = point_vel.dot(wheel_forward)
 			var lateral_vel: float = point_vel.dot(wheel_right)
@@ -2071,6 +2126,14 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# engine braking, braking and lock-up) ---
 			# 1) Engine torque and brakes act on this wheel's own spin.
 			var w_roll: float = forward_vel / r_tyre # spin of a wheel rolling without slip
+			# Traction control, like a real one: never send this wheel more torque than its tyre can
+			# put on the road right now (load x grip, less what cornering already uses). More power
+			# then means more acceleration up to the grip limit - never a power LOSS (the old slip-
+			# based cut threw away up to 90% of the power once a big engine started spinning).
+			if tcs_enabled and _is_driven(i) and drive_torques[i] != 0.0:
+				var t_lim: float = long_room * r_tyre * 1.12
+				if absf(drive_torques[i]) > t_lim:
+					drive_torques[i] = signf(drive_torques[i]) * t_lim
 			var w_pred: float = wheel_angular_velocity[i] + drive_torques[i] / inertia * delta
 			w_pred = move_toward(w_pred, 0.0, total_brake_torque / inertia * delta) # brakes can stop a wheel, not reverse it
 			# 2) Force the tyre must put on the road to keep the wheel rolling with the road:
@@ -2112,7 +2175,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var longitudinal_force: Vector3 = wheel_forward * long_mag
 
 			# Apply normal spring force upward at axle mount
-			apply_force(up_vec * normal_force, mount_pos - global_position)
+			# along the contact normal: straight up on flat ground, up-and-back against an edge
+			apply_force(n_contact * normal_force, mount_pos - global_position)
 
 			# Drive/brake force at the contact patch: gives real weight transfer (rear squats when
 			# accelerating, nose dives when braking). Safe now that it's capped by tyre grip.
@@ -2215,6 +2279,7 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_prev_body_pos = Vector3.INF
+	_dir_change_armed = true
 	current_rpm = idle_rpm
 	_engage_gear_now(2)
 	for i in range(4):
@@ -2230,6 +2295,7 @@ func reset_vehicle() -> void:
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_prev_body_pos = Vector3.INF
+	_dir_change_armed = true
 	current_rpm = idle_rpm
 	_engage_gear_now(2) # also cancels a gear change that was in progress
 	turbo_boost_bar = 0.0
@@ -2248,6 +2314,40 @@ func repair_vehicle() -> void:
 	global_position = current_pos
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+
+# Where does this (round) tyre touch the world? A fan of rays in the wheel's plane (from straight
+# down to 45° forward and back) finds the point that lifts the hub highest. A single straight-down
+# ray only "saw" a kerb, block or ramp once the wheel was on top of it, so the car slammed into
+# their edges; now the tyre rolls up onto them like a real wheel.
+# Returns {} or {position, hub_dist (mount -> hub along -up), normal (contact -> hub), collider}.
+const WHEEL_RAY_ANGLES: Array[float] = [0.0, 0.40, -0.40, 0.78, -0.78] # radians
+func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector3, fwd: Vector3, right: Vector3, length: float, r: float) -> Dictionary:
+	var best: Dictionary = {}
+	var best_s: float = INF
+	for a in WHEEL_RAY_ANGLES:
+		var d: Vector3 = (-up * cos(a) + fwd * sin(a)).normalized()
+		var q := PhysicsRayQueryParameters3D.create(mount, mount + d * (length / maxf(cos(a), 0.5)))
+		q.exclude = [get_rid()]
+		var hit: Dictionary = space.intersect_ray(q)
+		if hit.is_empty():
+			continue
+		var tt: float = (hit.position - mount).length()
+		var side: float = tt * sin(absf(a))
+		if side >= r:
+			continue # passes beside the tyre circle
+		# hub distance at which the circle first touches this point
+		var s: float = tt * cos(a) - sqrt(r * r - side * side)
+		if s < best_s:
+			best_s = s
+			best = {"position": hit.position, "hub_dist": s, "collider": hit.collider}
+	if best.is_empty():
+		return best
+	var hub: Vector3 = mount - up * best_s
+	var n: Vector3 = hub - best.position
+	best["normal"] = n.normalized() if n.length() > 0.01 else up
+	if best["normal"].dot(up) < 0.2:
+		best["normal"] = (best["normal"] + up * 0.2).normalized() # never push the car sideways only
+	return best
 
 # While the clutch / torque converter slips, it can only drag the wheels up to the engine's own
 # speed (through the gearing) - never faster. Without this, spinning or airborne wheels ran away

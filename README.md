@@ -24,7 +24,7 @@ Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatab
 
 | Tuş | Eylem |
 |---|---|
-| W / S | Gaz / Fren (durunca geri vites) |
+| W / S | Gaz / Fren (durduktan sonra S'ye yeniden basınca geri vites) |
 | A / D | Direksiyon |
 | Space | El freni |
 | Shift | Turbo boost |
@@ -39,4 +39,4 @@ Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatab
 
 Tüm tuşlar ayarlar menüsünden değiştirilebilir. Gamepad ve direksiyon seti desteklenir.
 
-Arayüz fontu: [Saira](https://fonts.google.com/specimen/Saira) (SIL Open Font License, onts/OFL.txt).
+Arayüz fontu: [Chakra Petch](https://fonts.google.com/specimen/Chakra+Petch) (SIL Open Font License, `fonts/OFL.txt`).

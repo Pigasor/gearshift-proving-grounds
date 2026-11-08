@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://ct5hvcckifsko"
-path="res://.godot/imported/Saira-Variable.ttf-f7a2e31840e5129635b357f2248619cb.fontdata"
+uid="uid://ntb153ps354d"
+path="res://.godot/imported/ChakraPetch-SemiBold.ttf-f9606a104978c6dc6f8e95fa6c3ccf3a.fontdata"
 
 [deps]
 
-source_file="res://fonts/Saira-Variable.ttf"
-dest_files=["res://.godot/imported/Saira-Variable.ttf-f7a2e31840e5129635b357f2248619cb.fontdata"]
+source_file="res://fonts/ChakraPetch-SemiBold.ttf"
+dest_files=["res://.godot/imported/ChakraPetch-SemiBold.ttf-f9606a104978c6dc6f8e95fa6c3ccf3a.fontdata"]
 
 [params]
 

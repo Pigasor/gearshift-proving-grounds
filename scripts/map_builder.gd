@@ -514,16 +514,17 @@ func _build_drift_arena() -> void:
 func _build_stunt_superpark() -> void:
 	var s_x: float = 150.0
 
-	# Ramp 1: 15° Warmup Kicker (Z: 100)
-	_create_static_box(Vector3(s_x, 1.5, 100), Vector3(16, 0.5, 22), mat_metal_blue, Vector3(15, 0, 0))
-
-	# Ramp 2: 25° High-Flyer Ramp (Z: 250)
-	_create_static_box(Vector3(s_x, 3.8, 250), Vector3(18, 0.6, 32), mat_ramp_orange, Vector3(25, 0, 0))
-
-	# Ramp 3: MEGA CANYON GAP JUMP (Launch at Z: 420, 48m Gap, Landing Ramp at Z: 510)
-	_create_static_box(Vector3(s_x + 55, 7.2, 420), Vector3(20, 0.8, 42), mat_ramp_orange, Vector3(34, 0, 0))
-	_create_static_box(Vector3(s_x + 55, 0.04, 465), Vector3(26, 0.06, 48), mat_sand)
-	_create_static_box(Vector3(s_x + 55, 5.8, 510), Vector3(22, 0.8, 46), mat_metal_blue, Vector3(-22, 0, 0))
+	# All ramps are curved kickers rising towards +Z (the way you arrive from the stunt-park spawn).
+	# They used to be tilted boxes: a hard kink from flat to 15-34° that the car slammed into,
+	# and the first one even faced the wrong way (a 4 m wall).
+	# Ramp 1: 15° warm-up kicker
+	_create_kicker(Vector3(s_x, 0, 80), 1.0, 16.0, 15.0, 2.5, mat_metal_blue)
+	# Ramp 2: 25° high-flyer
+	_create_kicker(Vector3(s_x, 0, 215), 1.0, 18.0, 25.0, 6.0, mat_ramp_orange)
+	# Ramp 3: gap jump - 32° launch, sand pit, curved landing ramp that runs out to the ground
+	_create_kicker(Vector3(s_x + 55, 0, 380), 1.0, 20.0, 32.0, 9.0, mat_ramp_orange)
+	_create_static_box(Vector3(s_x + 55, 0.04, 455), Vector3(26, 0.06, 40), mat_sand)
+	_create_kicker(Vector3(s_x + 55, 0, 545), -1.0, 22.0, 28.0, 8.5, mat_metal_blue)
 	# (The floating wall-ride slab and the odd-angled corkscrew ramp were removed.)
 
 # --- 8. OFF-ROAD & DESERT DUNES PARK (East-North Sector) ---
@@ -547,12 +548,10 @@ func _build_offroad_dunes() -> void:
 	var top_h: float = 3.0
 	var table_len: float = 30.0
 	_create_static_box(tt + Vector3(0, top_h * 0.5, 0), Vector3(20, top_h, table_len), mat_dirt_dunes)
-	var ramp_run: float = 12.0
-	var ramp_ang: float = rad_to_deg(atan2(top_h, ramp_run))
-	var ramp_len: float = sqrt(ramp_run * ramp_run + top_h * top_h) + 0.8
-	for s in [-1.0, 1.0]:
-		var mid_z: float = s * (table_len * 0.5 + ramp_run * 0.5)
-		_create_static_box(tt + Vector3(0, top_h * 0.5 - 0.3, mid_z), Vector3(20, 0.6, ramp_len), mat_dirt_dunes, Vector3(s * ramp_ang, 0, 0))
+	# curved ramps up onto both ends (no hard kink at the bottom)
+	var k_run: float = top_h / tan(deg_to_rad(18.0) * 0.5)
+	_create_kicker(tt + Vector3(0, 0, -table_len * 0.5 - k_run), 1.0, 20.0, 18.0, top_h, mat_dirt_dunes)
+	_create_kicker(tt + Vector3(0, 0, table_len * 0.5 + k_run), -1.0, 20.0, 18.0, top_h, mat_dirt_dunes)
 
 # --- 9. SUSPENSION TEST ZONE (Between Runway and Circuit) ---
 func _build_suspension_zone() -> void:
@@ -697,7 +696,7 @@ func _build_environment_props() -> void:
 	var light_positions: Array[Vector3] = [
 		Vector3(250, 0, -120), Vector3(250, 0, -320),
 		Vector3(-220, 0, -250), Vector3(-220, 0, 250),
-		Vector3(150, 0, 200),  Vector3(150, 0, 450),
+		Vector3(180, 0, 160),  Vector3(180, 0, 330), # beside the ramp lane, not in it
 		Vector3(480, 0, 150),  Vector3(480, 0, 450)
 	]
 
@@ -712,3 +711,54 @@ func _build_environment_props() -> void:
 		light.omni_range = 75.0
 		light.add_to_group("floodlights") # can be switched off in Settings > Grafik
 		add_child(light)
+
+# Curved kicker ramp: starts flush with the ground at `base` and bends up along a circular arc to
+# `angle_deg` at height `height`, running along +Z (dir = 1) or -Z (dir = -1). Solid (top, sides,
+# vertical back face) with matching trimesh collision, so wheels roll smoothly onto it.
+func _create_kicker(base: Vector3, dir: float, width: float, angle_deg: float, height: float, mat: Material) -> void:
+	var th_end: float = deg_to_rad(angle_deg)
+	var run: float = height / tan(th_end * 0.5)
+	var radius: float = run / sin(th_end)
+	var segs: int = 24
+	var prof: Array[Vector2] = [] # (distance along, height)
+	for k in range(segs + 1):
+		var th: float = th_end * float(k) / float(segs)
+		prof.append(Vector2(radius * sin(th), radius * (1.0 - cos(th))))
+	var hw: float = width * 0.5
+	var faces := PackedVector3Array()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tri := func(a: Vector3, b: Vector3, c: Vector3) -> void:
+		for v in [a, b, c]:
+			st.add_vertex(v)
+			faces.append(v)
+	var P := func(p: Vector2, x: float) -> Vector3:
+		return base + Vector3(x, p.y, p.x * dir)
+	for k in range(segs):
+		var a0: Vector2 = prof[k]
+		var a1: Vector2 = prof[k + 1]
+		# top
+		tri.call(P.call(a0, -hw), P.call(a1, -hw), P.call(a1, hw))
+		tri.call(P.call(a0, -hw), P.call(a1, hw), P.call(a0, hw))
+		# sides (down to the ground)
+		for x in [-hw, hw]:
+			var g0: Vector3 = base + Vector3(x, 0.0, a0.x * dir)
+			var g1: Vector3 = base + Vector3(x, 0.0, a1.x * dir)
+			tri.call(g0, P.call(a0, x), P.call(a1, x))
+			tri.call(g0, P.call(a1, x), g1)
+	# vertical back face at the lip
+	var e: Vector2 = prof[segs]
+	var gl: Vector3 = base + Vector3(-hw, 0.0, e.x * dir)
+	var gr: Vector3 = base + Vector3(hw, 0.0, e.x * dir)
+	tri.call(gl, P.call(e, -hw), P.call(e, hw))
+	tri.call(gl, P.call(e, hw), gr)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var m2: Material = mat
+	if mat is StandardMaterial3D:
+		m2 = (mat as StandardMaterial3D).duplicate()
+		(m2 as StandardMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m2
+	add_child(mi)
+	_add_collision_body(faces, _surface_for(mat))
