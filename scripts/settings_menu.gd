@@ -15,6 +15,7 @@ const COL_ACCENT := Color(0.25, 0.65, 1.0)
 func _ready() -> void:
 	layer = 20
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	add_to_group("settings_menu")
 	_build_frame()
 	_root.visible = false
 
@@ -56,6 +57,9 @@ func _input(event: InputEvent) -> void:
 	var esc: bool = event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE
 	var start: bool = event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START
 	if esc or start:
+		var big_map: Node = get_tree().get_first_node_in_group("full_map")
+		if big_map and big_map.call("is_open"):
+			return # ESC closes the big map first
 		if is_open():
 			close()
 		elif ui_manager and ui_manager.get("is_tuning_open"):
@@ -347,6 +351,15 @@ const WHEEL_ROWS: Array = [
 	["shift_up_btn", "Vites Yükselt (kulakçık)", "Vites yükseltme butonuna bas"],
 	["shift_down_btn", "Vites Düşür (kulakçık)", "Vites düşürme butonuna bas"],
 	["handbrake_btn", "El Freni Butonu (isteğe bağlı)", "El freni olarak kullanılacak butona bas"],
+	["handbrake", "El Freni Kolu - analog (isteğe bağlı)", "El freni kolunu SONUNA KADAR çek ve tut"],
+	["h1_btn", "H Vites Kolu: 1. vites", "Vites kolunu 1. vitese tak"],
+	["h2_btn", "H Vites Kolu: 2. vites", "Vites kolunu 2. vitese tak"],
+	["h3_btn", "H Vites Kolu: 3. vites", "Vites kolunu 3. vitese tak"],
+	["h4_btn", "H Vites Kolu: 4. vites", "Vites kolunu 4. vitese tak"],
+	["h5_btn", "H Vites Kolu: 5. vites", "Vites kolunu 5. vitese tak"],
+	["h6_btn", "H Vites Kolu: 6. vites", "Vites kolunu 6. vitese tak"],
+	["h7_btn", "H Vites Kolu: 7. vites (varsa)", "Vites kolunu 7. vitese tak"],
+	["hr_btn", "H Vites Kolu: Geri (R)", "Vites kolunu geri vitese tak"],
 ]
 
 func _build_wheel_section(k: GridContainer) -> void:
@@ -407,7 +420,7 @@ func _build_wheel_section(k: GridContainer) -> void:
 	_wheel_live = Label.new()
 	_wheel_live.add_theme_font_size_override("font_size", 15)
 	k.add_child(_wheel_live)
-	_note(k, "Algıla'ya bas, ekrandaki talimatı uygula (8 sn). Pedallar bırakılmış hâldeyken başla. Kuvvet geri bildirimi (FFB) şu an desteklenmiyor: Godot motoru bunu yerleşik olarak sağlamıyor.")
+	_note(k, "Algıla'ya bas, ekrandaki talimatı uygula (8 sn). Pedallar bırakılmış hâldeyken başla. H vites kolu manuel modda çalışır: kol boştayken araç boşta (N) olur; debriyaj pedalı tanımlıysa vitesi debriyaja basarak değiştir. Kuvvet geri bildirimi (FFB) şu an desteklenmiyor: Godot motoru bunu yerleşik olarak sağlamıyor.")
 	_refresh_wheel_labels()
 
 func _refresh_wheel_labels() -> void:
@@ -450,13 +463,13 @@ func _process(delta: float) -> void:
 		var sa: int = int(cfg.get("steer_axis", -1))
 		if sa >= 0:
 			parts.append("Direksiyon %+.0f°" % (Input.get_joy_axis(dev, sa) * (-1.0 if cfg.get("steer_invert", false) else 1.0) * float(cfg.get("range", 900.0)) * 0.5))
-		for p in ["throttle", "brake", "clutch"]:
+		for p in ["throttle", "brake", "clutch", "handbrake"]:
 			var ax: int = int(cfg.get(p + "_axis", -1))
 			if ax >= 0:
 				var rest: float = float(cfg.get(p + "_rest", 1.0))
 				var full: float = float(cfg.get(p + "_full", -1.0))
 				var v: float = clampf((Input.get_joy_axis(dev, ax) - rest) / (full - rest), 0.0, 1.0) if absf(full - rest) > 0.05 else 0.0
-				parts.append("%s %%%d" % [{"throttle": "Gaz", "brake": "Fren", "clutch": "Debriyaj"}[p], roundi(v * 100.0)])
+				parts.append("%s %%%d" % [{"throttle": "Gaz", "brake": "Fren", "clutch": "Debriyaj", "handbrake": "El freni"}[p], roundi(v * 100.0)])
 		_wheel_live.text = "Canlı: " + "  ·  ".join(parts) if parts.size() > 0 else ""
 	if _det_kind == "" or _det_kind.ends_with("_btn"):
 		if _det_kind != "":

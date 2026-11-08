@@ -20,13 +20,14 @@ const ACTIONS: Array = [
 	["turbo", "Turbo Boost", [KEY_SHIFT]],
 	["gear_up", "Vites Yükselt", [KEY_E, KEY_F]],
 	["gear_down", "Vites Düşür", [KEY_Q, KEY_V]],
-	["toggle_transmission", "Otomatik / Manuel", [KEY_M]],
+	["toggle_transmission", "Otomatik / Manuel", [KEY_G]],
 	["camera_view", "Kamera Değiştir", [KEY_C]],
 	["slow_mo", "Ağır Çekim", [KEY_T]],
 	["toggle_tuning", "Garaj Menüsü", [KEY_TAB]],
 	["repair", "Aracı Düzelt", [KEY_R]],
 	["reset_car", "Başlangıca Dön", [KEY_ENTER]],
 	["minimap", "Mini Harita Yakın / Geniş", [KEY_N]],
+	["full_map", "Büyük Harita", [KEY_M]],
 ]
 
 var defaults: Dictionary = {
@@ -74,6 +75,10 @@ var defaults: Dictionary = {
 	"wheel_shift_up_btn": -1,
 	"wheel_shift_down_btn": -1,
 	"wheel_handbrake_btn": -1,
+	"wheel_handbrake_axis": -1, "wheel_handbrake_rest": 1.0, "wheel_handbrake_full": -1.0, # analog handbrake lever
+	# H-pattern shifter: one button per gear (manual mode; no button pressed = neutral)
+	"wheel_h1_btn": -1, "wheel_h2_btn": -1, "wheel_h3_btn": -1, "wheel_h4_btn": -1,
+	"wheel_h5_btn": -1, "wheel_h6_btn": -1, "wheel_h7_btn": -1, "wheel_hr_btn": -1,
 }
 
 var values: Dictionary = {}
@@ -286,6 +291,7 @@ func save() -> void:
 		cfg.set_value("settings", k, values[k])
 	for a in bindings:
 		cfg.set_value("bindings", a, bindings[a])
+	cfg.set_value("meta", "bindings_version", 2)
 	cfg.save(SAVE_PATH)
 
 func _load() -> void:
@@ -298,3 +304,13 @@ func _load() -> void:
 	for a in ACTIONS:
 		if cfg.has_section_key("bindings", a[0]):
 			bindings[a[0]] = cfg.get_value("bindings", a[0])
+	# v2: M opens the big map now; the gearbox toggle moved from M to G
+	if int(cfg.get_value("meta", "bindings_version", 1)) < 2:
+		var tt: Array = bindings.get("toggle_transmission", [])
+		var mi: int = tt.find(KEY_M)
+		if mi != -1:
+			tt[mi] = KEY_G
+		for a in bindings:
+			if a != "full_map":
+				(bindings[a] as Array).erase(KEY_M)
+		bindings["full_map"] = [KEY_M]

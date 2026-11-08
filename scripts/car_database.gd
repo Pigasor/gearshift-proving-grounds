@@ -25,14 +25,14 @@ const CARS: Array = [
 		"engines": [{ "label": "6.2 V8 Yarış - 600 HP", "legacy": true, "cyl": 8, "fuel": "benzin" }] },
 	{ "id": "chiron", "name": "Buqatti Şiron", "class": "Hiper", "legacy": 3,
 		"engines": [{ "label": "8.0 W16 Quad-Turbo - 1150 HP", "legacy": true, "cyl": 16, "fuel": "benzin" }] },
-	{ "id": "supra", "name": "Toyoda Süpra A80", "class": "Spor", "legacy": 4,
+	{ "id": "supra", "name": "Toyoda Süpra A80", "class": "Spor", "legacy": 4, "classic": true,
 		"engines": [
 			{ "label": "3.0 2JZ-GTE Modifiyeli - 680 HP", "legacy": true, "cyl": 6, "fuel": "benzin" },
 			{ "label": "3.0 2JZ-GTE Stok - 320 HP", "cyl": 6, "fuel": "benzin", "hp": 320.0, "torque": 427.0,
 				"tq_from": 3200.0, "tq_to": 4400.0, "power_rpm": 5600.0, "idle": 750.0, "limiter": 6800.0, "max_rpm": 7200.0,
 				"turbo": 0.85, "gears": [-3.77, 0.0, 3.83, 2.36, 1.69, 1.31, 1.00, 0.79], "final": 3.27, "mass_add": -60.0 },
 		] },
-	{ "id": "goliath", "name": "Goliath Canavar 4x4", "class": "Canavar", "legacy": 5,
+	{ "id": "goliath", "name": "Goliath Canavar 4x4", "class": "Canavar", "legacy": 5, "classic": true,
 		"engines": [{ "label": "8.4 V8 Kompresörlü - 1500 HP", "legacy": true, "cyl": 8, "fuel": "benzin" }] },
 
 	# --- Family sedans (front-wheel drive) ---

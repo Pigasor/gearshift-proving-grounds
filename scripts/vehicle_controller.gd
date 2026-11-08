@@ -136,6 +136,15 @@ var _shift_timer: float = 0.0
 var _target_gear: int = 2
 var _limiter_timer: float = 0.0
 var _wrong_way_rpm: float = 0.0 # > 0 while the wheels try to turn the engine backwards
+# Pulling away: clutch (manual, auto-clutch) or torque converter (automatic) slips between the
+# engine and the gearbox. While slipping, the engine speed follows its own torque balance.
+var engine_classic: bool = false # old engine without modern idle control: revs can sag below idle
+var _clutch_slipping: bool = true
+var _clutch_torque: float = 0.0 # torque the clutch/converter passes to the gearbox (Nm, engine side)
+var _auto_clutch: float = 0.0 # 0..1 engagement of the game's automatic clutch (manual mode)
+var _tc_mult: float = 1.0 # torque converter multiplication
+var _prev_clutch_rpm: float = 900.0
+var _since_upshift: float = 10.0
 var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
 var _previous_linear_velocity: Vector3 = Vector3.ZERO
@@ -578,6 +587,7 @@ func apply_vehicle_preset(type: int) -> void:
 	if is_inside_tree() and new_ride > old_ride:
 		global_position += Vector3.UP * (new_ride - old_ride + 0.1)
 	var en: Dictionary = CarDatabase.engine(type, 0)
+	engine_classic = bool(CarDatabase.car(type).get("classic", false))
 	engine_cylinders = int(en.get("cyl", 6))
 	engine_fuel = str(en.get("fuel", "benzin"))
 	_update_wheel_colliders()
@@ -1341,6 +1351,27 @@ func _wheel_pedal(dev: int, pedal: String) -> float:
 	var p: float = clampf((Input.get_joy_axis(dev, axis) - rest) / (full - rest), 0.0, 1.0)
 	return 0.0 if p < 0.02 else p # tiny dead zone at rest
 
+# H-pattern shifter (wheel sets, manual mode): the gear follows the lever. Lever in the middle
+# (no gear button held) = neutral. Gears that the car doesn't have are ignored.
+func _read_h_shifter(dev: int) -> void:
+	if is_automatic:
+		return
+	var keys: Array = ["hr_btn", "h1_btn", "h2_btn", "h3_btn", "h4_btn", "h5_btn", "h6_btn", "h7_btn"]
+	var gears: Array = [0, 2, 3, 4, 5, 6, 7, 8]
+	var any_set: bool = false
+	var wanted: int = 1 # neutral
+	for k in range(keys.size()):
+		var b: int = int(wheel_cfg.get(keys[k], -1))
+		if b < 0:
+			continue
+		any_set = true
+		if Input.is_joy_button_pressed(dev, b) and gears[k] < gear_ratios.size():
+			wanted = gears[k]
+	if not any_set or wanted == current_gear or _is_shifting:
+		return
+	_target_gear = wanted
+	_start_shift()
+
 func _is_wheel_device(dev: int) -> bool:
 	return bool(wheel_cfg.get("enabled", false)) and dev == int(wheel_cfg.get("device", 0))
 
@@ -1362,6 +1393,7 @@ func _read_inputs(delta: float) -> void:
 	var w_brake: float = 0.0
 	var w_clutch: float = -1.0
 	var w_handbrake: bool = false
+	var w_handbrake_lever: float = 0.0
 	if bool(wheel_cfg.get("enabled", false)):
 		var dev: int = int(wheel_cfg.get("device", 0))
 		if Input.get_connected_joypads().has(dev):
@@ -1379,6 +1411,8 @@ func _read_inputs(delta: float) -> void:
 				w_clutch = _wheel_pedal(dev, "clutch")
 			var hb: int = int(wheel_cfg.get("handbrake_btn", -1))
 			w_handbrake = hb >= 0 and Input.is_joy_button_pressed(dev, hb)
+			w_handbrake_lever = _wheel_pedal(dev, "handbrake") # analog lever (0 if none)
+			_read_h_shifter(dev)
 
 	# Gamepad Left Analog Stick Steering (dead zone from Settings)
 	var joy_steer: float = Input.get_joy_axis(0, JOY_AXIS_LEFT_X) if gamepad_ok else 0.0
@@ -1427,6 +1461,7 @@ func _read_inputs(delta: float) -> void:
 	var raw_handbrake: float = 0.0
 	if Input.is_action_pressed("handbrake") or w_handbrake or (gamepad_ok and (Input.is_joy_button_pressed(0, JOY_BUTTON_B) or Input.is_joy_button_pressed(0, JOY_BUTTON_A))):
 		raw_handbrake = 1.0
+	raw_handbrake = maxf(raw_handbrake, w_handbrake_lever) # analog lever: pull harder, brake harder
 
 	# Clutch pedal (wheel sets): only in manual mode and never fighting an automatic gear change
 	if w_clutch >= 0.0 and not is_automatic and not _is_shifting:
@@ -1475,6 +1510,8 @@ func _read_inputs(delta: float) -> void:
 		_brake_input = 1.0
 
 func _engage_gear_now(g: int) -> void:
+	_clutch_slipping = true
+	_auto_clutch = 0.0
 	current_gear = g
 	_target_gear = g
 	_is_shifting = false
@@ -1505,6 +1542,7 @@ func _apply_aerodynamics(_delta: float) -> void:
 		apply_central_force(-vel_dir * rolling)
 
 func _process_automatic_transmission(delta: float) -> void:
+	_since_upshift += delta
 	if not is_automatic or _is_shifting:
 		return
 	if _auto_shift_cooldown > 0.0:
@@ -1534,12 +1572,13 @@ func _process_automatic_transmission(delta: float) -> void:
 		if (near_limit or early) and next_rpm > idle_rpm * 1.6:
 			shift_up()
 			_auto_shift_cooldown = 0.5
+			_since_upshift = 0.0
 			return
 
 	if current_gear > 2:
 		var prev_rpm: float = _ground_rpm(current_gear - 1)
 		var lugging: bool = g_rpm < limiter_rpm * 0.28
-		var kickdown: bool = _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5
+		var kickdown: bool = _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and _since_upshift > 2.5 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill)
 		if (lugging or kickdown) and prev_rpm < limiter_rpm - 900.0:
 			shift_down()
 			_auto_shift_cooldown = 0.6
@@ -1671,7 +1710,7 @@ func _update_drivetrain(delta: float) -> void:
 		# Gear change: revs drop/rise to match the gear being engaged (rev-matching), no flare
 		var next_rpm: float = avg_drive_wheel_speed * absf(gear_ratios[_target_gear]) * final_drive_ratio * (60.0 / TAU)
 		current_rpm = move_toward(current_rpm, maxf(next_rpm, idle_rpm), 25000.0 * delta)
-	elif current_gear == 1 or clutch_engagement < 0.5: # neutral, or clutch pedal (wheel set) pressed
+	elif current_gear == 1 or clutch_engagement < 0.05: # neutral, or clutch fully pressed
 		# Neutral: the engine revs freely. Throttle spins it up quickly, internal friction slows
 		# it down. Part throttle settles at a steady rpm; full throttle bounces just under the
 		# limiter (a short, tight cut) instead of the old big swings down towards idle.
@@ -1681,13 +1720,10 @@ func _update_drivetrain(delta: float) -> void:
 		else:
 			current_rpm = move_toward(current_rpm, idle_rpm, (1500.0 + current_rpm * 0.5) * delta)
 	else:
-		# In gear the engine is locked to the wheels. Only when pulling away does the clutch slip,
-		# holding the engine at a launch rpm until the wheels catch up.
-		var target_coupled_rpm: float = maxf(transmission_rpm, idle_rpm)
-		var launch_rpm: float = idle_rpm + _throttle_input * (limiter_rpm - idle_rpm) * 0.35
-		if _throttle_input > 0.1 and transmission_rpm < launch_rpm:
-			target_coupled_rpm = launch_rpm
-		current_rpm = lerpf(current_rpm, target_coupled_rpm, clampf(delta * 18.0, 0.0, 1.0))
+		_update_clutch(delta, transmission_rpm)
+	if current_gear == 1 or _is_shifting and _target_gear == 1:
+		_clutch_slipping = true # next gear starts from a slipping clutch / converter
+		_auto_clutch = 0.0
 
 	# Rolling down a hill can drive the engine past the limiter (no fuel, engine braking only).
 	current_rpm = clampf(current_rpm, idle_rpm * 0.5, max_rpm * 1.12)
@@ -1707,22 +1743,117 @@ func _curve_torque(rpm: float) -> float:
 		return lerpf(t_pk, t_pw, (rpm - torque_rpm_to) / maxf(power_rpm - torque_rpm_to, 1.0))
 	return lerpf(t_pw, t_pw * 0.8, clampf((rpm - power_rpm) / maxf(max_rpm - power_rpm, 1.0), 0.0, 1.0))
 
-func _get_engine_torque_nm() -> float:
-	if current_rpm < idle_rpm * 0.8:
-		return 0.0
-	var rpm_norm: float = (current_rpm - idle_rpm) / (max_rpm - idle_rpm)
+# In gear: the clutch (manual) or torque converter (automatic) between engine and gearbox.
+# Locked: the engine turns with the wheels. Slipping (pulling away): the engine speed follows
+# its own torque balance - throttle torque spins it up, the clutch load pulls it down - so the
+# revs rise, dip as the clutch bites, then climb with the car's speed (they used to sit flat at
+# a fixed "launch rpm" until the car caught up).
+func _update_clutch(delta: float, w_rpm: float) -> void:
+	var prev_rpm_for_rate: float = _prev_clutch_rpm
+	_prev_clutch_rpm = current_rpm
+	var t_net: float = _get_engine_torque_nm() + _idle_governor_torque(current_rpm)
+	var peak_tq: float = torque_peak_nm if use_torque_curve else peak_horsepower * 7120.0 / 5252.0
+	# Lowest revs the engine runs at before the clutch must slip (old engines lug lower)
+	var floor_rpm: float = idle_rpm * (0.72 if engine_classic else 0.93)
+	var pedal_eng: float = 1.0 - clutch_pedal # wheel-set clutch pedal (1 = released)
+	var wheel_clutch: bool = using_wheel and int(wheel_cfg.get("clutch_axis", -1)) >= 0 and not is_automatic
+
+	if not _clutch_slipping:
+		current_rpm = lerpf(current_rpm, w_rpm, clampf(delta * 18.0, 0.0, 1.0))
+		_clutch_torque = 0.0
+		_tc_mult = 1.0
+		if w_rpm < floor_rpm or (wheel_clutch and pedal_eng < 0.9):
+			_clutch_slipping = true
+			_auto_clutch = 1.0 if w_rpm >= floor_rpm else 0.5
+		return
+
+	var slip: float = current_rpm - w_rpm
+	var cap: float = 0.0 # most torque the clutch can pass right now
+	var eng: float = 1.0
+	if is_automatic:
+		# Torque converter: passes torque ~ slip², stalls at ~36% of the rev range at full load,
+		# multiplies torque (up to 2x) while the car is slow, then locks up.
+		var stall_rpm: float = idle_rpm + (limiter_rpm - idle_rpm) * 0.36
+		var k: float = _full_load_torque(stall_rpm) / (stall_rpm * stall_rpm)
+		cap = k * slip * slip
+		var speed_ratio: float = clampf(w_rpm / maxf(current_rpm, 1.0), 0.0, 1.0)
+		_tc_mult = lerpf(2.0, 1.0, clampf(speed_ratio / 0.85, 0.0, 1.0))
+	else:
+		_tc_mult = 1.0
+		if wheel_clutch:
+			eng = pedal_eng
+		else:
+			# Automatic clutch for keyboard/gamepad drivers, working like a driver's left foot:
+			# it feeds the clutch in while the revs are above a launch speed that grows with the
+			# throttle, and eases off when they drop below it - so the revs flare, dip as the clutch
+			# bites, settle, then rise with the car. Old engines are launched lower (revs may sag
+			# under idle at little throttle); it lets go when stopping so the engine never stalls.
+			var launch: float = idle_rpm * (0.78 if engine_classic else 1.15) + _throttle_input * (limiter_rpm - idle_rpm) * 0.30
+			launch = maxf(launch, floor_rpm * 1.03)
+			# look a little ahead: ease off before the revs fall through the launch speed
+			var rpm_ahead: float = current_rpm + (current_rpm - prev_rpm_for_rate) / maxf(delta, 0.001) * 0.15
+			if _throttle_input > 0.05:
+				_auto_clutch += delta * clampf((rpm_ahead - launch) / 400.0, -4.0, 1.2 + _throttle_input)
+				if current_rpm < floor_rpm:
+					_auto_clutch -= delta * 4.0
+				if absf(slip) < 150.0:
+					_auto_clutch += delta * 3.0 # speeds nearly matched: let it fully out
+			elif w_rpm < idle_rpm * 1.05:
+				_auto_clutch -= delta * 3.0
+			else:
+				_auto_clutch += delta * 2.0 # rolling: let the clutch out (engine braking)
+			_auto_clutch = clampf(_auto_clutch, 0.0, 1.0)
+			eng = _auto_clutch
+		cap = peak_tq * 1.5 * eng * eng
+	_clutch_torque = signf(slip) * cap
+	var inertia: float = maxf(engine_inertia, 0.08)
+	var new_rpm: float = current_rpm + (t_net - _clutch_torque) / inertia * (60.0 / TAU) * delta
+	# Engine and gearbox speeds meet: lock up if the clutch can hold the engine's torque
+	if slip != 0.0 and signf(new_rpm - w_rpm) != signf(slip):
+		var can_lock: bool = cap >= absf(t_net) * 0.9 and eng > 0.95 and w_rpm >= floor_rpm
+		if is_automatic:
+			can_lock = w_rpm > idle_rpm * 1.25
+		if can_lock:
+			_clutch_slipping = false
+			_clutch_torque = 0.0
+			_tc_mult = 1.0
+		new_rpm = w_rpm
+	elif is_automatic and w_rpm > idle_rpm * 1.25 and slip > 0.0 and w_rpm / maxf(current_rpm, 1.0) > 0.93:
+		_clutch_slipping = false # lock-up clutch closes
+		new_rpm = w_rpm
+	current_rpm = maxf(new_rpm, idle_rpm * 0.5)
+
+# Torque the engine makes at this rpm with the pedal fully down (current boost included)
+func _full_load_torque(rpm: float) -> float:
+	if rpm < idle_rpm * 0.45:
+		return 0.0 # about to stall: no useful torque
+	var rpm_norm: float = (rpm - idle_rpm) / (max_rpm - idle_rpm)
 	var torque_curve: float = sin(clampf(rpm_norm, 0.0, 1.0) * PI * 0.88 + 0.25)
 	var base_torque: float = (peak_horsepower * 7120.0 / 5252.0) * torque_curve
 	var boost_multiplier: float = 1.0 + (turbo_boost_bar * 0.7)
 	if use_torque_curve:
 		# Real engine data: the curve is the torque at full boost; with no boost yet (turbo lag)
 		# a turbo engine makes ~60% of it. Gearbox/diff losses are taken off here too.
-		base_torque = _curve_torque(current_rpm) * DRIVETRAIN_EFFICIENCY
+		base_torque = _curve_torque(rpm) * DRIVETRAIN_EFFICIENCY
 		boost_multiplier = 1.0
 		if turbo_enabled:
 			boost_multiplier = lerpf(0.6, 1.0, clampf(turbo_boost_bar / maxf(turbo_max_boost_bar, 0.01), 0.0, 1.0))
 	if turbo_boost_active:
 		boost_multiplier *= 1.45 # Massive +45% extra torque kick when Shift turbo is active!
+	# Below idle the engine labours: torque falls away towards stalling
+	if rpm < idle_rpm:
+		base_torque *= clampf((rpm - idle_rpm * 0.45) / (idle_rpm * 0.55), 0.0, 1.0)
+	return base_torque * boost_multiplier
+
+# Idle control: an engine at closed throttle still holds its idle speed (modern ECU strongly,
+# old carburettor engines only weakly - their revs sag under load).
+func _idle_governor_torque(rpm: float) -> float:
+	var peak: float = peak_horsepower * 7120.0 / 5252.0 if not use_torque_curve else torque_peak_nm
+	var strength: float = 0.10 if engine_classic else 0.30
+	return peak * strength * clampf((idle_rpm + 60.0 - rpm) / 250.0, 0.0, 1.0)
+
+func _get_engine_torque_nm() -> float:
+	var full: float = _full_load_torque(current_rpm)
 	# Rev limiter is a real FUEL CUT: no drive torque while it's active (it used to be sound only,
 	# so the car kept accelerating at the limiter in every gear, including reverse).
 	var throttle: float = 0.0 if is_limiter_active else _throttle_input
@@ -1742,7 +1873,7 @@ func _get_engine_torque_nm() -> float:
 		if is_limiter_active and _throttle_input > 0.05:
 			eb *= 0.25
 		return eb
-	return base_torque * boost_multiplier * throttle
+	return full * throttle
 
 func _simulate_suspension_and_tires(delta: float) -> void:
 	var world := get_world_3d()
@@ -1766,10 +1897,21 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	# spin them the other way.
 	var total_drive_torque: float = 0.0
 	var engine_drag_total: float = 0.0
-	if engine_torque >= 0.0:
-		total_drive_torque = engine_torque * active_gear_ratio * final_drive_ratio * clutch_engagement
+	var slipping_now: bool = _clutch_slipping and current_gear != 1 and not _is_shifting
+	if slipping_now:
+		# Pulling away: the wheels get what the slipping clutch / torque converter passes on
+		var t_c: float = _clutch_torque * _tc_mult
+		if t_c >= 0.0:
+			total_drive_torque = t_c * active_gear_ratio * final_drive_ratio
+		else:
+			engine_drag_total = -t_c * absf(active_gear_ratio) * final_drive_ratio
 	else:
-		engine_drag_total = -engine_torque * gear_mult_abs
+		if current_gear != 1:
+			engine_torque += _idle_governor_torque(current_rpm) # idle control keeps pulling at low revs
+		if engine_torque >= 0.0:
+			total_drive_torque = engine_torque * active_gear_ratio * final_drive_ratio * clutch_engagement
+		else:
+			engine_drag_total = -engine_torque * gear_mult_abs
 	if _wrong_way_rpm > 0.0:
 		var peak_tq: float = peak_horsepower * 7120.0 / 5252.0
 		# Manual: the clutch is locked, so the engine's compression nearly holds the car (like
@@ -1811,6 +1953,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		if _is_driven(i):
 			n_driven += 1
 	var gear_mult: float = active_gear_ratio * final_drive_ratio * clutch_engagement
+	if slipping_now:
+		gear_mult = 0.0 # a slipping clutch doesn't tie the engine's inertia to the wheels
 	var engine_share: float = engine_inertia * gear_mult * gear_mult / float(maxi(n_driven, 1))
 	var speed_now: float = linear_velocity.length()
 
@@ -1929,6 +2073,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 				# and the wheel keeps its own speed.
 				long_mag = signf(fx_needed) * long_room * 0.9
 				wheel_angular_velocity[i] = w_pred - long_mag * r_tyre * delta / inertia
+				if slipping_now and _clutch_torque > 0.0 and _is_driven(i):
+					wheel_angular_velocity[i] = _cap_to_engine(wheel_angular_velocity[i], active_gear_ratio)
 			var combined: float = sqrt(long_mag * long_mag + lateral_force_mag * lateral_force_mag)
 			if combined > total_grip and combined > 0.001:
 				var scale_f: float = total_grip / combined
@@ -1966,6 +2112,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			air_brake += engine_drag[i]
 			wheel_angular_velocity[i] = move_toward(wheel_angular_velocity[i], 0.0, air_brake / inertia * delta)
 			wheel_angular_velocity[i] *= (1.0 - 0.3 * delta)
+			if slipping_now and _clutch_torque > 0.0 and _is_driven(i):
+				wheel_angular_velocity[i] = _cap_to_engine(wheel_angular_velocity[i], active_gear_ratio)
 
 	# Anti-roll bars: push the more-compressed side UP and the extended side DOWN to resist body roll.
 	# (The sign used to be inverted, which made the bars add roll and tipped tall cars over.)
@@ -2074,3 +2222,14 @@ func repair_vehicle() -> void:
 	global_position = current_pos
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+
+# While the clutch / torque converter slips, it can only drag the wheels up to the engine's own
+# speed (through the gearing) - never faster. Without this, spinning or airborne wheels ran away
+# and pulled the engine far past its limiter.
+func _cap_to_engine(w: float, ratio: float) -> float:
+	if ratio == 0.0:
+		return w
+	var w_eng: float = current_rpm / (60.0 / TAU) / (absf(ratio) * final_drive_ratio)
+	if w * signf(ratio) > w_eng:
+		return w_eng * signf(ratio)
+	return w

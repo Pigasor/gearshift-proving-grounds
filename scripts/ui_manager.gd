@@ -65,6 +65,12 @@ func _ready() -> void:
 	menu.name = "SettingsMenu"
 	menu.set("ui_manager", self)
 	get_parent().add_child.call_deferred(menu)
+	# Big map (M) - added after the menu so it sees M / ESC first
+	var big_map := CanvasLayer.new()
+	big_map.set_script(load("res://scripts/full_map.gd"))
+	big_map.name = "FullMap"
+	big_map.set("vehicle", vehicle)
+	get_parent().add_child.call_deferred(big_map)
 	GameSettings.apply_scene_start.call_deferred()
 
 	# Mini map (bottom-left); N switches close / wide view

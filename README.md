@@ -10,7 +10,7 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 - **Harita:** Havalimanı (pist 18/36, taksi yolları, apron, terminal, kule, hangarlar), yarış pisti ve tur zamanlayıcı, eğimli virajlı otoyol halkası, drift alanı, stunt parkı, off-road alanı ve tepe parkı
 - **Garaj:** Motor gücü, turbo, süspansiyon, kamber, tutuş, çekiş tipi, ABS/TCS ayarları
 - **Ayarlar menüsü (ESC):** Görüntü, grafik, ses, kontroller, tuş atamaları ve direksiyon seti kurulumu
-- **Direksiyon seti desteği:** Otomatik eksen/pedal algılama, debriyaj, vites kulakçıkları
+- **Direksiyon seti desteği:** Otomatik eksen/pedal algılama; gaz, fren, debriyaj, el freni (buton veya analog kol), vites kulakçıkları ve H vites kolu
 - **Mini harita** (N: yakın / geniş)
 
 ## Çalıştırma
@@ -29,7 +29,8 @@ Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatab
 | Space | El freni |
 | Shift | Turbo boost |
 | E / Q | Vites yükselt / düşür (manuel) |
-| M | Otomatik / manuel şanzıman |
+| G | Otomatik / manuel şanzıman |
+| M | Büyük harita (oyun durur; tıklanan yere ışınlanma) |
 | N | Mini harita yakın / geniş |
 | C | Kamera |
 | T | Ağır çekim |
