@@ -10,6 +10,9 @@ const VISUAL_TIRE_RADIUS: float = 0.32 # radius of the tyre mesh in vehicle.tscn
 
 # Camera distance multiplier (big vehicles get a wider chase view)
 var camera_scale: float = 1.0
+# Hood / bumper camera spots (local), set from the procedural body; ZERO = use the default spot
+var cam_hood: Vector3 = Vector3.ZERO
+var cam_bumper: Vector3 = Vector3.ZERO
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
 # Pedal positions 0..1 as the driver presses them (HUD), and the tail-light materials
@@ -328,6 +331,8 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	index = clampi(index, 0, CarDatabase.count() - 1)
 	engine_index = clampi(engine_index, 0, (c["engines"] as Array).size() - 1)
 	var en: Dictionary = CarDatabase.engine(index, engine_index)
+	cam_hood = Vector3.ZERO
+	cam_bumper = Vector3.ZERO
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
 		_apply_engine(en)
@@ -457,6 +462,9 @@ func _rebuild_body(b: Dictionary) -> void:
 	var ground_y: float = -(tire_radius + suspension_rest_length - sag)
 	var builder := BodyBuilder.new()
 	_brake_light_mats.append_array(builder.build(visual_models_parent, b, ground_y, tire_radius))
+	# on the hood just ahead of the windscreen, and just ahead of the nose
+	cam_hood = Vector3(0.0, builder.g + float(builder.s["cowl"]) + 0.2, builder.cowl_z + 0.3)
+	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
 
 # Wheels used to have no collision of their own (raycast suspension), so they sank into walls and
 # platform edges. A cylinder per wheel (a bit smaller than the tyre, at the fully compressed
