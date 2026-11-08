@@ -196,8 +196,14 @@ func _process_bumper(delta: float) -> void:
 	global_position = bumper_pos
 	camera.look_at(bumper_pos + (t.basis.z * 15.0), t.basis.y)
 
-# Cinematic camera (GTA-style): cuts between shots that always keep the car in frame -
-# a roadside fly-by the car races past, side tracking, low rear and high front-quarter.
+# Cinematic camera: cuts between HIGH shots only - every one at least CINE_HIGH car heights above
+# the car (helicopter chase, high side, roadside crane, overhead). The one exception is the speed
+# shot: above 200 km/h a camera at car height beside the road, which only pans left/right
+# (yaw) as the car blasts past - its job is to show how fast the car is.
+const CINE_HIGH: float = 5.0
+const SPEED_SHOT: int = 4
+var _high_idx: int = -1
+
 func _process_cinematic(delta: float, speed_kmh: float) -> void:
 	var car_pos: Vector3 = target_vehicle.global_position
 	var s: float = _vehicle_scale()
@@ -206,42 +212,53 @@ func _process_cinematic(delta: float, speed_kmh: float) -> void:
 	fwd = fwd.normalized() if fwd.length() > 0.1 else Vector3.BACK
 	var right: Vector3 = Vector3.UP.cross(fwd)
 	var look_pos: Vector3 = car_pos + Vector3.UP * 0.6 * s
+	var vel: Vector3 = target_vehicle.linear_velocity
+	var high: float = 1.4 * s * CINE_HIGH # car ~1.4 m tall -> 7 m (monster truck ~13 m)
 	_shot_time -= delta
+	var passed: bool = (_shot == SPEED_SHOT or _shot == 2) and (car_pos - _shot_pos).dot(fwd) > (35.0 if _shot == SPEED_SHOT else 40.0) * s # car is gone: cut
 	var cut: bool = false
-	if _shot < 0 or _shot_time <= 0.0 or (_shot == 0 and (car_pos - _shot_pos).dot(fwd) > 25.0 * s):
-		_shot = (_shot + 1) % 4
-		_shot_time = 6.0
-		_shot_side = -_shot_side
-		_orbit = 0.0
+	if _shot < 0 or _shot_time <= 0.0 or passed:
 		cut = true
-		if _shot == 0:
-			if speed_kmh < 25.0:
-				_shot = 1 # too slow for a fly-by
-			else:
-				var lead: Vector3 = target_vehicle.linear_velocity * 1.4
-				lead = lead.limit_length(45.0)
-				_shot_pos = _ground_spot(car_pos + lead + right * _shot_side * 7.0 * s, 1.1 * s)
-				_shot_pos = _clear_spot(look_pos, _shot_pos)
+		_orbit = 0.0
+		_shot_side = -_shot_side
+		if speed_kmh > 200.0 and _shot != SPEED_SHOT:
+			_shot = SPEED_SHOT
+			_shot_time = 5.0
+			var lead: Vector3 = (vel * 1.0).limit_length(60.0)
+			_shot_pos = _ground_spot(car_pos + lead + right * _shot_side * 6.0 * s, 0.8 * s) # car height
+			_shot_pos = _clear_spot(look_pos, _shot_pos)
+		else:
+			_high_idx = (_high_idx + 1) % 4
+			_shot = _high_idx
+			_shot_time = 7.0
+			if _shot == 2: # crane on the roadside ahead, the car drives under/past it
+				_shot_pos = _ground_spot(car_pos + (vel * 2.5).limit_length(60.0) + right * _shot_side * 12.0 * s, high * 1.3)
 	var target: Vector3
 	match _shot:
-		0:
-			# roadside camera drifts after the car and cranes up a little: never a frozen shot
-			_shot_pos += target_vehicle.linear_velocity * 0.25 * delta + Vector3.UP * 0.25 * delta
+		0: target = car_pos - fwd * 12.0 * s + Vector3.UP * high # helicopter chase
+		1: target = car_pos + right * _shot_side * 11.0 * s + fwd * 3.0 * s + Vector3.UP * high * 1.1 # high side
+		2:
+			_shot_pos += vel * 0.2 * delta # the crane drifts a little after the car
 			target = _shot_pos
-		1: target = car_pos + right * _shot_side * 5.5 * s + fwd * 1.5 * s + Vector3.UP * 0.9 * s
-		2: target = car_pos - fwd * 7.5 * s + right * _shot_side * 1.5 * s + Vector3.UP * 0.5 * s
-		_: target = car_pos + fwd * 8.0 * s - right * _shot_side * 3.5 * s + Vector3.UP * 2.8 * s
-	if _shot != 0:
-		_orbit += delta * 0.18 * _shot_side
+		3: target = car_pos - fwd * 3.0 * s + Vector3.UP * high * 1.8 # overhead
+		_: target = _shot_pos # speed shot: fixed spot
+	if _shot != 2 and _shot != SPEED_SHOT:
+		_orbit += delta * 0.15 * _shot_side
 		target = car_pos + (target - car_pos).rotated(Vector3.UP, _orbit)
 		target = _clear_spot(look_pos, target)
 	# tracking shots smooth their offset from the car, so speed never makes them fall behind
-	if cut or _shot == 0:
+	if cut or _shot == 2 or _shot == SPEED_SHOT:
 		_shot_off = target - car_pos
 	else:
 		_shot_off = _shot_off.lerp(target - car_pos, clampf(delta * 4.0, 0.0, 1.0))
 	global_position = car_pos + _shot_off
-	camera.look_at(look_pos, Vector3.UP)
+	if _shot == SPEED_SHOT:
+		var flat: Vector3 = look_pos - global_position
+		flat.y = 0.0 # level camera: it only turns left / right
+		if flat.length() > 0.1:
+			camera.look_at(global_position + flat, Vector3.UP)
+	else:
+		camera.look_at(look_pos, Vector3.UP)
 
 # Pull a camera spot in front of anything between it and the car
 func _clear_spot(from: Vector3, to: Vector3) -> Vector3:

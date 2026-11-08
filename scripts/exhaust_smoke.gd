@@ -16,7 +16,7 @@ var _pop_t: float = 0.0
 func _ready() -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # alpha-blended puffs would cast solid black discs
 	preprocess = 1.3 # run one lifetime up front: never-emitted particle slots render as black discs (Godot 4.3)
-	amount = maxi(int(160.0 * share), 60)
+	amount = maxi(int(200.0 * share), 100)
 	emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	lifetime = 1.3
 	local_coords = false
@@ -112,6 +112,11 @@ func _process(delta: float) -> void:
 	var load: float = clampf(revs * 0.6 + thr * revs * 0.6, 0.0, 1.0)
 	var fwd_v: float = body.linear_velocity.dot(body.global_transform.basis.z)
 	var spd: float = absf(fwd_v)
+	# at speed the puffs settle far apart behind the car: a shorter life keeps the trail short and dense
+	lifetime = lerpf(1.3, 0.45, clampf(spd / 30.0, 0.0, 1.0))
+	var puff: float = lerpf(1.0, 2.5, clampf(spd / 40.0, 0.0, 1.0)) # bigger puffs at speed overlap into a streak
+	scale_amount_min = 0.7 * puff
+	scale_amount_max = 1.1 * puff
 	# gas leaves the pipe and is carried along by the wake (85% of the car's speed), then slows
 	var v: Vector3 = pipe_dir.normalized() * (1.2 + 4.0 * revs) + Vector3(0.0, 0.0, fwd_v * 0.85)
 	direction = v.normalized() if v.length() > 0.01 else pipe_dir

@@ -1,19 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Bright background so the icon stands out on dark and light taskbars -->
+  <!-- GearShift: an H-pattern shift gate with the knob slotted into top gear -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2ea8ff"/>
-      <stop offset="1" stop-color="#0b5cc4"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a1a"/>
+      <stop offset="1" stop-color="#d4142a"/>
     </linearGradient>
+    <radialGradient id="knob" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#4a4f5a"/>
+      <stop offset="1" stop-color="#0e1014"/>
+    </radialGradient>
   </defs>
-  <rect width="128" height="128" rx="26" fill="url(#bg)"/>
-  <!-- Gauge Arc -->
-  <path d="M 24 98 A 48 48 0 1 1 104 98" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="13" stroke-linecap="round"/>
-  <path d="M 24 98 A 48 48 0 0 1 84 28" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round"/>
-  <!-- Redline -->
-  <path d="M 84 28 A 48 48 0 0 1 104 98" fill="none" stroke="#ff3b4a" stroke-width="13" stroke-linecap="round"/>
-  <!-- Needle -->
-  <polygon points="58,58 70,70 94,30" fill="#ffd23f"/>
-  <circle cx="64" cy="64" r="11" fill="#ffffff"/>
-  <circle cx="64" cy="64" r="5" fill="#0b5cc4"/>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- soft highlight on the top half -->
+  <path d="M 0 28 A 28 28 0 0 1 28 0 L 100 0 A 28 28 0 0 1 128 28 L 128 52 Q 64 70 0 52 Z" fill="#ffffff" fill-opacity="0.12"/>
+  <!-- shift gate -->
+  <g fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 32 32 L 32 96"/>
+    <path d="M 64 32 L 64 96"/>
+    <path d="M 96 64 L 96 96"/>
+    <path d="M 32 64 L 96 64"/>
+  </g>
+  <!-- knob in 5th gear (top right) with a short travel line -->
+  <path d="M 96 64 L 96 42" stroke="#ffffff" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="96" cy="34" r="17" fill="url(#knob)" stroke="#ffffff" stroke-width="4"/>
+  <circle cx="91" cy="29" r="4" fill="#ffffff" fill-opacity="0.35"/>
 </svg>
