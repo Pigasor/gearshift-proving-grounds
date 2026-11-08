@@ -34,6 +34,11 @@ var _bov_lp1: float = 0.0
 var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
+# Upshift backfire bang (the car bumps backfire_count)
+var _last_backfire: int = 0
+var _bang_env: float = 0.0
+var _bang_lp: float = 0.0
+var _bang_ph: float = 0.0
 var _skid_gain: float = 0.0
 var _skid_lp1: float = 0.0
 var _skid_lp2: float = 0.0
@@ -132,6 +137,10 @@ func _physics_process(delta: float) -> void:
 		_pop_timer = 0.07 # Rapid pop bursts
 	if _pop_timer > 0.0:
 		_pop_timer -= delta
+	var bf: int = int(vehicle.get("backfire_count")) if vehicle.get("backfire_count") != null else 0
+	if bf != _last_backfire:
+		_last_backfire = bf
+		_bang_env = 1.0
 
 	_fill_audio_buffer()
 
@@ -277,6 +286,13 @@ func generate(frames_available: int) -> PackedVector2Array:
 		# Rev Limiter Cut (PRESERVED EXACTLY AS PRAISED BY USER!)
 		if limiter:
 			engine_sample *= randf_range(0.0, 1.2) if _pop_timer > 0.02 else 0.0
+
+		# Backfire: sharp noise crack over a low thump, ~30 ms
+		if _bang_env > 0.001:
+			_bang_lp += (noise - _bang_lp) * 0.35
+			_bang_ph = fmod(_bang_ph + 75.0 * TAU / sample_rate, TAU)
+			engine_sample += (_bang_lp * 0.9 + sin(_bang_ph) * 0.6) * _bang_env * 0.55
+			_bang_env *= 0.9993
 
 		# Turbo whistle: gain and pitch glide smoothly (~60 ms), never clicking on or off
 		_turbo_gain += (_turbo_gain_target - _turbo_gain) * 0.0004

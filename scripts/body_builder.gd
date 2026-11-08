@@ -9,6 +9,7 @@ class_name BodyBuilder
 
 var _parent: Node3D
 var _brake_mats: Array[StandardMaterial3D] = []
+var exhausts: Array[Vector3] = [] # tailpipe tips drawn on this body (the car puts its smoke there)
 
 # Silhouette: lengths are fractions of the car length from the front bumper, heights in metres
 # above the ground. hood = bumper -> windscreen base, ws = windscreen run, roof = flat roof run,
@@ -74,6 +75,7 @@ var taper: Callable
 func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Array[StandardMaterial3D]:
 	_parent = parent
 	_brake_mats.clear()
+	exhausts.clear()
 	s = STYLES.get(str(b.get("style", "accent")), STYLES["accent"])
 	L = float(b["length"])
 	W = float(b["width"])
@@ -179,6 +181,8 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		"supra": _details_supra(nose_h, deck_h)
 		"challenger": _details_challenger(nose_h, deck_h)
 		"chiron": _details_chiron(nose_h, deck_h)
+	if exhausts.is_empty(): # models without their own tips: one pipe under the left of the bumper
+		_pipe(Vector3(-hw * 0.55, g + 0.26, zr - 0.02), 0.032)
 	_spoiler(str(s["spoiler"]), deck_h)
 	return _brake_mats
 
@@ -309,6 +313,8 @@ func _details_civic(nose_h: float, deck_h: float) -> void:
 		_rear(sd * (rw - 0.30), deck_h - 0.09, Vector3(0.48, 0.06, 0.04), tail)
 		_box(Vector3(sd * (rw - 0.06), g + deck_h - 0.22, zr + 0.06), Vector3(0.10, 0.26, 0.10), tail, Vector3(0, sd * 25, 0))
 	_rear(0, 0.32, Vector3(_rw(0.3) * 1.6, 0.10, 0.04), black) # diffuser
+	for sd in [-1.0, 1.0]:
+		_pipe(Vector3(sd * hw * 0.6, g + 0.24, zr - 0.02), 0.04) # 1.5 Turbo: twin tips
 	_plates(0.28, deck_h - 0.30)
 
 func _details_megane(nose_h: float, deck_h: float) -> void:
@@ -393,6 +399,7 @@ func _details_chiron(nose_h: float, deck_h: float) -> void:
 	_rear(0, deck_h - 0.12, Vector3(_rw(deck_h) * 1.92, 0.05, 0.04), tail)
 	_rear(0, 0.34, Vector3(_rw(0.3) * 1.7, 0.18, 0.06), black)
 	_box(Vector3(0, g + 0.50, zr + 0.02), Vector3(0.80, 0.14, 0.05), black)
+	_pipe(Vector3(0, g + 0.50, zr - 0.01), 0.07) # the big centre pipe
 	_plates(0.24, 0.62)
 
 func rw_span(margin: float) -> float:
@@ -521,8 +528,39 @@ func _ring(c: Vector3, r: float, mat: Material) -> void:
 	mi.rotation_degrees = Vector3(90, 0, 0)
 	_parent.add_child(mi)
 
-func _cyl_back(c: Vector3, r: float, mat: Material) -> void:
-	_ring(c, r, mat)
+func _cyl_back(c: Vector3, r: float, _mat: Material) -> void:
+	_pipe(c, r)
+
+# Exhaust tip pointing backwards: an open chrome tube (seen from inside too) with a dark, recessed
+# inside, so it reads as a real pipe instead of a solid chrome disc.
+func _pipe(c: Vector3, r: float) -> void:
+	var tube := CylinderMesh.new()
+	tube.top_radius = r
+	tube.bottom_radius = r
+	tube.height = 0.16
+	tube.radial_segments = 20
+	tube.cap_top = false
+	tube.cap_bottom = false
+	var pipe_mat: StandardMaterial3D = chrome.duplicate()
+	pipe_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new()
+	mi.mesh = tube
+	mi.material_override = pipe_mat
+	mi.position = c + Vector3(0, 0, 0.06) # sticks out ~2 cm, the rest hides in the bumper
+	mi.rotation_degrees = Vector3(90, 0, 0)
+	_parent.add_child(mi)
+	var soot := CylinderMesh.new()
+	soot.top_radius = r * 0.9
+	soot.bottom_radius = r * 0.9
+	soot.height = 0.01
+	soot.radial_segments = 20
+	var inner := MeshInstance3D.new()
+	inner.mesh = soot
+	inner.material_override = black
+	inner.position = c + Vector3(0, 0, 0.05)
+	inner.rotation_degrees = Vector3(90, 0, 0)
+	_parent.add_child(inner)
+	exhausts.append(c)
 
 func _mesh(m: Mesh, mat: Material) -> void:
 	var mi := MeshInstance3D.new()
