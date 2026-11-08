@@ -280,17 +280,18 @@ func _details_sahin(nose_h: float, deck_h: float) -> void:
 	# black grille band between big rectangular headlights, amber corner indicators, thick black
 	# bumpers, wide red + amber tail-light blocks on a flat boot panel
 	var fw: float = _fw(nose_h - 0.12)
-	_front(0, nose_h - 0.13, Vector3(fw * 2.0 - 0.1, 0.17, 0.03), black)
+	_front(0, nose_h - 0.13, Vector3((fw - 0.38) * 2.0, 0.17, 0.03), black) # grille between the headlights
 	for k in range(3):
-		_front(0, nose_h - 0.08 - k * 0.05, Vector3(0.62, 0.014, 0.035), chrome)
+		_front(0, nose_h - 0.08 - k * 0.05, Vector3(0.62, 0.014, 0.035), chrome, Vector3.ZERO, -0.01)
 	_front(0, 0.40, Vector3(fw * 2.0 + 0.04, 0.13, 0.07), black) # bumper
 	_rear(0, 0.40, Vector3(_rw(0.4) * 2.0 + 0.04, 0.13, 0.07), black)
 	var rw: float = _rw(deck_h - 0.15)
 	for sd in [-1.0, 1.0]:
-		_front(sd * (fw - 0.22), nose_h - 0.13, Vector3(0.34, 0.15, 0.04), head)
-		_front(sd * (fw - 0.04), nose_h - 0.13, Vector3(0.06, 0.13, 0.04), amber)
-		_rear(sd * (rw - 0.24), deck_h - 0.17, Vector3(0.40, 0.17, 0.04), tail)
-		_rear(sd * (rw - 0.04), deck_h - 0.17, Vector3(0.08, 0.17, 0.04), amber)
+		# lamps sit side by side with small gaps: overlapping coplanar boxes flicker (z-fighting)
+		_front(sd * (fw - 0.22), nose_h - 0.13, Vector3(0.31, 0.15, 0.04), head)
+		_front(sd * (fw - 0.035), nose_h - 0.13, Vector3(0.05, 0.13, 0.04), amber)
+		_rear(sd * (rw - 0.27), deck_h - 0.17, Vector3(0.35, 0.17, 0.04), tail)
+		_rear(sd * (rw - 0.045), deck_h - 0.17, Vector3(0.08, 0.17, 0.04), amber)
 	_box(Vector3(0, g + 0.40, zf + 0.05), Vector3(0.52, 0.11, 0.01), plate) # front plate on the bumper
 	_rear(0, deck_h - 0.20, Vector3(0.52, 0.11, 0.01), plate)
 

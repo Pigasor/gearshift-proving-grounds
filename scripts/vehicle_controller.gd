@@ -205,79 +205,127 @@ func _ready() -> void:
 	add_child(exhaust_smoke)
 	apply_car(current_vehicle_type, 0)
 
+# Realistic wheel inside each RollNode (axle = X): open tyre tread + rounded sidewalls, chrome rim
+# lip, dark rim barrel, 5 chrome spokes, chrome centre cap & lug nuts, brake disc behind the spokes.
+func _wheel_mat(c: Color, metal: float, rough: float, two_sided: bool = false) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.metallic = metal
+	m.roughness = rough
+	if two_sided:
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
+func _wheel_part(parent: Node3D, mesh: Mesh, pos: Vector3, axle_scale: float = 1.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	# meshes are built around Y: turn Y onto the axle (X), optionally squashed along it
+	mi.transform = Transform3D(Basis(Vector3(0, -1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1, axle_scale, 1)), pos)
+	parent.add_child(mi)
+	return mi
+
 func _build_wheel_details() -> void:
+	var rubber := _wheel_mat(Color(0.07, 0.07, 0.08), 0.0, 0.9)
+	var chrome := _wheel_mat(Color(0.93, 0.94, 0.96), 1.0, 0.07)
+	var barrel_mat := _wheel_mat(Color(0.16, 0.16, 0.18), 0.7, 0.4, true)
+	var disc_mat := _wheel_mat(Color(0.55, 0.56, 0.58), 0.9, 0.35)
+	var tread := CylinderMesh.new()
+	tread.top_radius = 0.32
+	tread.bottom_radius = 0.32
+	tread.height = 0.22
+	tread.radial_segments = 40
+	tread.cap_top = false
+	tread.cap_bottom = false
+	tread.material = rubber
+	var sidewall := TorusMesh.new() # squashed along the axle: a rounded tyre shoulder
+	sidewall.inner_radius = 0.205
+	sidewall.outer_radius = 0.32
+	sidewall.rings = 40
+	sidewall.ring_segments = 12
+	sidewall.material = rubber
+	var lip := TorusMesh.new()
+	lip.inner_radius = 0.19
+	lip.outer_radius = 0.225
+	lip.rings = 40
+	lip.ring_segments = 8
+	lip.material = chrome
+	var barrel := CylinderMesh.new()
+	barrel.top_radius = 0.205
+	barrel.bottom_radius = 0.205
+	barrel.height = 0.21
+	barrel.radial_segments = 32
+	barrel.cap_top = false
+	barrel.cap_bottom = false
+	barrel.material = barrel_mat
+	var back := CylinderMesh.new()
+	back.top_radius = 0.2
+	back.bottom_radius = 0.2
+	back.height = 0.01
+	back.radial_segments = 32
+	back.material = _wheel_mat(Color(0.05, 0.05, 0.06), 0.3, 0.7)
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.17
+	disc.bottom_radius = 0.17
+	disc.height = 0.025
+	disc.radial_segments = 32
+	disc.material = disc_mat
+	var cap := CylinderMesh.new()
+	cap.top_radius = 0.045
+	cap.bottom_radius = 0.06
+	cap.height = 0.04
+	cap.radial_segments = 20
+	cap.material = chrome
+	var nut := CylinderMesh.new()
+	nut.top_radius = 0.009
+	nut.bottom_radius = 0.011
+	nut.height = 0.02
+	nut.radial_segments = 6
+	nut.material = chrome
+	var spoke := BoxMesh.new()
+	spoke.size = Vector3(0.026, 0.15, 0.045) # x = depth along the axle, y = radial length
+	spoke.material = chrome
+
 	for i in range(wheel_mounts.size()):
 		var mount: Node3D = wheel_mounts[i]
 		var roll: Node3D = wheel_rolls[i]
 		if mount == null or roll == null:
 			continue
+		var side: float = -1.0 if i % 2 == 0 else 1.0 # outer face of the wheel
+		for n in ["TireMesh", "RimMesh"]:
+			var old := roll.get_node_or_null(n)
+			if old:
+				old.queue_free()
+		_wheel_part(roll, tread, Vector3.ZERO)
+		for sd in [-1.0, 1.0]:
+			_wheel_part(roll, sidewall, Vector3(sd * 0.105, 0, 0), 0.45)
+		_wheel_part(roll, lip, Vector3(side * 0.118, 0, 0), 0.5)
+		_wheel_part(roll, barrel, Vector3(0.0, 0, 0))
+		_wheel_part(roll, back, Vector3(-side * 0.06, 0, 0))
+		_wheel_part(roll, disc, Vector3(side * 0.0, 0, 0))
+		_wheel_part(roll, cap, Vector3(side * 0.1, 0, 0)).rotation_degrees.z = -90.0 * side
+		for k in range(5):
+			var a: float = k * TAU / 5.0
+			var s := MeshInstance3D.new()
+			s.mesh = spoke
+			s.position = Vector3(side * 0.095, 0.12 * cos(a), 0.12 * sin(a))
+			s.rotation.x = a
+			roll.add_child(s)
+			var n_a: float = a + TAU / 10.0
+			_wheel_part(roll, nut, Vector3(side * 0.112, 0.07 * cos(n_a), 0.07 * sin(n_a)))
 
-		var is_left: bool = (i % 2 == 0)
-		var outer_x: float = -0.13 if is_left else 0.13
-
-		# 1. Metallic Brake Rotor Disc (Rotates with wheel inside RollNode)
-		var rotor := MeshInstance3D.new()
-		var rotor_cyl := CylinderMesh.new()
-		rotor_cyl.top_radius = 0.22
-		rotor_cyl.bottom_radius = 0.22
-		rotor_cyl.height = 0.03
-		rotor_cyl.radial_segments = 24
-		var rotor_mat := StandardMaterial3D.new()
-		rotor_mat.albedo_color = Color(0.85, 0.86, 0.88)
-		rotor_mat.metallic = 0.95
-		rotor_mat.roughness = 0.22
-		rotor_cyl.material = rotor_mat
-		rotor.mesh = rotor_cyl
-		rotor.transform = Transform3D(Vector3(0, -1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3.ZERO)
-		roll.add_child(rotor)
-
-		# 2. Sporty 5-Star Alloy Rim Spokes (Rotate with wheel inside RollNode)
-		var spoke_mat := StandardMaterial3D.new()
-		spoke_mat.albedo_color = Color(0.92, 0.93, 0.95)
-		spoke_mat.metallic = 0.92
-		spoke_mat.roughness = 0.15
-
-		for s in range(5):
-			var angle: float = s * (TAU / 5.0)
-			var spoke := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(0.024, 0.18, 0.032)
-			bm.material = spoke_mat
-			spoke.mesh = bm
-			spoke.position = Vector3(outer_x, 0.09 * cos(angle), 0.09 * sin(angle))
-			spoke.rotation.x = -angle
-			roll.add_child(spoke)
-
-		# 3. Center Wheel Hub Cap (Rotates with wheel inside RollNode)
-		var hub := MeshInstance3D.new()
-		var hub_cyl := CylinderMesh.new()
-		hub_cyl.top_radius = 0.07
-		hub_cyl.bottom_radius = 0.07
-		hub_cyl.height = 0.03
-		hub_cyl.radial_segments = 16
-		var hub_mat := StandardMaterial3D.new()
-		hub_mat.albedo_color = Color(0.12, 0.12, 0.14)
-		hub_mat.metallic = 0.8
-		hub_mat.roughness = 0.3
-		hub_cyl.material = hub_mat
-		hub.mesh = hub_cyl
-		hub.transform = Transform3D(Vector3(0, -1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(outer_x, 0, 0))
-		roll.add_child(hub)
-
-		# 4. Sporty Red Brembo Brake Caliper (Mounted on Mount, DOES NOT ROLL with wheel!)
+		# Red brake caliper on the mount (does NOT roll with the wheel), inside the rim barrel
 		var caliper := MeshInstance3D.new()
 		var cm := BoxMesh.new()
-		cm.size = Vector3(0.065, 0.075, 0.11)
+		cm.size = Vector3(0.06, 0.07, 0.11)
 		var caliper_mat := StandardMaterial3D.new()
-		caliper_mat.albedo_color = Color(0.92, 0.12, 0.08) # Glossy Sports Red
+		caliper_mat.albedo_color = Color(0.92, 0.12, 0.08)
 		caliper_mat.metallic = 0.5
 		caliper_mat.roughness = 0.25
 		caliper_mat.clearcoat_enabled = true
 		caliper_mat.clearcoat = 0.8
 		cm.material = caliper_mat
 		caliper.mesh = cm
-		var caliper_x: float = outer_x * 0.45
-		caliper.position = Vector3(caliper_x, 0.15, 0.08)
+		caliper.position = Vector3(side * 0.045, 0.12, 0.06)
 		caliper.rotation_degrees = Vector3(25.0, 0.0, 0.0)
 		mount.add_child(caliper)
 
@@ -1642,7 +1690,8 @@ func _process_automatic_transmission(delta: float) -> void:
 		# early (low revs), only a floored pedal holds the gear up to the limiter.
 		var shift_rpm: float = lerpf(limiter_rpm * 0.42, limiter_rpm - 300.0, clampf(_throttle_input / 0.9, 0.0, 1.0))
 		var early: bool = _throttle_input < 0.85 and _brake_input < 0.1 and g_rpm > shift_rpm and next_rpm > limiter_rpm * 0.34
-		if (near_limit or early) and next_rpm > idle_rpm * 1.6:
+		# never into a gear the car would lug in right away (with wheelspin that caused 6-7-6-7 hunting)
+		if (near_limit or early) and next_rpm > idle_rpm * 1.6 and next_rpm > limiter_rpm * 0.33:
 			shift_up()
 			_auto_shift_cooldown = 0.5
 			_since_upshift = 0.0
@@ -1651,7 +1700,7 @@ func _process_automatic_transmission(delta: float) -> void:
 	if current_gear > 2:
 		var prev_rpm: float = _ground_rpm(current_gear - 1)
 		var lugging: bool = g_rpm < limiter_rpm * 0.28
-		var kickdown: bool = _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and _since_upshift > 2.5 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill)
+		var kickdown: bool = _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and _since_upshift > 2.5 and current_rpm < limiter_rpm * 0.6 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill); an engine already revving high (wheelspin) needs no kickdown
 		if (lugging or kickdown) and prev_rpm < limiter_rpm - 900.0:
 			shift_down()
 			_auto_shift_cooldown = 0.6
@@ -2196,7 +2245,10 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			else:
 				# Tyre slips (wheelspin or locked wheel): kinetic friction in the direction of slip,
 				# and the wheel keeps its own speed.
-				long_mag = signf(fx_needed) * long_room * 0.9
+				# A tyre only just past its limit keeps nearly all its grip; a wildly spinning or
+				# locked one drops to ~90% (dry asphalt). A flat 90% made any excess torque spin up to the limiter.
+				var slip_v: float = absf(w_pred * r_tyre - forward_vel)
+				long_mag = signf(fx_needed) * long_room * lerpf(1.0, 0.9, clampf(slip_v / 15.0, 0.0, 1.0))
 				wheel_angular_velocity[i] = w_pred - long_mag * r_tyre * delta / inertia
 				if slipping_now and _clutch_torque > 0.0 and _is_driven(i):
 					wheel_angular_velocity[i] = _cap_to_engine(wheel_angular_velocity[i], active_gear_ratio)

@@ -27,6 +27,8 @@ var _shot_time: float = 0.0
 var _shot_side: float = 1.0
 var _shot_pos: Vector3
 var _shot_off: Vector3
+var _orbit: float = 0.0 # slow sweep around the car during a tracking shot
+var _toast: Label
 # Crash shake
 const SHAKE_ACCEL: float = 45.0 # m/s² of sudden velocity change before the camera shakes
 var _trauma: float = 0.0
@@ -75,6 +77,29 @@ func cycle_mode() -> void:
 		CameraMode.HOOD: current_mode = CameraMode.BUMPER
 		CameraMode.BUMPER: current_mode = CameraMode.CINEMATIC
 		CameraMode.CINEMATIC: current_mode = CameraMode.CHASE
+	if current_mode == CameraMode.CINEMATIC:
+		_show_toast(tr("🎬 SİNEMATİK KAMERA"))
+
+# Short on-screen notice (e.g. "Cinematic camera") that fades out
+func _show_toast(text: String) -> void:
+	if _toast == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 5
+		add_child(layer)
+		_toast = Label.new()
+		_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_toast.offset_top = 90
+		_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_toast.add_theme_font_size_override("font_size", 30)
+		_toast.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+		_toast.add_theme_constant_override("outline_size", 8)
+		layer.add_child(_toast)
+	_toast.text = text
+	_toast.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(1.6)
+	tw.tween_property(_toast, "modulate:a", 0.0, 0.6)
 
 func _physics_process(scaled_delta: float) -> void:
 	if target_vehicle == null:
@@ -187,6 +212,7 @@ func _process_cinematic(delta: float, speed_kmh: float) -> void:
 		_shot = (_shot + 1) % 4
 		_shot_time = 6.0
 		_shot_side = -_shot_side
+		_orbit = 0.0
 		cut = true
 		if _shot == 0:
 			if speed_kmh < 25.0:
@@ -198,11 +224,16 @@ func _process_cinematic(delta: float, speed_kmh: float) -> void:
 				_shot_pos = _clear_spot(look_pos, _shot_pos)
 	var target: Vector3
 	match _shot:
-		0: target = _shot_pos
+		0:
+			# roadside camera drifts after the car and cranes up a little: never a frozen shot
+			_shot_pos += target_vehicle.linear_velocity * 0.25 * delta + Vector3.UP * 0.25 * delta
+			target = _shot_pos
 		1: target = car_pos + right * _shot_side * 5.5 * s + fwd * 1.5 * s + Vector3.UP * 0.9 * s
 		2: target = car_pos - fwd * 7.5 * s + right * _shot_side * 1.5 * s + Vector3.UP * 0.5 * s
 		_: target = car_pos + fwd * 8.0 * s - right * _shot_side * 3.5 * s + Vector3.UP * 2.8 * s
 	if _shot != 0:
+		_orbit += delta * 0.18 * _shot_side
+		target = car_pos + (target - car_pos).rotated(Vector3.UP, _orbit)
 		target = _clear_spot(look_pos, target)
 	# tracking shots smooth their offset from the car, so speed never makes them fall behind
 	if cut or _shot == 0:

@@ -12,6 +12,7 @@ const EN: Dictionary = {
 	"🛠️ GARAJ (TAB)": "🛠️ GARAGE (TAB)",
 	"⏳ AĞIR ÇEKİM (T)": "⏳ SLOW-MO (T)",
 	"🎥 KAMERA (C)": "🎥 CAMERA (C)",
+	"🎬 SİNEMATİK KAMERA": "🎬 CINEMATIC CAMERA",
 	"🔄 SIFIRLA (Enter)": "🔄 RESET (Enter)",
 	"⏳ AĞIR ÇEKİM AKTİF (0.2x)": "⏳ SLOW MOTION ON (0.2x)",
 	"(P) EL FRENİ ÇEKİLİ": "(P) HANDBRAKE ON",

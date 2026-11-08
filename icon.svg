@@ -1,14 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#0d1117"/>
+  <!-- Bright background so the icon stands out on dark and light taskbars -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2ea8ff"/>
+      <stop offset="1" stop-color="#0b5cc4"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="26" fill="url(#bg)"/>
   <!-- Gauge Arc -->
-  <path d="M 24 96 A 48 48 0 1 1 104 96" fill="none" stroke="#252d3d" stroke-width="8" stroke-linecap="round"/>
-  <path d="M 24 96 A 48 48 0 0 1 84 26" fill="none" stroke="#00b4d8" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 24 98 A 48 48 0 1 1 104 98" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="13" stroke-linecap="round"/>
+  <path d="M 24 98 A 48 48 0 0 1 84 28" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round"/>
   <!-- Redline -->
-  <path d="M 84 26 A 48 48 0 0 1 104 96" fill="none" stroke="#e63946" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 84 28 A 48 48 0 0 1 104 98" fill="none" stroke="#ff3b4a" stroke-width="13" stroke-linecap="round"/>
   <!-- Needle -->
-  <polygon points="64,64 61,61 82,34 67,61" fill="#e63946"/>
-  <circle cx="64" cy="64" r="8" fill="#f1faee"/>
-  <circle cx="64" cy="64" r="4" fill="#1d3557"/>
-  <!-- Text -->
-  <text x="64" y="112" font-family="sans-serif" font-size="11" font-weight="bold" fill="#00b4d8" text-anchor="middle">GEARSHIFT</text>
+  <polygon points="58,58 70,70 94,30" fill="#ffd23f"/>
+  <circle cx="64" cy="64" r="11" fill="#ffffff"/>
+  <circle cx="64" cy="64" r="5" fill="#0b5cc4"/>
 </svg>

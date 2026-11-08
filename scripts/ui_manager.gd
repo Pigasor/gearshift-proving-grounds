@@ -178,11 +178,22 @@ func _update_hud() -> void:
 	label_handbrake.visible = vehicle.is_handbrake_active
 	label_slowmo.visible = (Engine.time_scale < 0.9)
 
+const CAR_GROUPS: Array = [["Sedan", "Sedan"], ["Classic", "Classic"], ["Sport", "Sport"], ["Muscle", "Muscle"],
+	["Hyper", "Hypercar"], ["Off-Road", "Off-Road"], ["Monster", "Monster Truck"]]
+
 func _setup_options() -> void:
+	# Cars grouped by class under separator headings; the item id is the car index.
 	option_car_select.clear()
-	for i in range(CarDatabase.count()):
-		var c: Dictionary = CarDatabase.car(i)
-		option_car_select.add_item("[%s] %s" % [c["class"], c["name"]], i)
+	for grp in CAR_GROUPS:
+		var first: bool = true
+		for i in range(CarDatabase.count()):
+			var c: Dictionary = CarDatabase.car(i)
+			if c["class"] != grp[0]:
+				continue
+			if first:
+				option_car_select.add_separator(grp[1])
+				first = false
+			option_car_select.add_item(c["name"], i)
 
 	# Engine choice row (label | dropdown | spacer) right under the car row of the 3-column grid
 	if option_engine == null:
@@ -325,7 +336,7 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 	_update_car_stats.call_deferred()
 
 	var car_i: int = int(vehicle.current_vehicle_type)
-	option_car_select.selected = car_i
+	option_car_select.selected = option_car_select.get_item_index(car_i)
 	if option_engine:
 		option_engine.clear()
 		var engines: Array = CarDatabase.car(car_i)["engines"]
@@ -371,7 +382,7 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 # --- Tuning UI Callbacks ---
 func _on_option_car_select_item_selected(index: int) -> void:
 	if vehicle:
-		vehicle.apply_car(index, 0)
+		vehicle.apply_car(option_car_select.get_item_id(index), 0)
 		_sync_tuning_sliders_from_vehicle()
 
 func _on_option_engine_selected(index: int) -> void:
