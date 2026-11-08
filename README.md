@@ -9,7 +9,7 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 - **10 araç, 16 motor seçeneği:** Spor ve süper arabalar, canavar kamyon ve gerçek ölçülü aile sedanları (benzinli / dizel motorlar, gerçek tork eğrileri)
 - **Harita:** Havalimanı (pist 18/36, taksi yolları, apron, terminal, kule, hangarlar), yarış pisti ve tur zamanlayıcı, eğimli virajlı otoyol halkası, drift alanı, stunt parkı, off-road alanı ve tepe parkı
 - **Garaj:** Motor gücü, turbo, süspansiyon, kamber, tutuş, çekiş tipi, ABS/TCS ayarları
-- **Ayarlar menüsü (ESC):** Görüntü, grafik, ses, kontroller, tuş atamaları ve direksiyon seti kurulumu
+- **Ayarlar menüsü (ESC):** Dil (English / Türkçe), görüntü, grafik, ses, kontroller, tuş atamaları ve direksiyon seti kurulumu
 - **Direksiyon seti desteği:** Otomatik eksen/pedal algılama; gaz, fren, debriyaj, el freni (buton veya analog kol), vites kulakçıkları ve H vites kolu
 - **Mini harita** (N: yakın / geniş)
 

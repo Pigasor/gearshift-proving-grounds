@@ -31,6 +31,7 @@ const ACTIONS: Array = [
 ]
 
 var defaults: Dictionary = {
+	"language": "", # "" = pick from the system language on first start ("tr" or "en")
 	# Display
 	"window_mode": 0, # 0 windowed, 1 borderless fullscreen, 2 exclusive fullscreen
 	"resolution": 0,
@@ -88,8 +89,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	values = defaults.duplicate(true)
 	_reset_bindings()
+	_register_translations()
 	_load()
 	apply_input_map()
+	apply_language()
 	apply_window()
 	apply_audio()
 
@@ -98,6 +101,8 @@ func get_value(key: String):
 
 func set_value(key: String, v) -> void:
 	values[key] = v
+	if key == "language":
+		apply_language()
 	if key == "quality_preset" and int(v) < 4:
 		_apply_preset(int(v))
 	elif key in ["shadows", "msaa", "ssao", "glow", "fxaa", "taa", "draw_distance"]:
@@ -119,6 +124,7 @@ func _apply_preset(p: int) -> void:
 
 func reset_to_defaults() -> void:
 	values = defaults.duplicate(true)
+	apply_language()
 	_reset_bindings()
 	apply_input_map()
 	apply_window()
@@ -314,3 +320,22 @@ func _load() -> void:
 			if a != "full_map":
 				(bindings[a] as Array).erase(KEY_M)
 		bindings["full_map"] = [KEY_M]
+
+# ---------------- Language ----------------
+# Source texts are Turkish; English comes from I18n.EN. (Fallback locale is "tr" in
+# project.godot, so a missing English text shows the Turkish one rather than nothing.)
+func _register_translations() -> void:
+	var t := Translation.new()
+	t.locale = "en"
+	for k in I18n.EN:
+		t.add_message(k, I18n.EN[k])
+	TranslationServer.add_translation(t)
+
+func current_language() -> String:
+	var lang: String = str(get_value("language"))
+	if lang == "":
+		lang = "tr" if OS.get_locale_language() == "tr" else "en" # first start: follow the system
+	return lang
+
+func apply_language() -> void:
+	TranslationServer.set_locale(current_language())

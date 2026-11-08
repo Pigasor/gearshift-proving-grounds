@@ -105,16 +105,17 @@ func _track_top_speed() -> void:
 func _update_stats_display() -> void:
 	if label_records == null:
 		return
-
-	var t_0_100_str: String = "%1.2fs (Best: %1.2fs)" % [time_0_100, best_0_100] if best_0_100 > 0.0 else "--"
+	# Each line goes through tr() (Settings > Language)
+	var t_0_100_str: String = tr("%1.2fs (En iyi: %1.2fs)") % [time_0_100, best_0_100] if best_0_100 > 0.0 else "--"
 	var t_qm_str: String = "%1.2fs @ %3.0f km/h" % [time_quarter_mile, speed_quarter_mile] if time_quarter_mile > 0.0 else "--"
 	var jump_str: String = "%1.1fm (%1.2fs)" % [last_jump_distance, last_jump_airtime] if last_jump_distance > 0.0 else "--"
-
-	label_records.text = """[ TEST SAHASI TELEMETRİSİ ]
-0-100 km/s : %s
-400m Süresi: %s
-Son Atlama : %s
-Maks Hız   : %3.0f km/s""" % [t_0_100_str, t_qm_str, jump_str, top_speed_record]
+	var lines: PackedStringArray = [
+		tr("[ TEST SAHASI TELEMETRİSİ ]"),
+		tr("0-100 km/s : %s") % t_0_100_str,
+		tr("400m Süresi: %s") % t_qm_str,
+		tr("Son Atlama : %s") % jump_str,
+		tr("Maks Hız   : %3.0f km/s") % top_speed_record,
+	]
 
 	# Race circuit lap times
 	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
@@ -122,8 +123,11 @@ Maks Hız   : %3.0f km/s""" % [t_0_100_str, t_qm_str, jump_str, top_speed_record
 		var lt = timer.get_script()
 		var car_type: int = int(vehicle.get("record_key"))
 		var cur: String = lt.fmt(timer.current_time) if timer.running else "--:--.--"
-		label_records.text += "\n\n[ YARIŞ PİSTİ ]\nTur        : %s\nSon Tur    : %s%s\nEn İyi Tur : %s" % [
-			cur, lt.fmt(timer.last_lap), "  ★ REKOR!" if timer.last_lap_was_record and timer.last_lap > 0.0 else "",
-			lt.fmt(timer.best_for(car_type))]
+		lines.append("")
+		lines.append(tr("[ YARIŞ PİSTİ ]"))
+		lines.append(tr("Tur        : %s") % cur)
+		lines.append(tr("Son Tur    : %s%s") % [lt.fmt(timer.last_lap), tr("  ★ REKOR!") if timer.last_lap_was_record and timer.last_lap > 0.0 else ""])
+		lines.append(tr("En İyi Tur : %s") % lt.fmt(timer.best_for(car_type)))
 		if timer.invalid_message_timer > 0.0:
-			label_records.text += "\n⚠ Tur geçersiz (kapı atlandı)"
+			lines.append(tr("⚠ Tur geçersiz (kapı atlandı)"))
+	label_records.text = "\n".join(lines)

@@ -195,7 +195,7 @@ func _runway() -> void:
 		ez += 60.0
 
 	# Drag-race distances from the drag start line (yellow lines across the runway + labels)
-	var marks: Array = [[0.0, "DRAG START"], [201.17, "1/8 MİL"], [402.34, "1/4 MİL"], [804.67, "1/2 MİL"], [1609.34, "1 MİL"]]
+	var marks: Array = [[0.0, "DRAG START"], [201.17, "1/8 MILE"], [402.34, "1/4 MILE"], [804.67, "1/2 MILE"], [1609.34, "1 MILE"]]
 	for m in marks:
 		var mz: float = DRAG_START_Z + float(m[0])
 		_paint(0.0, mz, RW_W - 4.0, 1.2 if float(m[0]) > 0.0 else 2.0, mb.mat_road_yellow, 0.055)
@@ -278,7 +278,7 @@ func _terminal_and_tower() -> void:
 		mz += 8.0
 	# name on the roof edge
 	var sign := Label3D.new()
-	sign.text = "GEARSHIFT HAVALİMANI"
+	sign.text = "GEARSHIFT AIRPORT"
 	if _font:
 		sign.font = _font
 	sign.font_size = 72
@@ -414,7 +414,7 @@ func _extras() -> void:
 	_visual(_cyl_mesh(0.25, 0.55, 3.2, 12), sock_mat, wp + Vector3(1.6, 5.8, 0), Vector3(0, 0, 80))
 	# Airport perimeter road sign at the apron
 	var s := Label3D.new()
-	s.text = "◀ PİST 18/36    APRON ▶"
+	s.text = "◀ RUNWAY 18/36    APRON ▶"
 	if _font:
 		s.font = _font
 	s.font_size = 48

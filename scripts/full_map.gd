@@ -204,9 +204,10 @@ func _draw_overlay() -> void:
 		var sp: Vector2 = _world_to_screen(a[1])
 		if r.has_point(sp):
 			var size: int = 15
-			var w: float = font.get_string_size(a[0], HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-			_overlay.draw_string_outline(font, sp - Vector2(w * 0.5, 0), a[0], HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color(0, 0, 0, 0.85))
-			_overlay.draw_string(font, sp - Vector2(w * 0.5, 0), a[0], HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1))
+			var area_name: String = tr(a[0])
+			var w: float = font.get_string_size(area_name, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+			_overlay.draw_string_outline(font, sp - Vector2(w * 0.5, 0), area_name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 4, Color(0, 0, 0, 0.85))
+			_overlay.draw_string(font, sp - Vector2(w * 0.5, 0), area_name, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1))
 	# the car: arrow pointing where it faces
 	var cp: Vector2 = _world_to_screen(Vector2(vehicle.global_position.x, vehicle.global_position.z))
 	if r.has_point(cp):
@@ -223,7 +224,7 @@ func _draw_overlay() -> void:
 	if r.has_point(m):
 		_overlay.draw_circle(m, 6.0, Color(1, 1, 1, 0.5))
 		var wp: Vector2 = _screen_to_world(m)
-		_overlay.draw_string(font, m + Vector2(12, -10), "ışınlan (%.0f, %.0f)" % [wp.x, wp.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
+		_overlay.draw_string(font, m + Vector2(12, -10), tr("ışınlan (%.0f, %.0f)") % [wp.x, wp.y], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 1, 1, 0.8))
 	# scale bar (always 100 m / 500 m)
 	var bar_m: float = 500.0 if _span > 1200.0 else 100.0
 	var bar_px: float = bar_m / _span * r.size.x
@@ -233,4 +234,4 @@ func _draw_overlay() -> void:
 	# north arrow
 	var na := Vector2(r.end.x - 30, r.position.y + 36)
 	_overlay.draw_colored_polygon(PackedVector2Array([na + Vector2(0, -16), na + Vector2(8, 8), na + Vector2(-8, 8)]), Color(1, 1, 1))
-	_overlay.draw_string(font, na + Vector2(-6, 26), "K", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1))
+	_overlay.draw_string(font, na + Vector2(-6, 26), tr("K"), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1))

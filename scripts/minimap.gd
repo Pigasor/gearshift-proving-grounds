@@ -124,5 +124,5 @@ func _draw_overlay() -> void:
 	if gs:
 		var keys: Array = gs.bindings.get("minimap", [])
 		key = OS.get_keycode_string(keys[0]) if keys.size() > 0 else "-"
-	var label: String = key + (": Geniş" if not _wide else ": Yakın")
+	var label: String = key + tr(": Geniş" if not _wide else ": Yakın")
 	_overlay.draw_string(font, Vector2(c.x - 26, size.y - 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.85, 0.9, 1.0, 0.85))

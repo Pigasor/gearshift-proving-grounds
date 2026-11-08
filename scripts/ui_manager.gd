@@ -125,7 +125,7 @@ func _update_hud() -> void:
 			label_gear.text = mode_prefix + str(vehicle.current_gear - 1)
 			label_gear.modulate = Color(0.2, 0.85, 1.0)
 
-	btn_quick_gear_mode.text = "🕹️ " + ("OTOMATİK" if vehicle.is_automatic else "MANUEL (F/V)")
+	btn_quick_gear_mode.text = "🕹️ " + tr("OTOMATİK" if vehicle.is_automatic else "MANUEL (F/V)")
 
 	# Current vehicle button label
 	btn_quick_car.text = "🚗 " + CarDatabase.display_name(int(vehicle.current_vehicle_type), int(vehicle.current_engine_index))
@@ -149,16 +149,16 @@ func _update_hud() -> void:
 
 	# Turbo & Shift Turbo Boost Display
 	if "turbo_boost_active" in vehicle and vehicle.turbo_boost_active:
-		label_turbo.text = "🔥 TURBO AKTİF! (%1.1fs) +%1.2f BAR" % [vehicle.turbo_boost_timer, vehicle.turbo_boost_bar]
+		label_turbo.text = tr("🔥 TURBO AKTİF! (%1.1fs) +%1.2f BAR") % [vehicle.turbo_boost_timer, vehicle.turbo_boost_bar]
 		label_turbo.modulate = Color(1.0, 0.45, 0.1) # Glowing fiery orange
 	elif "turbo_boost_cooldown_timer" in vehicle and vehicle.turbo_boost_cooldown_timer > 0.0:
-		label_turbo.text = "⏳ SOĞUMA: %1.1fs (+%1.2f BAR)" % [vehicle.turbo_boost_cooldown_timer, vehicle.turbo_boost_bar]
+		label_turbo.text = tr("⏳ SOĞUMA: %1.1fs (+%1.2f BAR)") % [vehicle.turbo_boost_cooldown_timer, vehicle.turbo_boost_bar]
 		label_turbo.modulate = Color(0.65, 0.72, 0.85) # Cooldown blue-gray
 	elif vehicle.turbo_enabled:
-		label_turbo.text = "⚡ TURBO [SHIFT]: HAZIR (+%1.2f BAR)" % vehicle.turbo_boost_bar
+		label_turbo.text = tr("⚡ TURBO [SHIFT]: HAZIR (+%1.2f BAR)") % vehicle.turbo_boost_bar
 		label_turbo.modulate = Color(0.25, 0.95, 1.0) # Electric neon cyan
 	else:
-		label_turbo.text = "⚡ NITRO [SHIFT]: HAZIR"
+		label_turbo.text = tr("⚡ NITRO [SHIFT]: HAZIR")
 		label_turbo.modulate = Color(0.25, 0.95, 1.0)
 
 	label_gforce.text = "G-LAT: %+1.2f G  |  G-LONG: %+1.2f G" % [vehicle.g_force_lateral, vehicle.g_force_longitudinal]

@@ -108,3 +108,7 @@ camera_view={
 3d/physics_engine="default"
 common/physics_ticks_per_second=60
 3d/default_gravity=9.8
+
+[internationalization]
+
+locale/fallback="tr"

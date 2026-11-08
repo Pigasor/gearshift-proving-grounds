@@ -39,7 +39,7 @@ func _input(event: InputEvent) -> void:
 	if _det_kind.ends_with("_btn") and event is InputEventJoypadButton and event.pressed \
 			and event.device == int(GameSettings.get_value("wheel_device")):
 		GameSettings.set_value("wheel_" + _det_kind, event.button_index)
-		_finish_detect("✔ Buton %d atandı" % event.button_index)
+		_finish_detect(tr("✔ Buton %d atandı") % event.button_index)
 		get_viewport().set_input_as_handled()
 		return
 	# Waiting for a key to bind
@@ -249,6 +249,18 @@ func _build_tabs() -> void:
 
 	# GÖRÜNTÜ
 	var g := _new_tab("Görüntü")
+	# Language (labels are translated automatically; the tabs are rebuilt for the formatted texts)
+	_label(g, "Dil / Language")
+	var lang_ob := OptionButton.new()
+	lang_ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for li in range(I18n.LANGUAGES.size()):
+		lang_ob.add_item(I18n.LANGUAGES[li][1])
+		if I18n.LANGUAGES[li][0] == GameSettings.current_language():
+			lang_ob.selected = li
+	lang_ob.item_selected.connect(func(idx: int):
+		GameSettings.set_value("language", I18n.LANGUAGES[idx][0])
+		_build_tabs.call_deferred())
+	g.add_child(lang_ob)
 	_add_option(g, "Pencere Modu", "window_mode", ["Pencere", "Tam Ekran (Kenarlıksız)", "Tam Ekran (Özel)"])
 	var res_names: Array = []
 	for r in GameSettings.RESOLUTIONS:
@@ -431,15 +443,15 @@ func _refresh_wheel_labels() -> void:
 			continue
 		if kind.ends_with("_btn"):
 			var b: int = int(GameSettings.get_value("wheel_" + kind))
-			lab.text = "—" if b < 0 else "Buton %d" % b
+			lab.text = "—" if b < 0 else tr("Buton %d") % b
 		else:
 			var a: int = int(GameSettings.get_value("wheel_" + kind + "_axis"))
-			lab.text = "—" if a < 0 else "Eksen %d" % a
+			lab.text = "—" if a < 0 else tr("Eksen %d") % a
 
 func _start_wheel_detect(kind: String, prompt: String) -> void:
 	var dev: int = int(GameSettings.get_value("wheel_device"))
 	if not Input.get_connected_joypads().has(dev):
-		_wheel_status.text = "⚠ Seçili cihaz bağlı değil."
+		_wheel_status.text = tr("⚠ Seçili cihaz bağlı değil.")
 		return
 	_det_kind = kind
 	_det_base.clear()
@@ -449,7 +461,7 @@ func _start_wheel_detect(kind: String, prompt: String) -> void:
 	_det_extreme = 0.0
 	_det_timer = 8.0
 	_det_hold = 0.0
-	_wheel_status.text = "▶ " + prompt + " …"
+	_wheel_status.text = "▶ " + tr(prompt) + " …"
 
 func _process(delta: float) -> void:
 	if not is_open() or _wheel_live == null or not is_instance_valid(_wheel_live):
@@ -462,26 +474,26 @@ func _process(delta: float) -> void:
 		var parts: PackedStringArray = []
 		var sa: int = int(cfg.get("steer_axis", -1))
 		if sa >= 0:
-			parts.append("Direksiyon %+.0f°" % (Input.get_joy_axis(dev, sa) * (-1.0 if cfg.get("steer_invert", false) else 1.0) * float(cfg.get("range", 900.0)) * 0.5))
+			parts.append(tr("Direksiyon %+.0f°") % (Input.get_joy_axis(dev, sa) * (-1.0 if cfg.get("steer_invert", false) else 1.0) * float(cfg.get("range", 900.0)) * 0.5))
 		for p in ["throttle", "brake", "clutch", "handbrake"]:
 			var ax: int = int(cfg.get(p + "_axis", -1))
 			if ax >= 0:
 				var rest: float = float(cfg.get(p + "_rest", 1.0))
 				var full: float = float(cfg.get(p + "_full", -1.0))
 				var v: float = clampf((Input.get_joy_axis(dev, ax) - rest) / (full - rest), 0.0, 1.0) if absf(full - rest) > 0.05 else 0.0
-				parts.append("%s %%%d" % [{"throttle": "Gaz", "brake": "Fren", "clutch": "Debriyaj", "handbrake": "El freni"}[p], roundi(v * 100.0)])
-		_wheel_live.text = "Canlı: " + "  ·  ".join(parts) if parts.size() > 0 else ""
+				parts.append("%s %%%d" % [tr({"throttle": "Gaz", "brake": "Fren", "clutch": "Debriyaj", "handbrake": "El freni"}[p]), roundi(v * 100.0)])
+		_wheel_live.text = tr("Canlı: ") + "  ·  ".join(parts) if parts.size() > 0 else ""
 	if _det_kind == "" or _det_kind.ends_with("_btn"):
 		if _det_kind != "":
 			_det_timer -= delta
 			if _det_timer <= 0.0:
 				_det_kind = ""
-				_wheel_status.text = "⏱ Süre doldu, buton algılanamadı."
+				_wheel_status.text = tr("⏱ Süre doldu, buton algılanamadı.")
 		return
 	_det_timer -= delta
 	if not connected or _det_timer <= 0.0:
 		_det_kind = ""
-		_wheel_status.text = "⏱ Süre doldu, hareket algılanamadı."
+		_wheel_status.text = tr("⏱ Süre doldu, hareket algılanamadı.")
 		return
 	# Find the axis that moved most from where it was when "Algıla" was pressed
 	var best: int = -1
@@ -495,7 +507,7 @@ func _process(delta: float) -> void:
 		if absf(best_d) > 0.3:
 			GameSettings.set_value("wheel_steer_axis", best)
 			GameSettings.set_value("wheel_steer_invert", best_d < 0.0) # turned right -> must read positive
-			_finish_detect("✔ Direksiyon: eksen %d" % best)
+			_finish_detect(tr("✔ Direksiyon: eksen %d") % best)
 		return
 	# Pedals: wait until one axis moved clearly, follow it to its extreme, then save rest/full
 	if _det_axis < 0 and absf(best_d) > 0.5:
@@ -510,11 +522,11 @@ func _process(delta: float) -> void:
 			GameSettings.set_value("wheel_" + _det_kind + "_axis", _det_axis)
 			GameSettings.set_value("wheel_" + _det_kind + "_rest", base)
 			GameSettings.set_value("wheel_" + _det_kind + "_full", _det_extreme)
-			_finish_detect("✔ %s: eksen %d (bırakılmış %.2f → basılı %.2f)" % [_det_kind, _det_axis, base, _det_extreme])
+			_finish_detect(tr("✔ %s: eksen %d (bırakılmış %.2f → basılı %.2f)") % [_det_kind, _det_axis, base, _det_extreme])
 
 func _finish_detect(msg: String) -> void:
 	_det_kind = ""
-	_wheel_status.text = msg + " — pedalı / direksiyonu bırakabilirsin."
+	_wheel_status.text = msg + tr(" — pedalı / direksiyonu bırakabilirsin.")
 	_refresh_wheel_labels()
 
 func _refresh_bindings() -> void:
@@ -524,7 +536,7 @@ func _refresh_bindings() -> void:
 		var slot: int = int(parts[1])
 		var btn: Button = _bind_buttons[key]
 		if parts[0] == _capture_action and slot == _capture_slot:
-			btn.text = "… bir tuşa bas …"
+			btn.text = tr("… bir tuşa bas …")
 		else:
 			btn.text = GameSettings.key_name(keys[slot]) if slot < keys.size() else "—"
 
