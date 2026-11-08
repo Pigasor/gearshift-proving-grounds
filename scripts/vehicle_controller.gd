@@ -14,7 +14,6 @@ var camera_scale: float = 1.0
 var cam_hood: Vector3 = Vector3.ZERO
 var cam_bumper: Vector3 = Vector3.ZERO
 var exhaust_smokes: Array[ExhaustSmoke] = [] # one per tailpipe
-var performance_car: bool = false # sport / muscle / hyper / race: pops and bangs on hard upshifts
 var backfire_count: int = 0 # bumped on every backfire; the audio plays a bang when it changes
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
@@ -385,7 +384,6 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	cam_hood = Vector3.ZERO
 	cam_bumper = Vector3.ZERO
 	_place_exhausts([Vector3(-0.55, -0.05, -2.4)], false) # legacy trophy truck; bodies / monster override
-	performance_car = str(c["class"]) in ["Sport", "Muscle", "Hyper", "Off-Road"]
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
 		_apply_engine(en)
@@ -1727,9 +1725,9 @@ func _is_driven(i: int) -> bool:
 
 func shift_up() -> void:
 	if current_gear < gear_ratios.size() - 1 and not _is_shifting:
-		# hard upshift on a performance car: the ignition cut lights unburnt fuel in the exhaust
+		# hard upshift on a petrol car (each car has its own bang, see AudioSynth.BANGS): the ignition cut lights unburnt fuel in the exhaust
 		var red_zone: bool = is_limiter_active or current_rpm >= limiter_rpm - 250.0 # same red zone as the rev bar
-		if performance_car and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67:
+		if engine_fuel != "dizel" and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67: # petrol only: diesels don't backfire
 			backfire_count += 1
 			for e in exhaust_smokes:
 				e.backfire()

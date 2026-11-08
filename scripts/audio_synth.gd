@@ -37,6 +37,27 @@ var _burble_lp: float = 0.0
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
 var _bang_t: float = -1.0 # seconds since the bang; < 0 = silent
+var _bang: Dictionary = {} # the current car's bang (BANGS)
+var _bk: Array = [] # _bang copied into floats once per bang (read every sample)
+var _bk_norm: float = 1.0
+# Per-car backfire character (petrol cars; diesels never backfire). crack = sharpness of the
+# initial crack (s), tone = brightness of the blast (low-pass 0..1), body = blast length (s),
+# f0 -> f1 = low thump falling in pitch (Hz), boom = thump strength, pops / gap = repeats
+# ("pa-pat", "brap"), level = loudness.
+const BANGS: Dictionary = {
+	"gtr":        {"crack": 0.003, "tone": 0.35, "body": 0.025, "f0": 110.0, "f1": 55.0, "boom": 0.8, "pops": 2, "gap": 0.07, "level": 0.85}, # twin-turbo V6: sharp double crack
+	"challenger": {"crack": 0.004, "tone": 0.15, "body": 0.050, "f0": 80.0, "f1": 35.0, "boom": 1.3, "pops": 1, "gap": 0.0, "level": 0.95}, # supercharged V8: deep single boom
+	"raptor":     {"crack": 0.003, "tone": 0.25, "body": 0.035, "f0": 90.0, "f1": 45.0, "boom": 1.0, "pops": 3, "gap": 0.055, "level": 0.9}, # race V8: "brap" triple
+	"chiron":     {"crack": 0.005, "tone": 0.12, "body": 0.040, "f0": 70.0, "f1": 40.0, "boom": 1.0, "pops": 1, "gap": 0.0, "level": 0.7}, # quad-turbo W16: heavy, muffled thud
+	"supra":      {"crack": 0.002, "tone": 0.50, "body": 0.020, "f0": 130.0, "f1": 60.0, "boom": 0.6, "pops": 2, "gap": 0.09, "level": 0.9}, # 2JZ: bright anti-lag style crackle
+	"goliath":    {"crack": 0.006, "tone": 0.10, "body": 0.070, "f0": 60.0, "f1": 28.0, "boom": 1.5, "pops": 1, "gap": 0.0, "level": 1.0}, # big V8 monster: huge cannon
+	"accent":     {"crack": 0.0025, "tone": 0.40, "body": 0.015, "f0": 160.0, "f1": 90.0, "boom": 0.4, "pops": 1, "gap": 0.0, "level": 0.45}, # small 1.4: light pop
+	"egea":       {"crack": 0.0025, "tone": 0.30, "body": 0.018, "f0": 140.0, "f1": 80.0, "boom": 0.45, "pops": 1, "gap": 0.0, "level": 0.42}, # 1.4 Fire: dull pop
+	"civic":      {"crack": 0.002, "tone": 0.55, "body": 0.020, "f0": 150.0, "f1": 75.0, "boom": 0.45, "pops": 2, "gap": 0.05, "level": 0.5}, # VTEC: crisp double tick
+	"megane":     {"crack": 0.003, "tone": 0.25, "body": 0.020, "f0": 135.0, "f1": 70.0, "boom": 0.5, "pops": 1, "gap": 0.0, "level": 0.45}, # TCe turbo: muffled pop
+	"sahin":      {"crack": 0.004, "tone": 0.30, "body": 0.045, "f0": 100.0, "f1": 50.0, "boom": 0.9, "pops": 1, "gap": 0.0, "level": 0.75}, # carburettor: classic loud "PAT"
+}
+const BANG_DEFAULT: Dictionary = {"crack": 0.003, "tone": 0.25, "body": 0.03, "f0": 110.0, "f1": 50.0, "boom": 0.8, "pops": 1, "gap": 0.0, "level": 0.8}
 var _bang_lp: float = 0.0
 var _bang_ph: float = 0.0
 var _skid_gain: float = 0.0
@@ -140,9 +161,18 @@ func _physics_process(delta: float) -> void:
 	var bf: int = int(vehicle.get("backfire_count")) if vehicle.get("backfire_count") != null else 0
 	if bf != _last_backfire:
 		_last_backfire = bf
-		_bang_t = 0.0
+		trigger_bang()
 
 	_fill_audio_buffer()
+
+# Start the current car's backfire bang (BANGS)
+func trigger_bang() -> void:
+	_bang_t = 0.0
+	_bang = BANGS.get(str(CarDatabase.car(int(vehicle.get("current_vehicle_type")))["id"]), BANG_DEFAULT)
+	_bk = [float(_bang["crack"]), float(_bang["tone"]), float(_bang["body"]), float(_bang["f0"]), float(_bang["f1"]),
+		float(_bang["boom"]), float(_bang["pops"]), float(_bang["gap"]), float(_bang["level"])]
+	# low-passed noise gets quieter the darker the tone: scale it back to the same loudness
+	_bk_norm = sqrt((0.25 / 1.75) / (float(_bk[1]) / (2.0 - float(_bk[1]))))
 
 # Pick the profile for the current car/engine and prepare its filters
 func _update_profile() -> void:
@@ -287,16 +317,29 @@ func generate(frames_available: int) -> PackedVector2Array:
 		if limiter:
 			engine_sample *= randf_range(0.0, 1.2) if _pop_timer > 0.02 else 0.0
 
-		# Backfire, gunshot-like: a 3 ms crack, a 30 ms blast body and a falling low thump,
-		# soft-clipped so it hits hard (far louder than the engine itself)
+		# Backfire, gunshot-like: a sharp crack, a short blast and a low thump falling in pitch,
+		# repeated for multi-pop cars, soft-clipped so it hits hard. Shape per car: BANGS.
 		if _bang_t >= 0.0:
 			var bt: float = _bang_t
-			_bang_lp += (noise - _bang_lp) * 0.25
-			_bang_ph = fmod(_bang_ph + lerpf(120.0, 50.0, minf(bt / 0.08, 1.0)) * TAU / sample_rate, TAU)
-			var bang: float = noise * exp(-bt / 0.003) + _bang_lp * 2.2 * exp(-bt / 0.03) + sin(_bang_ph) * 0.8 * exp(-bt / 0.07)
-			engine_sample += tanh(bang * 1.6) * 0.85
+			var ec: float = 0.0
+			var eb: float = 0.0
+			var et: float = 0.0
+			var tl: float = bt
+			for pn in range(int(_bk[6])):
+				var tp: float = bt - pn * float(_bk[7])
+				if tp < 0.0:
+					break
+				var amp: float = 1.0 - 0.25 * pn
+				ec += amp * exp(-tp / float(_bk[0]))
+				eb += amp * exp(-tp / float(_bk[2]))
+				et += amp * exp(-tp / (float(_bk[2]) * 2.3))
+				tl = tp
+			_bang_lp += (noise - _bang_lp) * float(_bk[1])
+			_bang_ph = fmod(_bang_ph + lerpf(float(_bk[3]), float(_bk[4]), minf(tl / 0.08, 1.0)) * TAU / sample_rate, TAU)
+			var bang: float = noise * ec + _bang_lp * 2.2 * _bk_norm * eb + sin(_bang_ph) * float(_bk[5]) * et
+			engine_sample += tanh(bang * 1.6) * 0.85 * float(_bk[8])
 			_bang_t += dt
-			if _bang_t > 0.3:
+			if _bang_t > (float(_bk[6]) - 1.0) * float(_bk[7]) + 0.3:
 				_bang_t = -1.0
 
 		# Turbo whistle: gain and pitch glide smoothly (~60 ms), never clicking on or off
