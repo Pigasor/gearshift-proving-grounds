@@ -13,6 +13,7 @@ var camera_scale: float = 1.0
 # Hood / bumper camera spots (local), set from the procedural body; ZERO = use the default spot
 var cam_hood: Vector3 = Vector3.ZERO
 var cam_bumper: Vector3 = Vector3.ZERO
+var exhaust_smoke: ExhaustSmoke
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
 # Pedal positions 0..1 as the driver presses them (HUD), and the tail-light materials
@@ -199,6 +200,9 @@ func _ready() -> void:
 	linear_damp = 0.0
 	angular_damp = 3.2
 	continuous_cd = true # fast drops/crashes must not pass through the ground
+	exhaust_smoke = ExhaustSmoke.new()
+	exhaust_smoke.vehicle = self
+	add_child(exhaust_smoke)
 	apply_car(current_vehicle_type, 0)
 
 func _build_wheel_details() -> void:
@@ -333,6 +337,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	var en: Dictionary = CarDatabase.engine(index, engine_index)
 	cam_hood = Vector3.ZERO
 	cam_bumper = Vector3.ZERO
+	_place_exhaust(Vector3(-0.55, -0.05, -2.4), false) # legacy trophy truck; bodies / monster override
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
 		_apply_engine(en)
@@ -364,6 +369,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	current_vehicle_type = index
 	current_engine_index = engine_index
 	record_key = index if engine_index == 0 else index * 100 + engine_index
+	engine_classic = bool(c.get("classic", false))
 	engine_cylinders = int(en.get("cyl", 4))
 	engine_fuel = str(en.get("fuel", "benzin"))
 	_update_wheel_colliders()
@@ -400,7 +406,7 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var b: Dictionary = c["body"]
 	_apply_engine(en)
 	mass = float(b["mass"]) + float(en.get("mass_add", 0.0))
-	drivetrain_mode = "FWD"
+	drivetrain_mode = str(b.get("drive", "FWD"))
 	downforce_coefficient = 0.05
 	drag_coefficient = float(b["cd_area"])
 	tire_radius = float(b["tire_r"])
@@ -465,6 +471,15 @@ func _rebuild_body(b: Dictionary) -> void:
 	# on the hood just ahead of the windscreen, and just ahead of the nose
 	cam_hood = Vector3(0.0, builder.g + float(builder.s["cowl"]) + 0.2, builder.cowl_z + 0.3)
 	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
+	var centre: bool = str(b.get("style", "")) == "chiron" # one big centre exhaust
+	_place_exhaust(Vector3(0.0 if centre else -builder.hw * 0.55, builder.g + (0.45 if centre else 0.28), builder.zr - 0.02), false)
+
+# Tailpipe position (local); up = vertical stacks blowing upwards
+func _place_exhaust(pos: Vector3, up: bool) -> void:
+	if exhaust_smoke == null:
+		return
+	exhaust_smoke.position = pos
+	exhaust_smoke.direction = Vector3(0.0, 1.0, -0.15) if up else Vector3(0.0, 0.15, -1.0)
 
 # Wheels used to have no collision of their own (raycast suspension), so they sank into walls and
 # platform edges. A cylinder per wheel (a bit smaller than the tyre, at the fully compressed
@@ -628,6 +643,7 @@ func apply_vehicle_preset(type: int) -> void:
 			tire_grip_factor = 1.05
 			tire_radius = 0.83
 			_build_real_car_model("MONSTER_TRUCK")
+			_place_exhaust(Vector3(-0.75, 2.2, -1.12), true) # chrome stacks behind the cab
 
 	_apply_body_geometry(type)
 

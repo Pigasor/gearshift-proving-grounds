@@ -57,6 +57,8 @@ func _ready() -> void:
 		if btn:
 			btn.focus_mode = Control.FOCUS_NONE
 	_setup_options()
+	_build_garage_layout()
+	_style_top_bar()
 	_sync_tuning_sliders_from_vehicle()
 
 	# Pause / settings menu (ESC)
@@ -79,6 +81,13 @@ func _ready() -> void:
 	minimap.name = "Minimap"
 	minimap.set("vehicle", vehicle)
 	$HUD.add_child(minimap)
+
+# Tab is also Godot's "next control" key: while the garage is open it must close the garage
+# instead of walking through its sliders.
+func _input(event: InputEvent) -> void:
+	if is_tuning_open and event.is_action_pressed("toggle_tuning", false, true):
+		toggle_tuning_panel()
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Garage menu (rebindable, default TAB). ESC / gamepad Start open the pause & settings menu.
@@ -195,9 +204,125 @@ func _setup_options() -> void:
 	option_drivetrain.add_item("AWD (4 Çeker)", 1)
 	option_drivetrain.add_item("FWD (Önden Çeker)", 2)
 
+const ACCENT := Color(0.2, 0.65, 1.0)
+var garage_tabs: TabContainer
+var label_car_stats: Label
+
+func _sb(bg: Color, border: Color, radius: int, bottom_only: bool = false) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	if bottom_only:
+		sb.border_width_bottom = 3
+	else:
+		sb.set_border_width_all(1)
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 7
+	sb.content_margin_bottom = 7
+	return sb
+
+# Garage: header with the car's figures + one tab per area (Car / Engine / Suspension / Driving),
+# so new cars and upgrades (e.g. Stage 1 software) each get their own place.
+func _build_garage_layout() -> void:
+	var vbox: VBoxContainer = option_car_select.get_parent().get_parent()
+	var grid: GridContainer = option_car_select.get_parent()
+	var title: Label = vbox.get_node("LabelTitle")
+	panel_tuning.offset_left = -350.0
+	panel_tuning.offset_right = 350.0
+	panel_tuning.offset_top = -170.0 # grows to fit its content
+	panel_tuning.offset_bottom = 170.0
+
+	var header := HBoxContainer.new()
+	vbox.add_child(header)
+	vbox.move_child(header, 0)
+	title.reparent(header)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label_car_stats = Label.new()
+	label_car_stats.add_theme_color_override("font_color", Color(0.75, 0.82, 0.9))
+	label_car_stats.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	header.add_child(label_car_stats)
+
+	garage_tabs = TabContainer.new()
+	garage_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	garage_tabs.add_theme_stylebox_override("panel", _sb(Color(0.07, 0.09, 0.12, 1.0), Color(0.2, 0.3, 0.42), 8))
+	garage_tabs.add_theme_stylebox_override("tab_selected", _sb(Color(0.12, 0.18, 0.26), ACCENT, 6, true))
+	garage_tabs.add_theme_stylebox_override("tab_unselected", _sb(Color(0.06, 0.07, 0.09), Color(0, 0, 0, 0), 6, true))
+	garage_tabs.add_theme_stylebox_override("tab_hovered", _sb(Color(0.1, 0.14, 0.2), Color(0.3, 0.45, 0.6), 6, true))
+	garage_tabs.add_theme_color_override("font_selected_color", Color(1, 1, 1))
+	garage_tabs.add_theme_color_override("font_unselected_color", Color(0.6, 0.67, 0.75))
+	vbox.add_child(garage_tabs)
+	vbox.move_child(garage_tabs, 1)
+
+	# The old grid holds rows of 3 (label | control | value): car, engine, hp, turbo, springs,
+	# dampers, camber, grip, drivetrain. Move them row by row into the tabs.
+	var rows: Array = []
+	var kids: Array = grid.get_children()
+	for i in range(0, kids.size(), 3):
+		rows.append(kids.slice(i, i + 3))
+	var pages: Array = [["🚗 Araç", 0, 2], ["⚙️ Motor", 2, 4], ["🔧 Süspansiyon", 4, 8], ["🛡️ Sürüş", 8, 9]]
+	for p in pages:
+		var page := VBoxContainer.new()
+		page.add_theme_constant_override("separation", 14)
+		var g := GridContainer.new()
+		g.columns = 3
+		g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		g.add_theme_constant_override("h_separation", 14)
+		g.add_theme_constant_override("v_separation", 12)
+		page.add_child(g)
+		for r in range(int(p[1]), int(p[2])):
+			for n in rows[r]:
+				n.reparent(g)
+			(rows[r][0] as Control).custom_minimum_size.x = 170 # same column widths on every tab
+			(rows[r][1] as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			(rows[r][2] as Control).custom_minimum_size.x = 110
+		garage_tabs.add_child(page)
+		garage_tabs.set_tab_title(garage_tabs.get_tab_count() - 1, p[0])
+	check_abs.get_parent().reparent(garage_tabs.get_child(3))
+	vbox.get_node("HSeparator").queue_free()
+	grid.queue_free()
+
+# Top bar: one dark strip; the car button stands out and opens the garage's car list.
+func _style_top_bar() -> void:
+	var bar: HBoxContainer = btn_quick_car.get_parent()
+	var strip := PanelContainer.new()
+	var sb := _sb(Color(0.05, 0.06, 0.08, 0.86), Color(0.2, 0.35, 0.5, 0.7), 10)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	strip.add_theme_stylebox_override("panel", sb)
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var centre := CenterContainer.new() # keeps the strip centred whatever its width
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.get_parent().add_child(centre)
+	centre.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	centre.offset_top = 10
+	centre.add_child(strip)
+	bar.reparent(strip)
+	bar.add_theme_constant_override("separation", 4)
+	for btn in [btn_quick_tuning, btn_quick_gear_mode, btn_quick_slowmo, btn_quick_camera, btn_quick_reset]:
+		btn.add_theme_stylebox_override("normal", _sb(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 7))
+		btn.add_theme_stylebox_override("hover", _sb(Color(0.14, 0.2, 0.28), Color(0.3, 0.5, 0.7), 7))
+		btn.add_theme_stylebox_override("pressed", _sb(Color(0.1, 0.3, 0.5), ACCENT, 7))
+		btn.add_theme_color_override("font_color", Color(0.82, 0.87, 0.93))
+	btn_quick_car.add_theme_stylebox_override("normal", _sb(Color(0.08, 0.22, 0.36), ACCENT, 7))
+	btn_quick_car.add_theme_stylebox_override("hover", _sb(Color(0.12, 0.3, 0.48), ACCENT, 7))
+	btn_quick_car.add_theme_stylebox_override("pressed", _sb(Color(0.12, 0.3, 0.48), ACCENT, 7))
+	var sep := VSeparator.new()
+	bar.add_child(sep)
+	bar.move_child(sep, btn_quick_car.get_index() + 1)
+
+func _update_car_stats() -> void:
+	if label_car_stats:
+		label_car_stats.text = "%d HP  ·  %d Nm  ·  %d kg  ·  %s" % [int(vehicle.peak_horsepower), int(vehicle.torque_peak_nm), int(vehicle.mass), vehicle.drivetrain_mode]
+
 func _sync_tuning_sliders_from_vehicle() -> void:
 	if vehicle == null:
 		return
+	_update_car_stats.call_deferred()
 
 	var car_i: int = int(vehicle.current_vehicle_type)
 	option_car_select.selected = car_i
@@ -265,13 +390,17 @@ func _cycle_prev_car() -> void:
 		_sync_tuning_sliders_from_vehicle()
 
 func _on_btn_quick_car_pressed() -> void:
-	_cycle_next_car()
+	# many cars to pick from: open the garage on its car tab instead of cycling one by one
+	if not is_tuning_open:
+		toggle_tuning_panel()
+	garage_tabs.current_tab = 0
 
 func _on_slider_hp_value_changed(val: float) -> void:
 	if vehicle.use_torque_curve and vehicle.peak_horsepower > 0.0:
 		vehicle.torque_peak_nm *= val / vehicle.peak_horsepower # tune power & torque together
 	vehicle.peak_horsepower = val
 	label_hp_val.text = "%d HP" % int(val)
+	_update_car_stats()
 
 func _on_slider_turbo_value_changed(val: float) -> void:
 	vehicle.turbo_max_boost_bar = val
@@ -299,6 +428,7 @@ func _on_option_drivetrain_item_selected(index: int) -> void:
 		0: vehicle.drivetrain_mode = "RWD"
 		1: vehicle.drivetrain_mode = "AWD"
 		2: vehicle.drivetrain_mode = "FWD"
+	_update_car_stats()
 
 func _on_check_abs_toggled(button_pressed: bool) -> void:
 	vehicle.abs_enabled = button_pressed

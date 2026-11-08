@@ -112,6 +112,20 @@ const CARS: Array = [
 				"tq_from": 1750.0, "tq_to": 2750.0, "power_rpm": 3750.0, "idle": 800.0, "limiter": 4600.0, "max_rpm": 5000.0,
 				"turbo": 1.3, "gears": [-3.55, 0.0, 3.73, 1.96, 1.23, 0.87, 0.67, 0.55], "final": 3.73, "mass_add": 40.0 },
 		] },
+
+	# --- Turkish classic (rear-wheel drive, carburettor engines, 5-speed) ---
+	{ "id": "sahin", "name": "Tofash Sahin", "class": "Classic", "classic": true,
+		"body": { "length": 4.24, "width": 1.65, "height": 1.39, "wheelbase": 2.45, "track": 1.37,
+			"front_overhang": 0.82, "tire_r": 0.30, "mass": 980.0, "cd_area": 0.53, "drive": "RWD",
+			"color": Color(0.70, 0.08, 0.07), "style": "sahin" },
+		"engines": [
+			{ "label": "1.6 Petrol - 83 HP", "cyl": 4, "fuel": "benzin", "hp": 83.0, "torque": 124.0,
+				"tq_from": 3000.0, "tq_to": 3400.0, "power_rpm": 5800.0, "idle": 850.0, "limiter": 6200.0, "max_rpm": 6500.0,
+				"turbo": 0.0, "gears": [-3.24, 0.0, 3.61, 2.05, 1.36, 1.00, 0.83], "final": 3.91, "mass_add": 0.0 },
+			{ "label": "1.4 Petrol - 70 HP", "cyl": 4, "fuel": "benzin", "hp": 70.0, "torque": 106.0,
+				"tq_from": 2900.0, "tq_to": 3200.0, "power_rpm": 5600.0, "idle": 850.0, "limiter": 6000.0, "max_rpm": 6300.0,
+				"turbo": 0.0, "gears": [-3.24, 0.0, 3.61, 2.05, 1.36, 1.00, 0.83], "final": 4.10, "mass_add": -15.0 },
+		] },
 ]
 
 static func count() -> int:
