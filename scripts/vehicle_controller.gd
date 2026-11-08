@@ -1728,7 +1728,8 @@ func _is_driven(i: int) -> bool:
 func shift_up() -> void:
 	if current_gear < gear_ratios.size() - 1 and not _is_shifting:
 		# hard upshift on a performance car: the ignition cut lights unburnt fuel in the exhaust
-		if performance_car and current_gear >= 2 and current_rpm > limiter_rpm * 0.8 and _throttle_input > 0.6 and randf() < 0.6:
+		var red_zone: bool = is_limiter_active or current_rpm >= limiter_rpm - 250.0 # same red zone as the rev bar
+		if performance_car and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67:
 			backfire_count += 1
 			for e in exhaust_smokes:
 				e.backfire()

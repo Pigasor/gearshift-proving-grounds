@@ -286,6 +286,10 @@ func wheel_config() -> Dictionary:
 # Called once when the game scene starts (also sets the default gearbox mode)
 func apply_scene_start() -> void:
 	apply_scene()
+	# Windows sets the window icon so early that the taskbar button often keeps the generic
+	# default icon; setting it again once the window is up makes the taskbar pick it up.
+	if OS.get_name() == "Windows":
+		get_tree().create_timer(1.0).timeout.connect(func() -> void: DisplayServer.set_native_icon("res://icon.ico"))
 	var car: Node = get_tree().current_scene.get_node_or_null("Vehicle") if get_tree().current_scene else null
 	if car:
 		car.set("is_automatic", bool(get_value("default_automatic")))

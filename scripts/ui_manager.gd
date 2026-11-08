@@ -48,6 +48,8 @@ var is_tuning_open: bool = false
 var speed_mph: bool = false # set from Settings
 @onready var label_speed_unit: Label = get_node_or_null("HUD/MarginContainer/VBoxTelemetry/HBoxSpeed/LabelSpeedUnit")
 var option_engine: OptionButton # engine variants of the selected car (built in code)
+var _rpm_fill: StyleBoxFlat # own copy of the rev bar fill, recoloured per zone
+var _rpm_bands: Array = [] # yellow / red zone strips under the rev bar
 
 func _ready() -> void:
 	panel_tuning.visible = false
@@ -146,11 +148,35 @@ func _update_hud() -> void:
 	progress_rpm.max_value = vehicle.max_rpm
 	progress_rpm.value = vehicle.current_rpm
 	label_rpm.text = "%4.0f RPM" % vehicle.current_rpm
-	# Red zone: the bar stays red near the limiter (not only during the short fuel-cut pulses)
-	if vehicle.is_limiter_active or vehicle.current_rpm >= vehicle.limiter_rpm - 250.0:
-		progress_rpm.modulate = Color(1.0, 0.15, 0.15)
+	# Shift zones from the car's own rev range: yellow = last 20% of the usable range below the
+	# limiter, red = the last 250 rpm (the bar stays red there, not only during fuel-cut pulses).
+	var red_from: float = vehicle.limiter_rpm - 250.0
+	var yellow_from: float = vehicle.limiter_rpm - (vehicle.limiter_rpm - vehicle.idle_rpm) * 0.2
+	if _rpm_fill == null:
+		_rpm_fill = (progress_rpm.get_theme_stylebox("fill") as StyleBoxFlat).duplicate()
+		progress_rpm.add_theme_stylebox_override("fill", _rpm_fill)
+		_rpm_bands = [ColorRect.new(), ColorRect.new()]
+		for k in 2:
+			var band: ColorRect = _rpm_bands[k]
+			band.color = Color(1.0, 0.8, 0.1, 0.9) if k == 0 else Color(1.0, 0.18, 0.15, 0.9)
+			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			band.anchor_top = 1.0
+			band.anchor_bottom = 1.0
+			band.offset_top = -4.0
+			progress_rpm.add_child(band)
+	var span: float = maxf(progress_rpm.max_value - progress_rpm.min_value, 1.0)
+	var y0: float = clampf((yellow_from - progress_rpm.min_value) / span, 0.0, 1.0)
+	var r0: float = clampf((red_from - progress_rpm.min_value) / span, 0.0, 1.0)
+	(_rpm_bands[0] as ColorRect).anchor_left = y0
+	(_rpm_bands[0] as ColorRect).anchor_right = r0
+	(_rpm_bands[1] as ColorRect).anchor_left = r0
+	(_rpm_bands[1] as ColorRect).anchor_right = 1.0
+	if vehicle.is_limiter_active or vehicle.current_rpm >= red_from:
+		_rpm_fill.bg_color = Color(1.0, 0.18, 0.15)
+	elif vehicle.current_rpm >= yellow_from:
+		_rpm_fill.bg_color = Color(1.0, 0.8, 0.1)
 	else:
-		progress_rpm.modulate = Color(1.0, 1.0, 1.0)
+		_rpm_fill.bg_color = Color(0.15, 0.75, 1.0)
 
 	# Pedals
 	progress_clutch.value = vehicle.clutch_pedal * 100.0
