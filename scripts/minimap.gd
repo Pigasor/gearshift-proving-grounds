@@ -66,6 +66,9 @@ func _ready() -> void:
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.draw.connect(_draw_overlay)
 	add_child(_overlay)
+	var gs0: Node = get_node_or_null("/root/GameSettings")
+	if gs0:
+		gs0.input_device_changed.connect(func(_d: String): _overlay.queue_redraw()) # label shows that device's button
 	_apply_size()
 
 func _apply_size() -> void:
@@ -86,6 +89,12 @@ func _apply_size() -> void:
 	_overlay.size = size
 	_vp.size = Vector2i(384, 384) if _wide else Vector2i(256, 256)
 	_overlay.queue_redraw()
+
+# Gamepad: right stick click (R3) switches close / wide view
+func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_RIGHT_STICK:
+		_wide = not _wide
+		_apply_size()
 
 func _process(delta: float) -> void:
 	if vehicle == null:
@@ -124,5 +133,7 @@ func _draw_overlay() -> void:
 	if gs:
 		var keys: Array = gs.bindings.get("minimap", [])
 		key = OS.get_keycode_string(keys[0]) if keys.size() > 0 else "-"
+		if gs.input_device == "gamepad":
+			key = "R3" # right stick click
 	var label: String = key + tr(": Geniş" if not _wide else ": Yakın")
 	_overlay.draw_string(font, Vector2(c.x - 26, size.y - 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.85, 0.9, 1.0, 0.85))

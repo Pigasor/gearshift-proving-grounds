@@ -57,7 +57,8 @@ const CARS: Array = [
 	{ "id": "goliath", "name": "Goliath Monster 4x4", "class": "Monster", "legacy": 5, "classic": true,
 		"engines": [{ "label": "9.0 V8 Supercharged - 1500 HP", "cyl": 8, "fuel": "benzin", "hp": 1500.0, "torque": 1900.0,
 			"tq_from": 4000.0, "tq_to": 5500.0, "power_rpm": 6500.0, "idle": 1100.0, "limiter": 7000.0, "max_rpm": 7300.0,
-			"turbo": 0.0, "gears": [-1.82, 0.0, 1.82, 1.00], "final": 19.9, "mass": 5400.0, "shift": 0.35 }] },
+			"turbo": 0.0, "gears": [-2.20, 0.0, 2.20, 1.45, 1.00], "final": 16.85, "mass": 5400.0, "shift": 0.35,
+			"vmax": 130.0 }] }, # 3-speed; top speed set so a flat-out run jumps the stunt-park gap ramp to ramp
 
 	# --- Family sedans (front-wheel drive) ---
 	{ "id": "accent", "name": "Hunday Assent Blau", "class": "Sedan",

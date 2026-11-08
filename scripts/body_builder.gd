@@ -109,13 +109,28 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 	lower.append(Vector2(zr, deck_h - 0.12))
 	lower.append(Vector2(zr - 0.01, 0.48))
 	lower.append(Vector2(zr + 0.05, 0.24))
+	# Keep the upper outline clear of the wheel arches (a low nose / short hood could dip into
+	# the arch, the outline then crossed itself and the whole side panel was not drawn)
+	var n_top: int = lower.size()
+	for k in range(1, n_top - 1):
+		var p: Vector2 = lower[k]
+		for zc in [-wb * 0.5, wb * 0.5]:
+			var dz: float = p.x - zc
+			if absf(dz) < arch_r + 0.05:
+				var arch_top: float = tire_r + sqrt(maxf((arch_r + 0.05) * (arch_r + 0.05) - dz * dz, 0.0))
+				if p.y < arch_top + 0.04:
+					lower[k] = Vector2(p.x, arch_top + 0.04)
 	_append_arch(lower, -wb * 0.5, tire_r, arch_r)
 	_append_arch(lower, wb * 0.5, tire_r, arch_r)
 	taper = func(z: float, y: float) -> float:
 		var t: float = 1.0 - tf * smoothstep(zf - 0.65, zf + 0.02, z) - trr * smoothstep(zr + 0.5, zr - 0.02, z)
 		t *= 1.0 - 0.045 * smoothstep(0.55, belt_h, y)
 		return hw * t
-	_extrude(lower, taper, paint, paint, [])
+	# bottom & wheel-arch skin (every edge after the rear bumper) is black, like a real underbody
+	var under_edges: Array = []
+	for k in range(n_top - 1, lower.size()):
+		under_edges.append(k)
+	_extrude(lower, taper, paint, black, under_edges)
 
 	# --- Glasshouse (slightly arched roof) ---
 	var tumble: float = float(s["tumble"])
@@ -147,7 +162,7 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		_box(Vector3(side * (hw + 0.025), g + cowl_h + 0.10, cowl_z - 0.25), Vector3(0.05, 0.05, 0.05), black)
 		_box(Vector3(side * (taper.call(cowl_z - 0.9, 0.8) + 0.008), g + belt_h - 0.14, cowl_z - 0.95), Vector3(0.015, 0.03, 0.15), chrome)
 		_box(Vector3(side * (hw - 0.02), g + 0.24, 0.0), Vector3(0.04, 0.06, wb - arch_r * 2.0 - 0.05), black)
-	_box(Vector3(0, g + 0.22, (zf + zr) * 0.5), Vector3(hw * 1.9, 0.04, L - 0.3), black)
+	_box(Vector3(0, g + 0.175, (zf + zr) * 0.5), Vector3(hw * 1.9, 0.03, L - 0.3), black) # below the floor skin (they used to z-fight)
 	_box(Vector3(0, g + 0.30, zr + 0.03), Vector3(taper.call(zr + 0.1, 0.4) * 1.8, 0.08, 0.06), black)
 
 	# --- The model's own face & tail ---

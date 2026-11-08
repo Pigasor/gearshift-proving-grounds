@@ -13,6 +13,7 @@ config/description="Vehicle Physics Sandbox & Mechanical Tuning Proving Grounds"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 config/icon="res://icon.svg"
+config/windows_native_icon="res://icon.ico"
 
 [autoload]
 

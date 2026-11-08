@@ -21,7 +21,7 @@ const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "ker
 const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
 var offroad_tires: bool = false
 var wheel_surface: Array[String] = ["asphalt", "asphalt", "asphalt", "asphalt"]
-var input_blocked: bool = false # true while the garage menu is open (car parks itself)
+var input_blocked: bool = false # true while the garage menu is open (inputs ignored, car rolls on)
 var steer_sensitivity: float = 1.0 # how fast the wheel turns with keys (Settings)
 var joy_deadzone: float = 0.08 # gamepad stick dead zone (Settings)
 # Steering wheel set (Settings > Kontroller): axes, pedal calibration, buttons
@@ -147,6 +147,7 @@ var _clutch_torque: float = 0.0 # torque the clutch/converter passes to the gear
 var _auto_clutch: float = 0.0 # 0..1 engagement of the game's automatic clutch (manual mode)
 var _tc_mult: float = 1.0 # torque converter multiplication
 var _prev_clutch_rpm: float = 900.0
+var _slip_time: float = 0.0 # how long the auto clutch has been slipping under throttle
 var _since_upshift: float = 10.0
 var _dir_change_armed: bool = true # auto box: may switch D<->R with the next pedal press
 var _prev_body_pos: Vector3 = Vector3.INF
@@ -316,8 +317,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				shift_down()
 			JOY_BUTTON_DPAD_DOWN:
 				toggle_slow_mo()
-			JOY_BUTTON_Y: # Triangle / Y
-				reset_vehicle()
+			JOY_BUTTON_Y: # Triangle / Y: put the car back on its wheels
+				repair_vehicle()
 			JOY_BUTTON_BACK: # Select
 				is_automatic = !is_automatic
 
@@ -1507,11 +1508,12 @@ func _read_inputs(delta: float) -> void:
 	if w_clutch >= 0.0 and not is_automatic and not _is_shifting:
 		clutch_pedal = w_clutch
 
-	# Garage menu open: park the car (no throttle, brakes + handbrake on)
+	# Garage menu open: the driver's inputs are ignored (keys go to the menu), but the car just
+	# keeps rolling as it was - it no longer brakes to a stop.
 	if input_blocked:
 		raw_throttle = 0.0
 		raw_brake = 0.0
-		raw_handbrake = 1.0
+		raw_handbrake = 0.0
 
 	_handbrake_input = raw_handbrake
 	is_handbrake_active = (_handbrake_input > 0.1)
@@ -1553,11 +1555,12 @@ func _read_inputs(delta: float) -> void:
 		_brake_input = raw_brake
 	if input_blocked:
 		_throttle_input = 0.0
-		_brake_input = 1.0
+		_brake_input = 0.0
 
 func _engage_gear_now(g: int) -> void:
 	_clutch_slipping = true
 	_auto_clutch = 0.0
+	_slip_time = 0.0
 	current_gear = g
 	_target_gear = g
 	_is_shifting = false
@@ -1807,6 +1810,7 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 
 	if not _clutch_slipping:
 		current_rpm = lerpf(current_rpm, w_rpm, clampf(delta * 18.0, 0.0, 1.0))
+		_slip_time = 0.0
 		_clutch_torque = 0.0
 		_tc_mult = 1.0
 		if w_rpm < floor_rpm or (wheel_clutch and pedal_eng < 0.9):
@@ -1820,9 +1824,9 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 	# Automatic with a torque converter - or a dual-clutch box (GT-R, Chiron), which pulls away
 	# on a clutch like the manual one, just with a higher launch speed
 	var use_tc: bool = is_automatic and gearbox_type != "dct"
-	var stall_rpm: float = idle_rpm + (limiter_rpm - idle_rpm) * 0.36
+	var stall_rpm: float = idle_rpm + (limiter_rpm - idle_rpm) * 0.24 # ~2000-2700 rpm, like real converters
 	if use_tc:
-		# Torque converter: passes torque ~ slip², stalls at ~36% of the rev range at full load,
+		# Torque converter: passes torque ~ slip², stalls at ~24% of the rev range at full load,
 		# multiplies torque (up to 2x) while the car is slow, then locks up.
 		var k: float = _full_load_torque(stall_rpm) / (stall_rpm * stall_rpm)
 		cap = k * slip * slip
@@ -1838,9 +1842,17 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 			# throttle, and eases off when they drop below it - so the revs flare, dip as the clutch
 			# bites, settle, then rise with the car. Old engines are launched lower (revs may sag
 			# under idle at little throttle); it lets go when stopping so the engine never stalls.
-			var launch_frac: float = 0.36 if (is_automatic and gearbox_type == "dct") else 0.30 # DCT launch control revs a bit higher
+			var launch_frac: float = 0.24 if (is_automatic and gearbox_type == "dct") else 0.18 # DCT launches a bit higher
 			var launch: float = idle_rpm * (0.78 if engine_classic else 1.15) + _throttle_input * (limiter_rpm - idle_rpm) * launch_frac
 			launch = maxf(launch, floor_rpm * 1.03)
+			# A driver lets the clutch out progressively: within ~1.5 s the clutch closes and the revs
+			# come down to what the car's speed gives (in a high gear the engine then lugs and pulls
+			# up from low revs) instead of sitting at one launch rpm for many seconds.
+			if _throttle_input > 0.05:
+				_slip_time += delta
+			launch = lerpf(launch, maxf(w_rpm + 150.0, floor_rpm * 1.05), clampf(_slip_time / 1.5, 0.0, 1.0))
+			if _throttle_input > 0.05 and _auto_clutch < 0.12:
+				_auto_clutch = 0.12 # straight to the bite point (no dead pedal travel)
 			# look a little ahead: ease off before the revs fall through the launch speed
 			var rpm_ahead: float = current_rpm + (current_rpm - prev_rpm_for_rate) / maxf(delta, 0.001) * 0.15
 			if _throttle_input > 0.05:
@@ -1849,7 +1861,7 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 					# just keep feeding the clutch in - the look-ahead would misread the limiter's dips
 					_auto_clutch += delta * (1.2 + _throttle_input) * 1.5
 				else:
-					_auto_clutch += delta * clampf((rpm_ahead - launch) / 400.0, -4.0, 1.2 + _throttle_input)
+					_auto_clutch += delta * clampf((rpm_ahead - launch) / 400.0, -4.0, 2.5 + 2.0 * _throttle_input)
 				if current_rpm < floor_rpm:
 					_auto_clutch -= delta * 4.0
 				if absf(slip) < 150.0:
@@ -2270,12 +2282,61 @@ func _update_wheel_visuals(delta: float) -> void:
 		m.emission_energy_multiplier = 1.2 + 7.0 * _brake_input
 
 # Place the car on the ground at a map location, facing yaw_deg (0 = +Z), standing still.
+# Find an open, level spot for the car at (or near) `target`: not on a roof, a plane, a ramp or a
+# lamp post, and with room for the car. Searches outwards in rings if the exact point is taken.
+# Returns the ground point to stand on (Vector3.INF if nothing was found).
+func find_open_spot(target: Vector3, yaw: float) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var box := BoxShape3D.new()
+	box.size = Vector3(maxf(absf(wheel_offsets[0].x) * 2.0 + 1.0, 2.6), 1.6, maxf(absf(wheel_offsets[0].z) * 2.0 + 2.2, 5.0))
+	for radius in [0.0, 6.0, 12.0, 20.0, 30.0, 45.0]:
+		var steps: int = 1 if radius == 0.0 else 12
+		for k in range(steps):
+			var a: float = TAU * float(k) / float(steps)
+			var p := Vector3(target.x + cos(a) * radius, 0.0, target.z + sin(a) * radius)
+			if absf(p.x) > 1470.0 or absf(p.z) > 1470.0:
+				continue
+			var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 150.0, p + Vector3.DOWN * 30.0)
+			q.exclude = [get_rid()]
+			var hit: Dictionary = space.intersect_ray(q)
+			if hit.is_empty() or absf(hit.normal.y) < 0.78: # up to ~38° (hill flanks are fine)
+				continue
+			# high surfaces are only fine if they are natural ground (hills), not roofs or ramps
+			var surf: String = str(hit.collider.get_meta("surface", "")) if hit.collider else ""
+			if hit.position.y > 1.0 and not surf in ["grass", "dirt", "sand"]:
+				continue
+			var sq := PhysicsShapeQueryParameters3D.new()
+			sq.shape = box
+			# the room check follows the slope (a level box would "hit" any hillside)
+			var n_up: Vector3 = hit.normal if hit.normal.y > 0.0 else -hit.normal
+			var slope_basis := Basis(Quaternion(Vector3.UP, n_up)) * Basis(Vector3.UP, yaw)
+			sq.transform = Transform3D(slope_basis, hit.position + n_up * 1.05)
+			sq.exclude = [get_rid()]
+			if space.intersect_shape(sq, 1).is_empty():
+				return hit.position
+	return Vector3.INF
+
 func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
-	var up_probe := PhysicsRayQueryParameters3D.create(ground_pos + Vector3.UP * 60.0, ground_pos + Vector3.DOWN * 20.0)
-	up_probe.exclude = [get_rid()]
-	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(up_probe)
-	var ground_y: float = hit.position.y if hit else ground_pos.y
-	global_transform = Transform3D(Basis(Vector3.UP, deg_to_rad(yaw_deg)), Vector3(ground_pos.x, ground_y + tire_radius + suspension_rest_length + 0.15, ground_pos.z))
+	var spot: Vector3 = find_open_spot(ground_pos, deg_to_rad(yaw_deg))
+	var ground_y: float = ground_pos.y
+	if spot != Vector3.INF:
+		ground_pos = spot
+		ground_y = spot.y
+	else:
+		var up_probe := PhysicsRayQueryParameters3D.create(ground_pos + Vector3.UP * 60.0, ground_pos + Vector3.DOWN * 20.0)
+		up_probe.exclude = [get_rid()]
+		var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(up_probe)
+		ground_y = hit.position.y if hit else ground_pos.y
+	# Stand the car on the slope it lands on (tilted with the ground). Placed level on a hillside,
+	# its uphill wheels started inside the ground and the car got stuck on its belly.
+	var n_up: Vector3 = Vector3.UP
+	var nq := PhysicsRayQueryParameters3D.create(Vector3(ground_pos.x, ground_y + 2.0, ground_pos.z), Vector3(ground_pos.x, ground_y - 2.0, ground_pos.z))
+	nq.exclude = [get_rid()]
+	var nhit: Dictionary = get_world_3d().direct_space_state.intersect_ray(nq)
+	if nhit and absf(nhit.normal.y) > 0.5:
+		n_up = nhit.normal if nhit.normal.y > 0.0 else -nhit.normal
+	var b := Basis(Quaternion(Vector3.UP, n_up)) * Basis(Vector3.UP, deg_to_rad(yaw_deg))
+	global_transform = Transform3D(b, Vector3(ground_pos.x, ground_y, ground_pos.z) + n_up * (tire_radius + suspension_rest_length + 0.15))
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_prev_body_pos = Vector3.INF
@@ -2307,13 +2368,40 @@ func reset_vehicle() -> void:
 		wheel_angular_velocity[i] = 0.0
 		_prev_raw_compression[i] = 0.0
 
+# Recover (R / gamepad Y): put the car back on its wheels right where it is, dropped from a
+# little above the ground (never high), facing the way it was heading. Can be pressed again and
+# again - no cooldown. If the spot is blocked (e.g. wedged against a wall) it uses the nearest
+# open spot.
 func repair_vehicle() -> void:
-	var current_pos: Vector3 = global_position + Vector3(0.0, 0.8 + maxf(tire_radius + suspension_rest_length - DEFAULT_RIDE, 0.0), 0.0)
-	var current_yaw: float = rotation.y
-	global_transform.basis = Basis(Vector3.UP, current_yaw)
-	global_position = current_pos
+	var fwd: Vector3 = global_transform.basis.z
+	fwd.y = 0.0
+	if fwd.length() < 0.2: # nose straight up/down: use the roof direction instead
+		fwd = global_transform.basis.y
+		fwd.y = 0.0
+	var yaw: float = atan2(fwd.x, fwd.z) if fwd.length() > 0.01 else 0.0
+	var space := get_world_3d().direct_space_state
+	var p: Vector3 = global_position
+	# ground straight below the car (start just above it so a roof overhead is not picked)
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.5, p + Vector3.DOWN * 40.0)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(q)
+	var ground: Vector3 = hit.position if hit else Vector3(p.x, 0.0, p.z)
+	var box := BoxShape3D.new()
+	box.size = Vector3(maxf(absf(wheel_offsets[0].x) * 2.0 + 0.6, 2.2), 1.4, maxf(absf(wheel_offsets[0].z) * 2.0 + 1.6, 4.4))
+	var sq := PhysicsShapeQueryParameters3D.new()
+	sq.shape = box
+	sq.transform = Transform3D(Basis(Vector3.UP, yaw), ground + Vector3.UP * 1.3)
+	sq.exclude = [get_rid()]
+	if not space.intersect_shape(sq, 1).is_empty():
+		var spot: Vector3 = find_open_spot(ground, yaw)
+		if spot != Vector3.INF:
+			ground = spot
+	global_transform = Transform3D(Basis(Vector3.UP, yaw), ground + Vector3.UP * (tire_radius + suspension_rest_length + 1.5))
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_prev_body_pos = Vector3.INF
+	for i in range(4):
+		_prev_raw_compression[i] = 0.0
 
 # Where does this (round) tyre touch the world? A fan of rays in the wheel's plane (from straight
 # down to 45° forward and back) finds the point that lifts the hub highest. A single straight-down
@@ -2330,6 +2418,12 @@ func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector
 		q.exclude = [get_rid()]
 		var hit: Dictionary = space.intersect_ray(q)
 		if hit.is_empty():
+			continue
+		# Only surfaces a tyre can stand or climb on (up to ~63°). A vertical wall used to count as
+		# "ground" for the angled rays: it lifted the wheel, so two wheels could drive a truck straight
+		# up a wall. Walls are now left to the collision shapes, like in reality.
+		# (abs: some ground meshes report their face normal pointing down)
+		if absf(hit.normal.y) < 0.45: # world up: tilting the truck nose-up must not turn the wall into "floor"
 			continue
 		var tt: float = (hit.position - mount).length()
 		var side: float = tt * sin(absf(a))

@@ -346,9 +346,9 @@ func _update_control_hints() -> void:
 	var gears: String
 	match dev:
 		"gamepad":
-			garage = "D-pad ▲"; slowmo = "D-pad ▼"; cam = "X"; reset = "Y"; gears = "RB/LB"
+			garage = "D-pad ▲"; slowmo = "D-pad ▼"; cam = "X"; reset = "Start"; gears = "RB/LB"
 			if help:
-				help.text = tr("RT/LT: Gaz/Fren  |  Sol çubuk: Direksiyon  |  A/B: El freni  |  RB/LB: Vites  |  L3: Turbo  |  Select: Oto/Manuel  |  D-pad ▲: Garaj  |  D-pad ◀▶: Araç  |  Start: Ayarlar")
+				help.text = tr("RT/LT: Gaz/Fren  |  Sol çubuk: Direksiyon  |  A/B: El freni  |  RB/LB: Vites  |  L3: Turbo  |  Y: Düzelt  |  R3: Mini harita  |  Select: Oto/Manuel  |  D-pad ▲: Garaj  |  D-pad ◀▶: Araç  |  Start: Ayarlar")
 		_:
 			garage = _key("toggle_tuning"); slowmo = _key("slow_mo"); cam = _key("camera_view"); reset = _key("reset_car")
 			gears = "%s/%s" % [_key("gear_up"), _key("gear_down")]

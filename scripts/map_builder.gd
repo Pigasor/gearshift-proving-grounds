@@ -521,10 +521,10 @@ func _build_stunt_superpark() -> void:
 	_create_kicker(Vector3(s_x, 0, 80), 1.0, 16.0, 15.0, 2.5, mat_metal_blue)
 	# Ramp 2: 25° high-flyer
 	_create_kicker(Vector3(s_x, 0, 215), 1.0, 18.0, 25.0, 6.0, mat_ramp_orange)
-	# Ramp 3: gap jump - 32° launch, sand pit, curved landing ramp that runs out to the ground
-	_create_kicker(Vector3(s_x + 55, 0, 380), 1.0, 20.0, 32.0, 9.0, mat_ramp_orange)
+	# Ramp 3: gap jump - two identical 30° / 9 m ramps facing each other over a sand pit
+	_create_kicker(Vector3(s_x + 55, 0, 380), 1.0, 20.0, 30.0, 9.0, mat_ramp_orange)
 	_create_static_box(Vector3(s_x + 55, 0.04, 455), Vector3(26, 0.06, 40), mat_sand)
-	_create_kicker(Vector3(s_x + 55, 0, 545), -1.0, 22.0, 28.0, 8.5, mat_metal_blue)
+	_create_kicker(Vector3(s_x + 55, 0, 545), -1.0, 22.0, 30.0, 9.0, mat_metal_blue) # same as the orange one: jumps work both ways
 	# (The floating wall-ride slab and the odd-angled corkscrew ramp were removed.)
 
 # --- 8. OFF-ROAD & DESERT DUNES PARK (East-North Sector) ---

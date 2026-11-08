@@ -34,6 +34,7 @@ Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatab
 | N | Mini harita yakın / geniş |
 | C | Kamera |
 | T | Ağır çekim |
+| R | Aracı düzelt: ters dönünce olduğu yere dik bırakır (gamepad: Y) |
 | TAB | Garaj (araç ve motor seçimi, ayarlar) |
 | ESC | Ayarlar menüsü |
 
