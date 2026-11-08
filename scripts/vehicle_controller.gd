@@ -329,7 +329,7 @@ func _build_wheel_details() -> void:
 		mount.add_child(caliper)
 
 func trigger_turbo_boost() -> bool:
-	if not turbo_boost_enabled:
+	if not turbo_boost_enabled or current_gear == 0: # no boost in reverse
 		return false
 	if turbo_boost_cooldown_timer <= 0.0 and not turbo_boost_active:
 		turbo_boost_active = true
@@ -1808,7 +1808,7 @@ func _update_drivetrain(delta: float) -> void:
 	if turbo_boost_active:
 		turbo_boost_timer -= delta
 		turbo_boost_ready = false
-		if turbo_boost_timer <= 0.0:
+		if turbo_boost_timer <= 0.0 or current_gear == 0: # also ends when shifted into reverse
 			turbo_boost_active = false
 			turbo_boost_cooldown_timer = turbo_boost_cooldown
 	elif turbo_boost_cooldown_timer > 0.0:

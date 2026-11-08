@@ -109,7 +109,6 @@ func _process(delta: float) -> void:
 	var lim: float = maxf(float(vehicle.get("limiter_rpm")), idle + 1.0)
 	var revs: float = clampf((float(vehicle.get("current_rpm")) - idle) / (lim - idle), 0.0, 1.0)
 	var thr: float = float(vehicle.get("pedal_throttle"))
-	var load: float = clampf(revs * 0.6 + thr * revs * 0.6, 0.0, 1.0)
 	var fwd_v: float = body.linear_velocity.dot(body.global_transform.basis.z)
 	var spd: float = absf(fwd_v)
 	# at speed the puffs settle far apart behind the car: a shorter life keeps the trail short and dense
@@ -130,11 +129,15 @@ func _process(delta: float) -> void:
 	emission_box_extents = Vector3(0.01, 0.01, half)
 	position = pipe_pos - Vector3(0.0, 0.0, half * signf(fwd_v))
 	var wind: float = lerpf(1.0, 0.5, clampf((spd * 3.6 - 20.0) / 80.0, 0.0, 1.0)) # thins out with speed
+	# Idle and low revs: only a barely visible haze; smoke builds from ~30% of the rev range up and
+	# with the throttle. dens keeps the total the same however many pipes / particles there are.
+	var k: float = smoothstep(0.3, 1.0, revs) * (0.35 + 0.65 * thr)
+	var dens: float = minf(200.0 * share / float(amount), 1.0)
 	if str(vehicle.get("engine_fuel")) == "dizel":
 		var c: float = lerpf(0.55, 0.16, thr)
-		color = Color(c, c, c, (0.05 + 0.3 * thr * (0.4 + revs)) * wind)
+		color = Color(c, c, c, (0.005 + 0.28 * k) * wind * dens)
 	else:
-		color = Color(0.86, 0.86, 0.88, (0.012 + 0.2 * load) * wind) # many faint puffs: a smooth plume
+		color = Color(0.86, 0.86, 0.88, (0.003 + 0.18 * k) * wind * dens)
 
 	_pop_t -= delta
 	var popping: bool = _pop_t > 0.0
