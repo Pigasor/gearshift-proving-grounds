@@ -199,7 +199,7 @@ func _runway() -> void:
 	for m in marks:
 		var mz: float = DRAG_START_Z + float(m[0])
 		_paint(0.0, mz, RW_W - 4.0, 1.2 if float(m[0]) > 0.0 else 2.0, mb.mat_road_yellow, 0.055)
-		_ground_text(str(m[1]), Vector3(-(RW_W * 0.5 + 3.8), 0.04, mz + 6.0), 28, 1.0, Color(0.98, 0.8, 0.1))
+		_ground_text(str(m[1]), Vector3(-(RW_W * 0.5 + 3.8), 0.07, mz + 6.0), 28, 1.0, Color(0.98, 0.8, 0.1)) # above runway (0.04) and paint (0.057): no z-fighting
 
 # ------------------------------------------------------------------ TAXIWAYS
 func _taxiways() -> void:

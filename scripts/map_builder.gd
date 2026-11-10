@@ -5,6 +5,7 @@ func _ready() -> void:
 	_load_textured_materials()
 	_build_floor_and_perimeter()
 	_build_mega_highway()
+	_build_nascar_oval()
 	AirportBuilder.new().build(self) # runway, taxiways, apron, terminal, tower, hangars, planes
 	_build_grand_prix_circuit()
 	_build_drift_arena()
@@ -762,3 +763,99 @@ func _create_kicker(base: Vector3, dir: float, width: float, angle_deg: float, h
 	mi.material_override = m2
 	add_child(mi)
 	_add_collision_body(faces, _surface_for(mat))
+
+# --- NASCAR OVAL (south-east, inside the highway ring) ---
+# A 1-mile (~1.6 km) oval like Dover: 360 m straights, 140 m radius turns banked 24 deg, straights
+# banked 8 deg, flat apron inside, concrete wall and an earth bank outside. Raced anti-clockwise
+# (left turns): on the south straight the cars head +X.
+const OVAL_CENTER := Vector2(620, 930)
+const OVAL_STRAIGHT: float = 360.0
+const OVAL_RADIUS: float = 140.0
+const OVAL_WIDTH: float = 18.0
+
+func _build_nascar_oval() -> void:
+	var base_y: float = 0.08
+	var turn_bank: float = deg_to_rad(24.0)
+	var straight_bank: float = deg_to_rad(8.0)
+	var ce := OVAL_CENTER + Vector2(OVAL_STRAIGHT * 0.5, 0.0) # east turn centre
+	var cw := OVAL_CENTER - Vector2(OVAL_STRAIGHT * 0.5, 0.0) # west turn centre
+	# centre-line samples: [position xz, outward normal xz, bank]
+	var samples: Array = []
+	for half in [[ce, -90.0, 90.0, Vector2(0, 1)], [cw, 90.0, 270.0, Vector2(0, -1)]]:
+		var c: Vector2 = half[0]
+		var steps: int = 120
+		for s in range(steps + 1):
+			var t: float = float(s) / float(steps)
+			var a: float = deg_to_rad(lerpf(half[1], half[2], t))
+			var n := Vector2(cos(a), sin(a))
+			# bank rolls in over the first and last 20% of the turn (no sudden twist)
+			var k: float = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.8, t)
+			samples.append([c + n * OVAL_RADIUS, n, lerpf(straight_bank, turn_bank, k)])
+		# straight to the other turn
+		var sn: Vector2 = half[3]
+		var p0: Vector2 = c + sn * OVAL_RADIUS
+		var p1: Vector2 = (cw if c == ce else ce) + sn * OVAL_RADIUS
+		for s in range(1, 24):
+			samples.append([p0.lerp(p1, float(s) / 24.0), sn, straight_bank])
+	samples.append(samples[0])
+
+	var road_in: Array[Vector3] = []
+	var road_out: Array[Vector3] = []
+	var apron_in: Array[Vector3] = []
+	var wall_top: Array[Vector3] = []
+	var bank_out: Array[Vector3] = []
+	var line_a: Array[Vector3] = []
+	var line_b: Array[Vector3] = []
+	var dist: Array[float] = []
+	var acc: float = 0.0
+	for i in range(samples.size()):
+		var p: Vector2 = samples[i][0]
+		var n: Vector2 = samples[i][1]
+		if i > 0:
+			acc += p.distance_to(samples[i - 1][0])
+		dist.append(acc)
+		var pin: Vector2 = p - n * OVAL_WIDTH * 0.5
+		var pout: Vector2 = p + n * OVAL_WIDTH * 0.5
+		var out_y: float = base_y + OVAL_WIDTH * tan(samples[i][2])
+		var vin := Vector3(pin.x, base_y, pin.y)
+		var vout := Vector3(pout.x, out_y, pout.y)
+		road_in.append(vin)
+		road_out.append(vout)
+		var ap: Vector2 = pin - n * 9.0
+		apron_in.append(Vector3(ap.x, base_y, ap.y))
+		wall_top.append(vout + Vector3.UP * 1.2)
+		var bo: Vector2 = pout + n * (4.0 + out_y * 1.6) # earth bank behind the raised outer wall
+		bank_out.append(Vector3(bo.x, -0.05, bo.y))
+		# white line along the inside edge of the racing surface
+		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * 0.015)
+		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * 0.015)
+
+	# plain racing asphalt (the highway texture has lane lines), the apron a different shade
+	var mat_oval: StandardMaterial3D = mat_track.duplicate() as StandardMaterial3D
+	mat_oval.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mat_bank: StandardMaterial3D = mat_grass.duplicate() as StandardMaterial3D
+	mat_bank.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mat_wall: StandardMaterial3D = mat_concrete_wall.duplicate() as StandardMaterial3D
+	mat_wall.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	var road_faces := PackedVector3Array()
+	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 18.0, mat_oval, road_faces, 8)
+	_add_strip(apron_in, road_in, dist, 0.0, 0.5, 1.0 / 18.0, mat_asphalt, road_faces)
+	_add_collision_body(road_faces, "asphalt")
+	var wall_faces := PackedVector3Array()
+	_add_strip(road_out, wall_top, dist, 0.0, 1.0, 1.0 / 6.0, mat_wall, wall_faces)
+	_add_collision_body(wall_faces, "concrete")
+	var bank_faces := PackedVector3Array()
+	_add_strip(wall_top, bank_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_bank, bank_faces)
+	_add_collision_body(bank_faces, "grass")
+	var unused := PackedVector3Array()
+	_add_strip(line_a, line_b, dist, 0.0, 1.0, 0.1, mat_road_white, unused)
+
+	# start / finish line across the south straight
+	var sx: float = OVAL_CENTER.x
+	var zin: float = OVAL_CENTER.y + OVAL_RADIUS - OVAL_WIDTH * 0.5
+	var zout: float = OVAL_CENTER.y + OVAL_RADIUS + OVAL_WIDTH * 0.5
+	var y_out: float = base_y + OVAL_WIDTH * tan(straight_bank)
+	var sl: Array[Vector3] = [Vector3(sx - 0.6, base_y + 0.02, zin), Vector3(sx + 0.6, base_y + 0.02, zin)]
+	var sr: Array[Vector3] = [Vector3(sx - 0.6, y_out + 0.02, zout), Vector3(sx + 0.6, y_out + 0.02, zout)]
+	_add_strip(sl, sr, [0.0, 1.2] as Array[float], 0.0, 1.0, 1.0, mat_road_white, unused)

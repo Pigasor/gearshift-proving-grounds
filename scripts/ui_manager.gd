@@ -205,7 +205,7 @@ func _update_hud() -> void:
 	label_slowmo.visible = (Engine.time_scale < 0.9)
 
 const CAR_GROUPS: Array = [["Sedan", "Sedan"], ["Classic", "Classic"], ["Sport", "Sport"], ["Muscle", "Muscle"],
-	["Hyper", "Hypercar"], ["Off-Road", "Off-Road"], ["Monster", "Monster Truck"]]
+	["Stock Car", "NASCAR"], ["Hyper", "Hypercar"], ["Off-Road", "Off-Road"], ["Monster", "Monster Truck"], ["Tractor", "Tractor"]]
 
 func _setup_options() -> void:
 	# Cars grouped by class under separator headings; the item id is the car index.
@@ -260,6 +260,50 @@ func _sb(bg: Color, border: Color, radius: int, bottom_only: bool = false) -> St
 	sb.content_margin_bottom = 7
 	return sb
 
+# What each garage setting does (one per grid row, then ABS / TCS / automatic), shown on hover
+const HELP: Array = [
+	"Sürmek istediğin araç. Araçlar sınıflarına göre gruplanmıştır.",
+	"Seçili aracın motor seçeneği: gücü, torku, vites kutusunu ve sesini değiştirir.",
+	"Motorun beygir gücü (HP). Tork da aynı oranda değişir: daha fazla güç daha hızlı hızlanma ve daha yüksek son hız, ama daha fazla patinaj demek.",
+	"Turbonun en yüksek basıncı (bar). Yüksek basınç devir arttıkça daha fazla tork verir ama turbo gecikmesi de artar. 0 = turbosuz.",
+	"Süspansiyon yaylarının sertliği. Sert yay: virajda daha az yatma ve keskin tepki, ama tümseklerde sert ve zıplayan sürüş. Yumuşak yay: arazide ve tümseklerde daha konforlu.",
+	"Amortisörlerin yayın hareketini frenleme gücü. Az sönümleme: araba tümsekten sonra salınır, zıplar. Fazla sönümleme: sert ve tepkili, ama tümsekleri iyi yutmaz.",
+	"Ön tekerlerin önden bakınca içe yatma açısı (eksi = tekerin üstü içeri). Biraz eksi kamber virajda lastiğin yere tam basmasını sağlar ve viraj tutuşunu artırır; fazlası düz yolda fren ve çekiş tutuşunu azaltır.",
+	"Lastiklerin yol tutuş katsayısı. 1.00 = normal yol lastiği; yüksek = yarış lastiği, düşük = kaygan ya da yıpranmış lastik.",
+	"Motor gücünün hangi tekerlere gittiği. RWD: arkadan itiş (gazla arkası kayar), FWD: önden çekiş (dengeli, önden kayar), AWD: dört çeker (en iyi çekiş).",
+	"ABS: sert frende tekerlerin kilitlenmesini önler, böylece fren yaparken direksiyon hâkimiyeti kaybolmaz.",
+	"Çekiş kontrolü: gaza basınca tekerlerin patinaj yapmasını engeller. Kapalıyken güçlü arabalar patinaj çeker ve gazla arkadan kayar.",
+	"Açıkken vitesler otomatik değişir. Kapalıyken vitesleri sen değiştirirsin (E/Q, RB/LB ya da kulakçıklar).",
+]
+
+# Puts a grey round "?" after a garage control; hovering it shows what the setting does.
+# Returns the box now holding both (it takes the control's place in its container).
+func _add_help(ctrl: Control, text: String) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var parent: Node = ctrl.get_parent()
+	var idx: int = ctrl.get_index()
+	parent.add_child(box)
+	parent.move_child(box, idx)
+	ctrl.reparent(box)
+	var q := Label.new()
+	q.text = "?"
+	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	q.custom_minimum_size = Vector2(22, 22)
+	q.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	q.add_theme_font_size_override("font_size", 14)
+	q.add_theme_color_override("font_color", Color(0.12, 0.13, 0.15))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.62, 0.65, 0.7)
+	sb.set_corner_radius_all(11)
+	q.add_theme_stylebox_override("normal", sb)
+	q.mouse_filter = Control.MOUSE_FILTER_STOP # needed for the hover tooltip
+	q.mouse_default_cursor_shape = Control.CURSOR_HELP
+	q.tooltip_text = text # auto-translated like the other labels
+	box.add_child(q)
+	return box
+
 # Garage: header with the car's figures + one tab per area (Car / Engine / Suspension / Driving),
 # so new cars and upgrades (e.g. Stage 1 software) each get their own place.
 func _build_garage_layout() -> void:
@@ -312,12 +356,14 @@ func _build_garage_layout() -> void:
 		for r in range(int(p[1]), int(p[2])):
 			for n in rows[r]:
 				n.reparent(g)
-			(rows[r][0] as Control).custom_minimum_size.x = 170 # same column widths on every tab
+			_add_help(rows[r][0], HELP[r]).custom_minimum_size.x = 170 # same column widths on every tab
 			(rows[r][1] as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			(rows[r][2] as Control).custom_minimum_size.x = 110
 		garage_tabs.add_child(page)
 		garage_tabs.set_tab_title(garage_tabs.get_tab_count() - 1, p[0])
 	check_abs.get_parent().reparent(garage_tabs.get_child(3))
+	for k in 3:
+		_add_help([check_abs, check_tcs, check_auto_trans][k], HELP[9 + k])
 	vbox.get_node("HSeparator").queue_free()
 	grid.queue_free()
 

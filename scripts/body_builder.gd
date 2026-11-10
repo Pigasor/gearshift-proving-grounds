@@ -10,6 +10,7 @@ class_name BodyBuilder
 var _parent: Node3D
 var _brake_mats: Array[StandardMaterial3D] = []
 var exhausts: Array[Vector3] = [] # tailpipe tips drawn on this body (the car puts its smoke there)
+var exhaust_up: bool = false # true: vertical stack (tractor), smoke goes up
 
 # Silhouette: lengths are fractions of the car length from the front bumper, heights in metres
 # above the ground. hood = bumper -> windscreen base, ws = windscreen run, roof = flat roof run,
@@ -31,6 +32,15 @@ const STYLES: Dictionary = {
 	# Tofas Sahin (Fiat 131 based): three-box, upright screen, flat hood, flat roof, long flat boot
 	"sahin": { "hood": 0.265, "ws": 0.125, "roof": 0.30, "rw": 0.10, "nose": 0.72, "cowl": 0.85, "belt": 0.91,
 		"deck": 0.92, "taper_f": 0.03, "taper_r": 0.02, "tumble": 0.80, "spoiler": "none" },
+	# NASCAR Next Gen Cup car: low splitter nose, long hood, fastback, tall rear spoiler blade
+	"cup": { "hood": 0.33, "ws": 0.17, "roof": 0.16, "rw": 0.20, "nose": 0.50, "cowl": 0.78, "belt": 0.88,
+		"deck": 0.92, "taper_f": 0.10, "taper_r": 0.05, "tumble": 0.68, "spoiler": "blade" },
+	# Tractor and buggy are built from parts (_build_tractor / _build_buggy); hood/cowl here only
+	# place the hood camera
+	"tractor": { "hood": 0.69, "ws": 0.1, "roof": 0.1, "rw": 0.05, "nose": 1.6, "cowl": 1.95, "belt": 2.0,
+		"deck": 1.5, "taper_f": 0.0, "taper_r": 0.0, "tumble": 0.9, "spoiler": "none" },
+	"buggy": { "hood": 0.35, "ws": 0.1, "roof": 0.2, "rw": 0.1, "nose": 0.9, "cowl": 1.05, "belt": 1.1,
+		"deck": 1.0, "taper_f": 0.0, "taper_r": 0.0, "tumble": 0.9, "spoiler": "none" },
 	# Nissan GT-R R35: tall muscular coupe, C-pillar "shark fin", high tail, small wing
 	"gtr": { "hood": 0.285, "ws": 0.165, "roof": 0.17, "rw": 0.22, "nose": 0.66, "cowl": 0.86, "belt": 0.98,
 		"deck": 1.04, "taper_f": 0.12, "taper_r": 0.05, "tumble": 0.68, "spoiler": "wing" },
@@ -91,6 +101,14 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 	ws_top_z = cowl_z - L * float(s["ws"])
 	roof_rear_z = ws_top_z - L * float(s["roof"])
 	deck_z = roof_rear_z - L * float(s["rw"])
+	exhaust_up = false
+	match str(b.get("style", "")):
+		"tractor":
+			_build_tractor(tire_r)
+			return _brake_mats
+		"buggy":
+			_build_buggy(tire_r)
+			return _brake_mats
 	var nose_h: float = float(s["nose"])
 	var cowl_h: float = float(s["cowl"])
 	var belt_h: float = float(s["belt"])
@@ -175,6 +193,7 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		"accent": _details_accent(nose_h, deck_h)
 		"egea": _details_egea(nose_h, deck_h)
 		"sahin": _details_sahin(nose_h, deck_h)
+		"cup": _details_cup(nose_h, deck_h)
 		"civic": _details_civic(nose_h, deck_h)
 		"megane": _details_megane(nose_h, deck_h)
 		"gtr": _details_gtr(nose_h, deck_h)
@@ -412,6 +431,8 @@ func _spoiler(kind: String, deck_h: float) -> void:
 			_box(Vector3(0, g + deck_h + 0.015, zr + 0.10), Vector3(w * 0.9, 0.03, 0.10), paint)
 		"duck":
 			_box(Vector3(0, g + deck_h + 0.04, zr + 0.09), Vector3(w * 0.95, 0.04, 0.12), paint, Vector3(-8, 0, 0))
+		"blade": # NASCAR: tall flat spoiler across the tail, leaning back
+			_box(Vector3(0, g + deck_h + 0.10, zr + 0.10), Vector3(w * 0.98, 0.22, 0.02), black, Vector3(-20, 0, 0))
 		"wing":
 			for sd in [-1.0, 1.0]:
 				_box(Vector3(sd * w * 0.32, g + deck_h + 0.09, zr + 0.22), Vector3(0.05, 0.18, 0.10), paint)
@@ -577,3 +598,155 @@ func _box(pos: Vector3, size: Vector3, mat: Material, rot_deg: Vector3 = Vector3
 	mi.position = pos
 	mi.rotation_degrees = rot_deg
 	_parent.add_child(mi)
+
+# ------------------------------------------------------------------ NASCAR, tractor, buggy
+func _details_cup(nose_h: float, deck_h: float) -> void:
+	# race car: black splitter and grille decal, sticker headlights / tail lights, door and roof numbers
+	var fw: float = _fw(nose_h - 0.1)
+	_box(Vector3(0, g + 0.12, zf - 0.02), Vector3(W * 0.94, 0.04, 0.34), black) # splitter
+	_front(0, 0.34, Vector3(1.0, 0.16, 0.02), black)
+	var rw: float = _rw(deck_h - 0.12)
+	for sd in [-1.0, 1.0]:
+		_front(sd * (fw - 0.28), nose_h - 0.09, Vector3(0.38, 0.09, 0.02), head)
+		_rear(sd * (rw - 0.3), deck_h - 0.13, Vector3(0.42, 0.08, 0.02), tail)
+		_number("24", Vector3(sd * (hw + 0.025), g + 0.62, -0.15), Vector3(0, sd * 90.0, 0), 160)
+	_number("24", Vector3(0, g + H + 0.012, (ws_top_z + roof_rear_z) * 0.5), Vector3(-90, 180, 0), 140)
+
+func _number(text: String, pos: Vector3, rot_deg: Vector3, size_px: int) -> void:
+	var l := Label3D.new()
+	l.text = text
+	if ResourceLoader.exists("res://fonts/game_font.tres"):
+		l.font = load("res://fonts/game_font.tres")
+	l.font_size = size_px
+	l.pixel_size = 0.004
+	l.modulate = Color(1, 1, 1)
+	l.outline_modulate = Color(0, 0, 0)
+	l.outline_size = 24
+	l.double_sided = false
+	l.shaded = true
+	l.position = pos
+	l.rotation_degrees = rot_deg
+	_parent.add_child(l)
+
+# Upright cylinder (exhaust stack, posts)
+func _cyl(pos: Vector3, r: float, h: float, mat: Material) -> void:
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = h
+	cm.radial_segments = 12
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	mi.material_override = mat
+	mi.position = pos
+	_parent.add_child(mi)
+
+# Tube from a to b (roll cage, shocks)
+func _tube(a: Vector3, b: Vector3, r: float, mat: Material) -> void:
+	var d: Vector3 = b - a
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = d.length()
+	cm.radial_segments = 8
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	mi.material_override = mat
+	var y: Vector3 = d.normalized()
+	var x: Vector3 = y.cross(Vector3.FORWARD if absf(y.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
+	mi.transform = Transform3D(Basis(x, y, x.cross(y)), (a + b) * 0.5)
+	_parent.add_child(mi)
+
+# Farm tractor: long narrow hood over the engine, glass cab over the big rear wheels, wide rear
+# fenders, front weights, vertical exhaust stack. Rear wheels have tire_r (the small front ones are
+# drawn by the car, see front_wheel_r).
+func _build_tractor(tire_r: float) -> void:
+	var zfa: float = wb * 0.5 # front axle
+	var zra: float = -wb * 0.5 # rear axle
+	var tw: float = float(STYLES["tractor"]["cowl"]) # hood top height
+	var cab_f: float = cowl_z
+	var cab_r: float = cab_f - 1.6
+	var cab_z: float = (cab_f + cab_r) * 0.5
+	var yellow := _glow(Color(0.98, 0.82, 0.08), 0.0)
+	var dark := _glow(Color(0.12, 0.12, 0.13), 0.0)
+	_box(Vector3(0, g + 0.95, (cab_f + zf) * 0.5 - 0.3), Vector3(0.8, 0.6, zf - cab_f + 0.4), dark) # engine block / frame
+	_box(Vector3(0, g + 1.6, (cab_f + zf - 0.25) * 0.5), Vector3(0.95, tw - 1.25, zf - 0.25 - cab_f), paint) # hood
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * 0.485, g + 1.72, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.06, zf - 0.6 - cab_f), yellow) # hood stripe
+	_box(Vector3(0, g + 1.55, zf - 0.23), Vector3(0.85, 0.6, 0.04), black) # grille
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * 0.3, g + 1.78, zf - 0.22), Vector3(0.2, 0.1, 0.05), head)
+	_box(Vector3(0, g + 0.82, zf - 0.12), Vector3(1.1, 0.45, 0.5), dark) # front weights
+	_box(Vector3(0, g + 0.62, zfa), Vector3(hw * 1.5, 0.18, 0.22), black) # front axle
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * hw * 0.75, g + 1.34, zfa), Vector3(0.5, 0.05, 1.0), paint, Vector3(0, 0, sd * -8.0)) # front fenders
+	# cab: floor, four posts, glass all round, roof with work lights
+	_box(Vector3(0, g + 1.45, cab_z), Vector3(1.75, 0.15, 1.65), black)
+	for sx in [-1.0, 1.0]:
+		for z in [cab_f, cab_r]:
+			_box(Vector3(sx * 0.84, g + 2.25, z), Vector3(0.08, 1.5, 0.08), black)
+	_box(Vector3(0, g + 2.25, cab_f), Vector3(1.6, 1.4, 0.03), glass)
+	_box(Vector3(0, g + 2.25, cab_r), Vector3(1.6, 1.4, 0.03), glass)
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(sx * 0.84, g + 2.25, cab_z), Vector3(0.03, 1.4, 1.52), glass)
+	_box(Vector3(0, g + 3.02, cab_z), Vector3(1.95, 0.12, 1.85), paint) # roof
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(sx * 0.6, g + 2.94, cab_f + 0.05), Vector3(0.18, 0.1, 0.06), head) # work lights
+	_box(Vector3(0, g + 1.8, cab_z - 0.2), Vector3(0.5, 0.5, 0.5), black) # seat
+	_box(Vector3(0, g + 2.05, cab_f - 0.35), Vector3(0.35, 0.06, 0.35), black, Vector3(-40, 0, 0)) # steering wheel
+	# rear fenders over the big wheels, steps / tanks, hitch, lights
+	for sx in [-1.0, 1.0]:
+		var fx: float = sx * (hw * 0.75)
+		_box(Vector3(fx, g + tire_r * 2.0 + 0.12, zra), Vector3(0.8, 0.07, 2.0), paint)
+		_box(Vector3(sx * 0.62, g + tire_r + 0.75, zra), Vector3(0.05, 0.75, 2.0), paint)
+		_box(Vector3(sx * 0.82, g + 1.0, cab_f + 0.15), Vector3(0.3, 0.5, 0.7), black) # tanks / steps
+		_box(Vector3(fx, g + tire_r * 2.0 + 0.05, zra - 1.0), Vector3(0.14, 0.1, 0.05), tail)
+	_box(Vector3(0, g + 0.8, zra - 0.75), Vector3(1.0, 0.15, 0.4), black) # 3-point hitch
+	for sx in [-1.0, 1.0]:
+		_box(Vector3(sx * 0.4, g + 0.75, zra - 1.05), Vector3(0.08, 0.08, 0.7), black)
+	# exhaust stack in front of the cab
+	_cyl(Vector3(0.38, g + 2.55, cab_f + 0.12), 0.07, 1.3, dark)
+	exhausts.append(Vector3(0.38, g + 3.2, cab_f + 0.12))
+	exhaust_up = true
+
+# Sport UTV / dune buggy: tube roll cage, short nose and fenders, two seats, rear engine cover,
+# long-travel coilovers, LED light bar.
+func _build_buggy(tire_r: float) -> void:
+	var zfa: float = wb * 0.5
+	var zra: float = -wb * 0.5
+	var trk: float = hw - 0.1
+	var cage := _glow(Color(0.08, 0.08, 0.09), 0.0)
+	var shock := _glow(Color(0.98, 0.55, 0.05), 0.0)
+	_box(Vector3(0, g + 0.45, 0), Vector3(1.2, 0.08, wb + 0.2), black) # skid plate / floor
+	_box(Vector3(0, g + 0.85, zf - 0.5), Vector3(1.25, 0.32, 0.95), paint, Vector3(12, 0, 0)) # nose
+	_box(Vector3(0, g + 1.02, 0.62), Vector3(1.3, 0.3, 0.3), black) # dash
+	_box(Vector3(0, g + 0.95, zr + 0.55), Vector3(1.3, 0.45, 0.9), paint) # engine cover / bed
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * trk, g + tire_r * 2.0 + 0.12, zfa), Vector3(0.36, 0.06, 0.85), paint, Vector3(0, 0, sd * -10.0))
+		_box(Vector3(sd * trk, g + tire_r * 2.0 + 0.14, zra), Vector3(0.36, 0.06, 0.85), paint, Vector3(0, 0, sd * -10.0))
+		_box(Vector3(sd * 0.36, g + 0.82, -0.2), Vector3(0.5, 0.45, 0.5), black) # seats
+		_box(Vector3(sd * 0.36, g + 1.2, -0.48), Vector3(0.5, 0.7, 0.12), black, Vector3(-10, 0, 0))
+		_box(Vector3(sd * 0.4, g + 0.92, zf - 0.03), Vector3(0.22, 0.08, 0.05), head) # headlights
+		_box(Vector3(sd * 0.5, g + 1.0, zr + 0.08), Vector3(0.14, 0.08, 0.05), tail)
+		# coilovers from the frame to each wheel
+		_tube(Vector3(sd * 0.55, g + 1.15, zfa - 0.1), Vector3(sd * (trk - 0.05), g + tire_r + 0.15, zfa), 0.05, shock)
+		_tube(Vector3(sd * 0.55, g + 1.2, zra + 0.15), Vector3(sd * (trk - 0.05), g + tire_r + 0.15, zra), 0.05, shock)
+	_box(Vector3(-0.36, g + 1.22, 0.32), Vector3(0.34, 0.34, 0.04), black, Vector3(-30, 0, 0)) # steering wheel
+	# roll cage
+	var top_f: float = 0.25
+	var top_r: float = -0.75
+	var top_y: float = g + 1.85
+	for sd in [-1.0, 1.0]:
+		var x: float = sd * 0.6
+		_tube(Vector3(x, g + 1.0, 0.78), Vector3(x, top_y, top_f), 0.035, cage) # A-pillar
+		_tube(Vector3(x, top_y, top_f), Vector3(x, top_y, top_r), 0.035, cage) # roof rail
+		_tube(Vector3(x, top_y, top_r), Vector3(sd * 0.62, g + 0.9, top_r - 0.12), 0.035, cage) # B-pillar
+		_tube(Vector3(sd * 0.66, g + 1.2, 0.65), Vector3(sd * 0.66, g + 1.2, top_r), 0.03, cage) # door bar
+		_tube(Vector3(sd * 0.6, g + 0.95, zf - 0.1), Vector3(sd * 0.6, g + 0.55, zf - 0.1), 0.035, cage) # front bumper
+	_tube(Vector3(-0.6, top_y, top_f), Vector3(0.6, top_y, top_f), 0.035, cage)
+	_tube(Vector3(-0.6, top_y, top_r), Vector3(0.6, top_y, top_r), 0.035, cage)
+	_tube(Vector3(-0.6, top_y, top_r), Vector3(0.62, g + 0.9, top_r - 0.12), 0.03, cage) # diagonal
+	_tube(Vector3(-0.6, g + 0.75, zf - 0.1), Vector3(0.6, g + 0.75, zf - 0.1), 0.035, cage)
+	_box(Vector3(0, top_y + 0.04, (top_f + top_r) * 0.5), Vector3(1.25, 0.04, 1.05), paint) # roof
+	_box(Vector3(0, top_y + 0.04, top_f + 0.04), Vector3(1.0, 0.07, 0.07), head) # LED bar
+	_pipe(Vector3(0.35, g + 0.82, zr + 0.06), 0.045)

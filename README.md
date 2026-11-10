@@ -6,9 +6,9 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 
 - **Gerçekçi sürüş fiziği:** Raycast süspansiyon, tekerlek başına dönüş ve patinaj, lastik sürtünme çemberi, ağırlık transferi, hava direnci ve aerodinamik bastırma kuvveti
 - **Motor ve şanzıman:** Yakıt kesmeli devir kesici, motor freni, rev-matching, araç hızına göre vites seçen otomatik şanzıman ve manuel mod
-- **11 araç, 18 motor seçeneği:** Spor ve süper arabalar, canavar kamyon, gerçek ölçülü aile sedanları ve klasik arkadan itişli Tofash Sahin (benzinli / dizel motorlar, gerçek tork eğrileri, devirle artan egzoz dumanı)
-- **Harita:** Havalimanı (pist 18/36, taksi yolları, apron, terminal, kule, hangarlar), yarış pisti ve tur zamanlayıcı, eğimli virajlı otoyol halkası, drift alanı, stunt parkı, off-road alanı ve tepe parkı
-- **Garaj (sekmeli):** Araç / Motor / Süspansiyon / Sürüş — motor gücü (50-2000 HP), turbo, süspansiyon, kamber, tutuş, çekiş tipi, ABS/TCS ayarları
+- **14 araç, 22 motor seçeneği:** Spor ve süper arabalar, NASCAR stok arabası, canavar kamyon, traktör, buggy (UTV), gerçek ölçülü aile sedanları ve klasik arkadan itişli Tofash Sahin (benzinli / dizel motorlar, gerçek tork eğrileri, devirle artan egzoz dumanı)
+- **Harita:** Havalimanı (pist 18/36, taksi yolları, apron, terminal, kule, hangarlar), 1 millik eğimli NASCAR ovali, yarış pisti ve tur zamanlayıcı, eğimli virajlı otoyol halkası, drift alanı, stunt parkı, off-road alanı ve tepe parkı
+- **Garaj (sekmeli, her ayarda açıklama balonu):** Araç / Motor / Süspansiyon / Sürüş — motor gücü (50-2000 HP), turbo, süspansiyon, kamber, tutuş, çekiş tipi, ABS/TCS ayarları
 - **Ayarlar menüsü (ESC):** Dil (English / Türkçe), görüntü, grafik, ses, kontroller, tuş atamaları ve direksiyon seti kurulumu
 - **Direksiyon seti desteği:** Otomatik eksen/pedal algılama; gaz, fren, debriyaj, el freni (buton veya analog kol), vites kulakçıkları ve H vites kolu
 - **Mini harita** (N: yakın / geniş)

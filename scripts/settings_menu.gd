@@ -232,6 +232,7 @@ func _build_tabs() -> void:
 		["🏠  Hangarlar", Vector3(235, 0, -1045), 180.0],
 		["🏁  Yarış Pisti (start çizgisi)", Vector3(-200, 0, -255), 0.0],
 		["🛣️  Otoyol Halkası", Vector3(0, 0, 1300), 90.0],
+		["🏟️  NASCAR Ovali", Vector3(620, 0, 1057), 90.0],
 		["🌀  Drift Alanı", Vector3(250, 0, -300), 0.0],
 		["🚀  Stunt Parkı", Vector3(150, 0, 40), 0.0],
 		["🏜️  Off-road Alanı", Vector3(480, 0, 60), 0.0],
@@ -304,6 +305,7 @@ func _build_tabs() -> void:
 	_add_slider(k, "Gamepad Ölü Bölge", "joy_deadzone", 0.02, 0.30, 0.01, 100.0, " %")
 	_add_slider(k, "Kamera Fare Hassasiyeti", "mouse_sensitivity", 0.001, 0.010, 0.0005, 1000.0, "")
 	_add_check(k, "Kamera Dikey Eksenini Ters Çevir", "invert_camera_y")
+	_add_check(k, "Titreşim (çarpışma, sert iniş)", "vibration")
 	_add_option(k, "Başlangıç Şanzımanı", "default_automatic", ["Manuel", "Otomatik"])
 	_note(k, "Gamepad: Sol çubuk = direksiyon · RT = gaz · LT = fren · A/B = el freni · RB/LB = vites · Sol çubuk tık (L3) = turbo · X = kamera · Y = aracı düzelt (ters dönünce) · Select = otomatik/manuel · D-pad ▲ = garaj · D-pad ▼ = ağır çekim · D-pad ◀▶ = araç · Start = bu menü")
 	_build_wheel_section(k)

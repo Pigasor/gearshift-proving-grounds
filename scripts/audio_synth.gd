@@ -56,6 +56,8 @@ const BANGS: Dictionary = {
 	"civic":      {"crack": 0.002, "tone": 0.55, "body": 0.020, "f0": 150.0, "f1": 75.0, "boom": 0.45, "pops": 2, "gap": 0.05, "level": 0.5}, # VTEC: crisp double tick
 	"megane":     {"crack": 0.003, "tone": 0.25, "body": 0.020, "f0": 135.0, "f1": 70.0, "boom": 0.5, "pops": 1, "gap": 0.0, "level": 0.45}, # TCe turbo: muffled pop
 	"sahin":      {"crack": 0.004, "tone": 0.30, "body": 0.045, "f0": 100.0, "f1": 50.0, "boom": 0.9, "pops": 1, "gap": 0.0, "level": 0.75}, # carburettor: classic loud "PAT"
+	"cup":        {"crack": 0.003, "tone": 0.22, "body": 0.040, "f0": 85.0, "f1": 40.0, "boom": 1.1, "pops": 3, "gap": 0.05, "level": 0.95}, # NASCAR V8: open-header "brap-brap"
+	"rzr":        {"crack": 0.002, "tone": 0.50, "body": 0.015, "f0": 170.0, "f1": 95.0, "boom": 0.35, "pops": 2, "gap": 0.045, "level": 0.55}, # UTV 4-cylinder: sharp little crackle
 }
 const BANG_DEFAULT: Dictionary = {"crack": 0.003, "tone": 0.25, "body": 0.03, "f0": 110.0, "f1": 50.0, "boom": 0.8, "pops": 1, "gap": 0.0, "level": 0.8}
 var _bang_lp: float = 0.0
@@ -99,6 +101,8 @@ const PROFILES: Dictionary = {
 	"i4":      {"cyl": 4, "tau": 1.2, "irr": 0.06, "r1": 160.0, "q1": 2.0, "g1": 0.8, "r2": 480.0, "q2": 2.4, "g2": 0.45, "lp": 1500.0, "rasp": 0.25, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.50, "drive": 1.8},
 	"i4_turbo": {"cyl": 4, "tau": 1.1, "irr": 0.06, "r1": 170.0, "q1": 2.0, "g1": 0.8, "r2": 520.0, "q2": 2.4, "g2": 0.50, "lp": 1800.0, "rasp": 0.30, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.50, "drive": 1.9},
 	"i4_diesel": {"cyl": 4, "tau": 1.6, "irr": 0.08, "r1": 120.0, "q1": 1.8, "g1": 0.9, "r2": 380.0, "q2": 2.0, "g2": 0.40, "lp": 1300.0, "rasp": 0.30, "intake": 0.20, "knock": 0.55, "whine": 0.0, "gain": 0.52, "drive": 1.7},
+	# big slow-revving 6-cylinder tractor diesel: deep, heavy knock
+	"i6_diesel_big": {"cyl": 6, "tau": 2.0, "irr": 0.10, "r1": 80.0, "q1": 1.6, "g1": 1.1, "r2": 260.0, "q2": 1.8, "g2": 0.45, "lp": 1000.0, "rasp": 0.35, "intake": 0.15, "knock": 0.75, "whine": 0.0, "gain": 0.56, "drive": 1.9},
 }
 const LEGACY_PROFILE: Array[String] = ["gtr", "v8_sc", "v8_race", "w16", "i6_jz", "v8_big"]
 
@@ -178,7 +182,10 @@ func trigger_bang() -> void:
 func _update_profile() -> void:
 	var v_type: int = int(vehicle.get("current_vehicle_type")) if vehicle.get("current_vehicle_type") != null else 0
 	var key: String
-	if v_type < LEGACY_PROFILE.size() and int(vehicle.get("current_engine_index")) == 0:
+	var own: String = str(vehicle.get("engine_sound")) if vehicle.get("engine_sound") != null else ""
+	if PROFILES.has(own):
+		key = own # the car names its own sound (CarDatabase "sound")
+	elif v_type < LEGACY_PROFILE.size() and int(vehicle.get("current_engine_index")) == 0:
 		key = LEGACY_PROFILE[v_type]
 	elif str(vehicle.get("engine_fuel")) == "dizel":
 		key = "i4_diesel"

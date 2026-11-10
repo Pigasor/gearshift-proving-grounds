@@ -126,6 +126,49 @@ const CARS: Array = [
 				"tq_from": 2900.0, "tq_to": 3200.0, "power_rpm": 5600.0, "idle": 850.0, "limiter": 6000.0, "max_rpm": 6300.0,
 				"turbo": 0.0, "gears": [-3.24, 0.0, 3.61, 2.05, 1.36, 1.00, 0.83], "final": 4.10, "mass_add": -15.0 },
 		] },
+
+	# --- NASCAR Next Gen Cup car: pushrod V8, 5-speed sequential, rear-wheel drive, racing slicks ---
+	{ "id": "cup", "name": "Chevrolay Kamaro ZL1 Cup", "class": "Stock Car",
+		"body": { "length": 5.04, "width": 2.03, "height": 1.29, "wheelbase": 2.80, "track": 1.75,
+			"front_overhang": 1.05, "tire_r": 0.34, "mass": 1542.0, "cd_area": 0.48, "drive": "RWD",
+			"color": Color(0.98, 0.76, 0.05), "style": "cup",
+			"setup": {"downforce_coefficient": 0.9, "tire_grip_factor": 1.35, "suspension_rest_length": 0.18, "suspension_travel": 0.10,
+				"spring_stiffness": 70000.0, "damper_bump": 4500.0, "damper_rebound": 6000.0, "anti_roll_stiffness": 16000.0,
+				"brake_bias_front": 0.60, "engine_inertia": 0.12, "max_steer_angle_deg": 30.0} },
+		"engines": [
+			{ "label": "5.86 V8 Cup - 670 HP", "cyl": 8, "fuel": "benzin", "hp": 670.0, "torque": 585.0,
+				"tq_from": 6500.0, "tq_to": 7500.0, "power_rpm": 8800.0, "idle": 1300.0, "limiter": 9500.0, "max_rpm": 9800.0,
+				"turbo": 0.0, "gears": [-2.85, 0.0, 2.80, 1.95, 1.45, 1.17, 1.00], "final": 3.88, "trans": "dct", "shift": 0.10, "sound": "v8_race" },
+			{ "label": "5.86 V8 Superspeedway - 510 HP", "cyl": 8, "fuel": "benzin", "hp": 510.0, "torque": 470.0,
+				"tq_from": 6000.0, "tq_to": 7000.0, "power_rpm": 8500.0, "idle": 1300.0, "limiter": 9500.0, "max_rpm": 9800.0,
+				"turbo": 0.0, "gears": [-2.85, 0.0, 2.80, 1.95, 1.45, 1.17, 1.00], "final": 3.30, "trans": "dct", "shift": 0.10, "sound": "v8_race" },
+		] },
+	# --- Farm tractor: big 6-cylinder diesel, 4WD, small front wheels, 42 km/h ---
+	{ "id": "tractor", "name": "Jon Dear 6R 155", "class": "Tractor",
+		"body": { "length": 4.95, "width": 2.55, "height": 3.05, "wheelbase": 2.76, "track": 1.95,
+			"front_overhang": 1.55, "tire_r": 0.92, "mass": 7000.0, "cd_area": 1.6, "drive": "AWD",
+			"color": Color(0.21, 0.49, 0.18), "style": "tractor", "rim": Color(0.98, 0.82, 0.08),
+			"setup": {"front_wheel_r": 0.62, "offroad_tires": true, "suspension_rest_length": 0.18, "suspension_travel": 0.12,
+				"camera_scale": 1.6, "max_steer_angle_deg": 45.0, "wheel_inertia": 40.0, "engine_inertia": 1.2,
+				"anti_roll_stiffness": 30000.0, "brake_bias_front": 0.4, "shift_delay_seconds": 0.4, "tire_grip_factor": 0.95} },
+		"engines": [
+			{ "label": "6.8 PowerTech Diesel - 155 HP", "cyl": 6, "fuel": "dizel", "hp": 155.0, "torque": 680.0,
+				"tq_from": 1400.0, "tq_to": 1700.0, "power_rpm": 2100.0, "idle": 850.0, "limiter": 2300.0, "max_rpm": 2400.0,
+				"turbo": 1.4, "gears": [-4.5, 0.0, 6.0, 4.2, 3.0, 2.15, 1.55, 1.12], "final": 16.2, "vmax": 42.0, "sound": "i6_diesel_big" },
+		] },
+	# --- Sport UTV / dune buggy: 4-cylinder, 4WD, long-travel suspension ---
+	{ "id": "rzr", "name": "Polarys RZR Pro R", "class": "Off-Road",
+		"body": { "length": 3.66, "width": 1.88, "height": 1.88, "wheelbase": 2.64, "track": 1.70,
+			"front_overhang": 0.55, "tire_r": 0.41, "mass": 980.0, "cd_area": 0.75, "drive": "AWD",
+			"color": Color(0.85, 0.12, 0.10), "style": "buggy",
+			"setup": {"offroad_tires": true, "suspension_rest_length": 0.42, "suspension_travel": 0.40, "spring_stiffness": 16000.0,
+				"damper_bump": 1700.0, "damper_rebound": 2400.0, "anti_roll_stiffness": 5000.0, "camera_scale": 1.1,
+				"max_steer_angle_deg": 38.0, "brake_bias_front": 0.6, "shift_delay_seconds": 0.15} },
+		"engines": [
+			{ "label": "2.0 ProStar Fury - 225 HP", "cyl": 4, "fuel": "benzin", "hp": 225.0, "torque": 205.0,
+				"tq_from": 6000.0, "tq_to": 7000.0, "power_rpm": 8000.0, "idle": 1200.0, "limiter": 8500.0, "max_rpm": 8800.0,
+				"turbo": 0.0, "gears": [-2.3, 0.0, 3.2, 2.1, 1.5, 1.15, 0.9], "final": 10.7, "vmax": 137.0, "trans": "dct" },
+		] },
 ]
 
 static func count() -> int:

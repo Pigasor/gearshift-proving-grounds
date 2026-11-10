@@ -79,6 +79,12 @@ func cycle_mode() -> void:
 		CameraMode.CINEMATIC: current_mode = CameraMode.CHASE
 	if current_mode == CameraMode.CINEMATIC:
 		_show_toast(tr("🎬 SİNEMATİK KAMERA"))
+	elif current_mode == CameraMode.CHASE and target_vehicle:
+		# back to the default chase view: behind the car, default height and distance
+		_orbit_yaw = target_vehicle.global_rotation.y
+		_orbit_pitch = -0.22
+		_current_distance = default_distance
+		_mouse_active_timer = 0.0
 
 # Short on-screen notice (e.g. "Cinematic camera") that fades out
 func _show_toast(text: String) -> void:
@@ -275,6 +281,14 @@ func _ground_spot(p: Vector3, height: float) -> Vector3:
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
 	return (hit.position if hit else p) + Vector3.UP * height
 
+# Controller vibration on hits and hard landings (Settings > Kontroller > Titreşim). Steering wheels only
+# vibrate if Windows sees them as an XInput pad: Godot has no force feedback.
+func _rumble(strength: float) -> void:
+	if not bool(GameSettings.get_value("vibration")):
+		return
+	for d in Input.get_connected_joypads():
+		Input.start_joy_vibration(d, clampf(strength, 0.0, 1.0), clampf(strength * 1.3, 0.0, 1.0), 0.15 + 0.35 * strength)
+
 # Camera shake from hard hits (walls, crashes, heavy landings), measured from the car's
 # deceleration; teleports and the recover jump are ignored.
 func _update_shake(delta: float, step: float) -> void:
@@ -285,6 +299,7 @@ func _update_shake(delta: float, step: float) -> void:
 		var accel: float = (v - _prev_car_vel).length() / step
 		if accel > SHAKE_ACCEL:
 			_trauma = minf(_trauma + (accel - SHAKE_ACCEL) * step * 0.07, 1.0) # ~0.4 at a 20 km/h knock, full at 50+
+			_rumble(_trauma)
 	_prev_car_vel = v
 	_prev_car_pos = p
 	_trauma = maxf(_trauma - delta * 1.4, 0.0)

@@ -14,6 +14,9 @@ var camera_scale: float = 1.0
 var cam_hood: Vector3 = Vector3.ZERO
 var cam_bumper: Vector3 = Vector3.ZERO
 var exhaust_smokes: Array[ExhaustSmoke] = [] # one per tailpipe
+var engine_sound: String = "" # AudioSynth profile picked by the car (CarDatabase "sound"), "" = by engine type
+var front_wheel_r: float = 0.0 # smaller front wheels (tractor), visual only; 0 = same as the rear
+var _rim_mat: StandardMaterial3D # shared by all four rims: chrome, or painted per car (body "rim")
 var backfire_count: int = 0 # bumped on every backfire; the audio plays a bang when it changes
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
@@ -154,6 +157,8 @@ var _tc_mult: float = 1.0 # torque converter multiplication
 var _prev_clutch_rpm: float = 900.0
 var _slip_time: float = 0.0 # how long the auto clutch has been slipping under throttle
 var _since_upshift: float = 10.0
+var _manual_hold: bool = false # automatic box keeps the gear the driver picked
+var _upshift_thr: float = 0.0 # pedal at the last automatic upshift
 var _dir_change_armed: bool = true # auto box: may switch D<->R with the next pedal press
 var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
@@ -225,6 +230,7 @@ func _wheel_part(parent: Node3D, mesh: Mesh, pos: Vector3, axle_scale: float = 1
 func _build_wheel_details() -> void:
 	var rubber := _wheel_mat(Color(0.07, 0.07, 0.08), 0.0, 0.9)
 	var chrome := _wheel_mat(Color(0.93, 0.94, 0.96), 1.0, 0.07)
+	_rim_mat = chrome
 	var barrel_mat := _wheel_mat(Color(0.16, 0.16, 0.18), 0.7, 0.4, true)
 	var disc_mat := _wheel_mat(Color(0.55, 0.56, 0.58), 0.9, 0.35)
 	var tread := CylinderMesh.new()
@@ -341,9 +347,9 @@ func trigger_turbo_boost() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	# Rebindable controls (Settings > Atamalar)
 	if event.is_action_pressed("gear_up", false, true):
-		shift_up()
+		_driver_shift(true)
 	elif event.is_action_pressed("gear_down", false, true):
-		shift_down()
+		_driver_shift(false)
 	elif event.is_action_pressed("toggle_transmission", false, true):
 		is_automatic = !is_automatic
 	elif event.is_action_pressed("repair", false, true):
@@ -357,17 +363,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Steering wheel buttons (paddle shifters) - set up in Settings > Kontroller
 	elif event is InputEventJoypadButton and event.pressed and _is_wheel_device(event.device):
 		if event.button_index == int(wheel_cfg.get("shift_up_btn", -1)):
-			shift_up()
+			_driver_shift(true)
 		elif event.button_index == int(wheel_cfg.get("shift_down_btn", -1)):
-			shift_down()
+			_driver_shift(false)
 
 	# Gamepad Button Support (A/B = handbrake, turbo = left stick click)
 	elif event is InputEventJoypadButton and event.pressed and not _is_wheel_device(event.device):
 		match event.button_index:
 			JOY_BUTTON_RIGHT_SHOULDER: # RB
-				shift_up()
+				_driver_shift(true)
 			JOY_BUTTON_LEFT_SHOULDER: # LB
-				shift_down()
+				_driver_shift(false)
 			JOY_BUTTON_DPAD_DOWN:
 				toggle_slow_mo()
 			JOY_BUTTON_Y: # Triangle / Y: put the car back on its wheels
@@ -383,6 +389,11 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	var en: Dictionary = CarDatabase.engine(index, engine_index)
 	cam_hood = Vector3.ZERO
 	cam_bumper = Vector3.ZERO
+	front_wheel_r = 0.0
+	_set_rims(Color(0.93, 0.94, 0.96), false)
+	for roll in wheel_rolls:
+		if roll != null:
+			roll.position = Vector3.ZERO
 	_place_exhausts([Vector3(-0.55, -0.05, -2.4)], false) # legacy trophy truck; bodies / monster override
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
@@ -416,9 +427,17 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	current_engine_index = engine_index
 	record_key = index if engine_index == 0 else index * 100 + engine_index
 	engine_classic = bool(c.get("classic", false))
+	engine_sound = str(en.get("sound", ""))
 	engine_cylinders = int(en.get("cyl", 4))
 	engine_fuel = str(en.get("fuel", "benzin"))
 	_update_wheel_colliders()
+	# the new car appears where the old one was, standing still
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	for i in range(4):
+		wheel_angular_velocity[i] = 0.0
+	current_rpm = idle_rpm
+	_engage_gear_now(2 if is_automatic else 1)
 
 func _apply_engine(en: Dictionary) -> void:
 	use_torque_curve = true
@@ -447,6 +466,14 @@ func _apply_engine(en: Dictionary) -> void:
 	if current_gear >= gear_ratios.size():
 		_engage_gear_now(2)
 
+# Rims: chrome, or painted in the car's colour (e.g. a tractor's yellow wheels)
+func _set_rims(col: Color, painted: bool) -> void:
+	if _rim_mat == null:
+		return
+	_rim_mat.albedo_color = col
+	_rim_mat.metallic = 0.25 if painted else 1.0
+	_rim_mat.roughness = 0.45 if painted else 0.07
+
 # Family sedan: front-wheel drive, soft road suspension, eco tyres.
 func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var b: Dictionary = c["body"]
@@ -472,6 +499,12 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	handbrake_torque_max = 9000.0
 	brake_bias_front = 0.68
 	shift_delay_seconds = 0.32 # an ordinary gearbox, not a race DCT
+	# per-model setup (race car, tractor, buggy...): overrides any of the values above
+	var setup: Dictionary = b.get("setup", {})
+	for k in setup:
+		set(k, setup[k])
+	if b.has("rim"):
+		_set_rims(b["rim"], true)
 	var wb: float = float(b["wheelbase"])
 	var tr: float = float(b["track"])
 	wheel_offsets = [Vector3(-tr * 0.5, 0.0, wb * 0.5), Vector3(tr * 0.5, 0.0, wb * 0.5), Vector3(-tr * 0.5, 0.0, -wb * 0.5), Vector3(tr * 0.5, 0.0, -wb * 0.5)]
@@ -490,10 +523,12 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	if cabin_col and cabin_col.shape is BoxShape3D:
 		(cabin_col.shape as BoxShape3D).size = Vector3(W * 0.78, H - 0.95, 2.1)
 		cabin_col.position = Vector3(0.0, ground_y + 0.80 + (H - 0.95) * 0.5, z_mid - 0.15)
-	var s: float = tire_radius / VISUAL_TIRE_RADIUS
-	for roll in wheel_rolls:
-		if roll != null:
-			roll.scale = Vector3(s * 0.85, s, s)
+	for i in range(wheel_rolls.size()):
+		if wheel_rolls[i] != null:
+			var wr: float = front_wheel_r if (i < 2 and front_wheel_r > 0.0) else tire_radius
+			var ws: float = wr / VISUAL_TIRE_RADIUS
+			wheel_rolls[i].scale = Vector3(ws * 0.85, ws, ws)
+			wheel_rolls[i].position = Vector3(0.0, wr - tire_radius, 0.0) # a smaller wheel still sits on the ground
 	for i in range(mini(wheel_mounts.size(), 4)):
 		if wheel_mounts[i] != null:
 			wheel_mounts[i].position = wheel_offsets[i]
@@ -517,7 +552,7 @@ func _rebuild_body(b: Dictionary) -> void:
 	# on the hood just ahead of the windscreen, and just ahead of the nose
 	cam_hood = Vector3(0.0, builder.g + float(builder.s["cowl"]) + 0.2, builder.cowl_z + 0.3)
 	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
-	_place_exhausts(builder.exhausts, false)
+	_place_exhausts(builder.exhausts, builder.exhaust_up)
 
 # Smoke emitter on every tailpipe tip (local); up = vertical stacks blowing upwards
 func _place_exhausts(tips: Array, up: bool) -> void:
@@ -1669,6 +1704,8 @@ func _apply_aerodynamics(_delta: float) -> void:
 
 func _process_automatic_transmission(delta: float) -> void:
 	_since_upshift += delta
+	if absf(linear_velocity.dot(global_transform.basis.z)) < 1.5 or not is_automatic:
+		_manual_hold = false
 	if not is_automatic or _is_shifting:
 		return
 	if _auto_shift_cooldown > 0.0:
@@ -1696,18 +1733,25 @@ func _process_automatic_transmission(delta: float) -> void:
 		var shift_rpm: float = lerpf(limiter_rpm * 0.42, limiter_rpm - 300.0, clampf(_throttle_input / 0.9, 0.0, 1.0))
 		var early: bool = _throttle_input < 0.85 and _brake_input < 0.1 and g_rpm > shift_rpm and next_rpm > limiter_rpm * 0.34
 		# never into a gear the car would lug in right away (with wheelspin that caused 6-7-6-7 hunting)
-		if (near_limit or early) and next_rpm > idle_rpm * 1.6 and next_rpm > limiter_rpm * 0.33:
+		if (near_limit or (early and not _manual_hold)) and next_rpm > idle_rpm * 1.6 and next_rpm > limiter_rpm * 0.33:
 			shift_up()
 			_auto_shift_cooldown = 0.5
 			_since_upshift = 0.0
+			_upshift_thr = _throttle_input
 			return
 
 	if current_gear > 2:
 		var prev_rpm: float = _ground_rpm(current_gear - 1)
 		var lugging: bool = g_rpm < limiter_rpm * 0.28
-		var kickdown: bool = _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and _since_upshift > 2.5 and current_rpm < limiter_rpm * 0.6 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill); an engine already revving high (wheelspin) needs no kickdown
+		var kickdown: bool = not _manual_hold and _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and (_since_upshift > 2.5 or _upshift_thr < 0.6) and current_rpm < limiter_rpm * 0.6 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill); an engine already revving high (wheelspin) needs no kickdown
 		if (lugging or kickdown) and prev_rpm < limiter_rpm - 900.0:
-			shift_down()
+			# kickdown goes straight to the lowest gear that stays clear of the limiter (6->4, not 6->5->4)
+			var target: int = current_gear - 1
+			if kickdown:
+				while target > 2 and _ground_rpm(target - 1) < limiter_rpm - 900.0:
+					target -= 1
+			_target_gear = target
+			_start_shift()
 			_auto_shift_cooldown = 0.6
 			return
 
@@ -1722,6 +1766,16 @@ func _is_driven(i: int) -> bool:
 	if drivetrain_mode == "FWD":
 		return i < 2
 	return true
+
+# A gear change asked for by the driver. In automatic mode it is held (no early auto upshift) so the
+# car stays in the gear picked, like paddles on an automatic; the box takes over again once stopped.
+func _driver_shift(up: bool) -> void:
+	if is_automatic:
+		_manual_hold = true
+	if up:
+		shift_up()
+	else:
+		shift_down()
 
 func shift_up() -> void:
 	if current_gear < gear_ratios.size() - 1 and not _is_shifting:
@@ -2260,6 +2314,18 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 				# locked one drops to ~90% (dry asphalt). A flat 90% made any excess torque spin up to the limiter.
 				var slip_v: float = absf(w_pred * r_tyre - forward_vel)
 				long_mag = signf(fx_needed) * long_room * lerpf(1.0, 0.9, clampf(slip_v / 15.0, 0.0, 1.0))
+				var vsx: float = w_pred * r_tyre - forward_vel
+				if i >= 2 and not tcs_enabled and engine_brake_only and vsx * signf(forward_vel + 0.01) > 0.0:
+					# Rear tyre spinning under power: a sliding tyre's friction points against its total
+					# slip (spin + sideways), so the spin eats the side grip and the rear steps out
+					# (power oversteer). TCS on keeps the rear in check; front tyres and braking keep the
+					# cornering-first sharing above.
+					var vs: float = sqrt(vsx * vsx + lateral_vel * lateral_vel)
+					var mu_n: float = total_grip * lerpf(1.0, 0.9, clampf(vs / 15.0, 0.0, 1.0))
+					long_mag = mu_n * vsx / maxf(vs, 0.001)
+					var side_max: float = mu_n * absf(lateral_vel) / maxf(vs, 0.001)
+					lateral_force_mag = clampf(lateral_force_mag, -side_max, side_max)
+					lateral_force = wheel_right * lateral_force_mag
 				wheel_angular_velocity[i] = w_pred - long_mag * r_tyre * delta / inertia
 				if slipping_now and _clutch_torque > 0.0 and _is_driven(i):
 					wheel_angular_velocity[i] = _cap_to_engine(wheel_angular_velocity[i], active_gear_ratio)
@@ -2360,7 +2426,7 @@ func _update_wheel_visuals(delta: float) -> void:
 		# Wheel Rolling (X) ONLY on RollNode
 		# Forward in this world coordinate system is +Z, so rolling forward rotates positively around +X!
 		if i < wheel_rolls.size() and wheel_rolls[i] != null:
-			wheel_rolls[i].rotation.x += (wheel_angular_velocity[i] * delta)
+			wheel_rolls[i].rotation.x += wheel_angular_velocity[i] * delta * (tire_radius / front_wheel_r if (i < 2 and front_wheel_r > 0.0) else 1.0)
 
 	_update_dynamic_links()
 

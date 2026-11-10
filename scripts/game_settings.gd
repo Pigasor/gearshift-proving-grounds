@@ -63,6 +63,7 @@ var defaults: Dictionary = {
 	"joy_deadzone": 0.08,
 	"mouse_sensitivity": 0.004,
 	"invert_camera_y": false,
+	"vibration": true,
 	"default_automatic": true,
 	# Steering wheel set (racing wheel + pedals). Axes/buttons are found by the detect wizard.
 	"wheel_enabled": false,
