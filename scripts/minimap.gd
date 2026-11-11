@@ -38,6 +38,7 @@ func _ready() -> void:
 
 	_cam = Camera3D.new()
 	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_cam.set_cull_mask_value(2, false) # layer 2 = tyre marks, smoke: not on the map
 	_cam.near = 1.0
 	_cam.far = 1500.0
 	var env := Environment.new()

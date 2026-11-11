@@ -776,8 +776,8 @@ const OVAL_WIDTH: float = 18.0
 
 func _build_nascar_oval() -> void:
 	var base_y: float = 0.04
-	var turn_bank: float = deg_to_rad(24.0)
-	var straight_bank: float = deg_to_rad(8.0)
+	var turn_bank: float = deg_to_rad(14.0) # outer edge ~4.5 m up (24 deg towered 8 m over the apron)
+	var straight_bank: float = deg_to_rad(4.0)
 	var ce := OVAL_CENTER + Vector2(OVAL_STRAIGHT * 0.5, 0.0) # east turn centre
 	var cw := OVAL_CENTER - Vector2(OVAL_STRAIGHT * 0.5, 0.0) # west turn centre
 	# centre-line samples: [position xz, outward normal xz, bank]

@@ -286,7 +286,7 @@ func _add_help(ctrl: Control, text: String) -> HBoxContainer:
 	parent.add_child(box)
 	parent.move_child(box, idx)
 	ctrl.reparent(box)
-	var q := Label.new()
+	var q: Label = preload("res://scripts/help_tip.gd").new()
 	q.text = "?"
 	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

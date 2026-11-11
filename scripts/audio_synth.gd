@@ -34,6 +34,15 @@ var _bov_lp1: float = 0.0
 var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
+# Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
+# compressor surges - the trapped air chatters back through it in quick, slowing puffs
+const FLUTTER_CARS: Dictionary = {"supra": 1.0}
+var _flut_t: float = -1.0
+var _flut_amp: float = 0.0
+var _flut_ph: float = 0.0
+var _flut_lp1: float = 0.0
+var _flut_lp2: float = 0.0
+var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
 var _bang_t: float = -1.0 # seconds since the bang; < 0 = silent
@@ -135,9 +144,17 @@ func _physics_process(delta: float) -> void:
 	# so quick pumping of the pedal (no boost built up yet) stays quiet instead of hissing every time.
 	if _bov_cooldown > 0.0:
 		_bov_cooldown -= delta
+	var flut_k: float = float(FLUTTER_CARS.get(str(CarDatabase.car(int(vehicle.get("current_vehicle_type")))["id"]), 0.0))
+	var gear_now: int = int(vehicle.current_gear)
+	var lifted: bool = _previous_throttle > 0.5 and current_thr < 0.15
+	if flut_k > 0.0 and vehicle.turbo_boost_bar > 0.3 and ((gear_now > _flut_gear and _flut_gear >= 2) or lifted):
+		_flut_t = 0.0
+		_flut_ph = 0.0
+		_flut_amp = flut_k * clampf(vehicle.turbo_boost_bar / 1.2, 0.35, 1.0)
+	_flut_gear = gear_now
 	if _previous_throttle > 0.5 and current_thr < 0.15:
 		_overrun_timer = 0.65 # Exhaust overrun crackles
-		if vehicle.turbo_boost_bar > 0.45 and _bov_cooldown <= 0.0:
+		if vehicle.turbo_boost_bar > 0.45 and _bov_cooldown <= 0.0 and flut_k <= 0.0: # the Supra flutters instead
 			_bov_amp = clampf((vehicle.turbo_boost_bar - 0.45) / 1.2, 0.15, 1.0)
 			_bov_attack = 1.0
 			_bov_t = 0.0
@@ -379,6 +396,19 @@ func generate(frames_available: int) -> PackedVector2Array:
 				_bov_amp = 0.0
 				_bov_env = 0.0
 
+		var flut_sample: float = 0.0
+		if _flut_t >= 0.0:
+			_flut_t += dt
+			# puffs ~24 a second slowing to ~12 over half a second, each a sharp chuff that dies away
+			_flut_ph += lerpf(24.0, 12.0, clampf(_flut_t / 0.55, 0.0, 1.0)) * dt
+			var gate: float = exp(-fmod(_flut_ph, 1.0) * 9.0)
+			_flut_lp1 += (noise - _flut_lp1) * 0.35
+			_flut_lp2 += (noise - _flut_lp2) * 0.04
+			var chuff: float = (_flut_lp1 - _flut_lp2) * 0.8 + sin(TAU * 190.0 * _flut_t) * 0.3
+			flut_sample = chuff * gate * exp(-_flut_t * 4.5) * _flut_amp * 0.55
+			if _flut_t > 0.6:
+				_flut_t = -1.0
+
 		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
 		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
 		_skid_gain += ((skid_target if is_skidding else 0.0) - _skid_gain) * 0.0005
@@ -390,6 +420,6 @@ func generate(frames_available: int) -> PackedVector2Array:
 			var squeal: float = (_skid_lp1 - _skid_lp2) * 0.8 + sin(_skid_phase) * 0.25
 			skid_sample = squeal * _skid_gain * 0.045
 
-		var mixed: float = clampf(engine_sample + turbo_sample + bov_sample + skid_sample, -0.92, 0.92)
+		var mixed: float = clampf(engine_sample + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
 	return out

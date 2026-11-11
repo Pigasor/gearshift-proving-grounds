@@ -10,6 +10,14 @@ extends Node3D
 var vehicle: Node
 const MAX_MARKS: int = 6000
 const MARK_STEP: float = 0.25 # metres between mark segments
+const MARK_LIFE: float = 300.0 # marks fade out over the last 30 s of their 5 minutes
+const MARK_FADE: float = 30.0
+var _born := PackedFloat32Array()
+var _cols := PackedColorArray()
+var _oldest: int = 0
+var _live: int = 0
+var _clock: float = 0.0
+var _sweep_t: float = 0.0
 var _mm: MultiMesh
 var _next: int = 0
 var _last: Array = [null, null, null, null] # last mark point per wheel (Vector3), null = not marking
@@ -36,8 +44,11 @@ func _ready() -> void:
 	_mm.mesh = plane
 	_mm.instance_count = MAX_MARKS
 	_mm.visible_instance_count = 0
+	_born.resize(MAX_MARKS)
+	_cols.resize(MAX_MARKS)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = _mm
+	mmi.layers = 2 # render layer 2: the map cameras leave it out
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.custom_aabb = AABB(Vector3(-1600, -50, -1600), Vector3(3200, 500, 3200)) # marks are all over the map
 	add_child(mmi)
@@ -53,6 +64,7 @@ func _make_smoke() -> GPUParticles3D:
 	p.fixed_fps = 60
 	p.emitting = false
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.layers = 2
 	p.visibility_aabb = AABB(Vector3(-30, -5, -30), Vector3(60, 30, 60))
 	var pm := ParticleProcessMaterial.new()
 	pm.direction = Vector3(0, 1, 0)
@@ -88,6 +100,7 @@ func _make_debris() -> GPUParticles3D:
 	p.fixed_fps = 60
 	p.emitting = false
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.layers = 2
 	p.visibility_aabb = AABB(Vector3(-20, -5, -20), Vector3(40, 20, 40))
 	var pm := ParticleProcessMaterial.new()
 	pm.spread = 25.0
@@ -115,9 +128,14 @@ func _make_debris() -> GPUParticles3D:
 	add_child(p)
 	return p
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if vehicle == null:
 		return
+	_clock += delta
+	_sweep_t -= delta
+	if _sweep_t <= 0.0:
+		_sweep_t = 0.5
+		_expire_marks()
 	var body := vehicle as RigidBody3D
 	var fwd: Vector3 = body.global_transform.basis.z
 	var r_scale: float = clampf(float(vehicle.get("tire_radius")) / 0.32, 0.8, 2.8)
@@ -173,6 +191,33 @@ func _add_mark(a: Vector3, b: Vector3, n: Vector3, width: float, k: float, surf:
 	var c: Color = MARK_COLOR.get(surf, Color(0.04, 0.04, 0.045))
 	c.a = 0.2 + 0.5 * k
 	_mm.set_instance_color(_next, c)
+	_born[_next] = _clock
+	_cols[_next] = c
+	if _live == MAX_MARKS:
+		_oldest = (_oldest + 1) % MAX_MARKS # buffer full: this one replaced the oldest
+	else:
+		_live += 1
 	_next = (_next + 1) % MAX_MARKS
 	if _mm.visible_instance_count < MAX_MARKS:
 		_mm.visible_instance_count += 1 # grows until full, then the oldest marks are reused
+
+# Marks are laid in time order (ring buffer): from the oldest one on, fade those in their last
+# 30 s and remove those older than 5 minutes
+func _expire_marks() -> void:
+	var i: int = _oldest
+	var k: int = 0
+	while k < _live:
+		var age: float = _clock - _born[i]
+		if age < MARK_LIFE - MARK_FADE:
+			break
+		if age >= MARK_LIFE:
+			_mm.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3.ZERO), Vector3.ZERO))
+			_oldest = (_oldest + 1) % MAX_MARKS
+			_live -= 1
+			i = _oldest
+			continue
+		var c: Color = _cols[i]
+		c.a *= (MARK_LIFE - age) / MARK_FADE
+		_mm.set_instance_color(i, c)
+		i = (i + 1) % MAX_MARKS
+		k += 1

@@ -24,7 +24,7 @@ var front_lateral_bias: float = 1.13
 # Pedal positions 0..1 as the driver presses them (HUD), and the tail-light materials
 # Tyre grip per surface. Road tyres: great on tarmac, poor on loose ground.
 # Off-road tyres (Trophy Truck, monster truck): a bit less on tarmac, far better off-road.
-const SURFACE_GRIP_ROAD: Dictionary = {"asphalt": 1.0, "concrete": 0.95, "kerb": 0.92, "dirt": 0.68, "grass": 0.6, "sand": 0.5}
+const SURFACE_GRIP_ROAD: Dictionary = {"asphalt": 1.0, "concrete": 0.95, "kerb": 0.92, "dirt": 0.6, "grass": 0.5, "sand": 0.45}
 const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "kerb": 0.88, "dirt": 0.95, "grass": 0.85, "sand": 0.8}
 # Extra rolling resistance (fraction of wheel load) on soft ground
 const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
@@ -169,6 +169,8 @@ var _manual_hold: bool = false # automatic box keeps the gear the driver picked
 # Teleport done while the game is paused (big map, ESC menu): the physics server could hand back the
 # pre-pause position on the next step, so the new transform is applied again inside the physics step.
 var spawn_count: int = 0 # bumped on every car change (the camera must not read the speed reset as a crash)
+var _impact_t: float = 0.0 # seconds left of "just hit something": the body may pitch, roll and spin freely
+var _prev_lin_vel: Vector3 = Vector3.ZERO
 var _teleport_pending: bool = false
 var _teleport_xform: Transform3D
 var _since_low_thr: float = 10.0 # seconds since the throttle was last below 75% (kickdown trigger)
@@ -218,6 +220,10 @@ func _ready() -> void:
 	linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
 	linear_damp = 0.0
 	angular_damp = 3.2
+	# walls: the body glances off and scrapes along instead of sticking to them
+	physics_material_override = PhysicsMaterial.new()
+	physics_material_override.bounce = 0.25
+	physics_material_override.friction = 0.45
 	continuous_cd = true # fast drops/crashes must not pass through the ground
 	var fx := TyreFX.new()
 	fx.vehicle = self
@@ -1507,6 +1513,25 @@ func _physics_process(delta: float) -> void:
 	_update_drivetrain(delta)
 	_simulate_suspension_and_tires(delta)
 	_update_wheel_visuals(delta)
+	_update_body_damping(delta)
+
+# The strong rotation damping that keeps the car calm on its wheels made it fly and crash like a
+# plank (no tumbling, no nose dive, no spin off a wall). In the air and for a moment after a hit
+# (5 G+: a wall, a hard landing) the body rotates freely; on the wheels it settles back.
+func _update_body_damping(delta: float) -> void:
+	var dv: float = (linear_velocity - _prev_lin_vel).length() / maxf(delta, 0.001)
+	_prev_lin_vel = linear_velocity
+	if dv > 50.0:
+		_impact_t = 0.7
+	_impact_t = maxf(_impact_t - delta, 0.0)
+	var airborne: bool = not wheel_is_grounded.has(true)
+	var free_k: float = clampf(_impact_t / 0.4, 0.0, 1.0)
+	# Power slide at low speed with TCS off (burnout turning into a donut): the spinning rear tyres
+	# let go sideways and the car must be free to pivot round its front wheels.
+	if not tcs_enabled and not is_burnout:
+		var rear_spin: float = maxf(absf(wheel_long_slip[2]), absf(wheel_long_slip[3]))
+		free_k = maxf(free_k, clampf((rear_spin - 2.0) / 4.0, 0.0, 1.0) * clampf(1.0 - (linear_velocity.length() - 8.0) / 12.0, 0.0, 1.0))
+	angular_damp = 0.6 if airborne else lerpf(3.2, 0.3, free_k)
 
 # Safety net for big drops: at high speed the body can pass through a thin ground mesh in one
 # physics step and get stuck inside it. If the car's centre crossed a surface since the last
@@ -2062,6 +2087,13 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 			_auto_clutch = clampf(_auto_clutch, 0.0, 1.0)
 			eng = _auto_clutch
 		cap = peak_tq * 1.5 * eng * eng
+	# Brake held at a standstill with the throttle down (a launch from a brake stand): the clutch /
+	# converter lets the engine rev freely; let go of the brake and the car launches.
+	if _brake_input > 0.3 and _throttle_input > 0.1 and current_gear >= 2 and not wheel_clutch and absf(linear_velocity.dot(global_transform.basis.z)) < 1.0:
+		cap = 0.0
+		_auto_clutch = 0.0
+		_slip_time = 0.0
+		_clutch_torque = 0.0
 	# A converter's fluid torque cannot vanish from one step to the next: computed from last step's
 	# wheel speed it did, so a spinning wheel caught up, lost all torque, stopped, and spun again
 	# every other frame - automatics could hardly spin their tyres. Smoothing finds the real balance.
@@ -2266,10 +2298,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			if f_bump > 0.0:
 				# Rubber bump stops are heavily damped: they absorb a hard landing and give very little
 				# of it back (an elastic stop launched the car metres back into the air like a trampoline).
+				# (half of it comes back: the car bounces and pitches on landing, it doesn't stop dead)
 				if comp_vel > 0.0:
-					f_bump += comp_vel * damper_bump * 4.0
+					f_bump += comp_vel * damper_bump * 2.0
 				else:
-					f_bump *= 0.1
+					f_bump *= 0.5
 			var normal_force: float = clampf(f_spring + f_damper + f_bump, 0.0, mass * 9.81 * 7.0)
 
 			# Front wheel steering direction (wheel_steer is negative for Left, positive for Right)
@@ -2305,7 +2338,12 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# the tyre's friction limit (mu * load). Peak grip at ~8 deg, gentle falloff beyond it,
 			# so slides are progressive and catchable instead of snapping the car around.
 			var slip_angle: float = atan2(lateral_vel, maxf(absf(forward_vel), 3.0))
-			var magic: float = sin(1.55 * atan(10.0 * slip_angle))
+			# Loose ground (grass, dirt, sand) gives way: the tyre needs a bigger slip angle for its (lower)
+			# grip, so the car visibly slides and the tail steps out sooner than on tarmac.
+			var loose: bool = SURFACE_ROLLING_DRAG.has(surface)
+			var magic: float = sin(1.55 * atan((10.0 if not loose else (8.0 if offroad_tires else 5.5)) * slip_angle))
+			if loose and i >= 2 and not offroad_tires:
+				grip_mult *= 0.93
 			# Front tyres get a little extra cornering grip: a more neutral balance, so the car turns in
 			# at speed instead of washing wide (understeer). Clamped by the friction circle below.
 			# The bias eases off a little at very high speed to keep the car stable flat-out.
