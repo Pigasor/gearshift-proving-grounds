@@ -1,0 +1,81 @@
+# Every push to main: export the Windows build with Godot and publish it as a new GitHub release.
+# Latest exe is always at: https://github.com/<owner>/<repo>/releases/latest/download/GearShiftProvingGrounds.exe
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/godot
+          key: godot-${{ env.GODOT_VERSION }}-stable-win64-rcedit
+
+      - name: Download Godot, export templates and rcedit
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $d = "${{ runner.temp }}/godot"
+          New-Item -ItemType Directory -Force $d | Out-Null
+          $base = "https://github.com/godotengine/godot/releases/download/$env:GODOT_VERSION-stable"
+          Invoke-WebRequest "$base/Godot_v$env:GODOT_VERSION-stable_win64.exe.zip" -OutFile "$d/godot.zip"
+          Expand-Archive "$d/godot.zip" -DestinationPath $d
+          Invoke-WebRequest "$base/Godot_v$env:GODOT_VERSION-stable_export_templates.tpz" -OutFile "$d/templates.zip"
+          Expand-Archive "$d/templates.zip" -DestinationPath "$d/tpl"
+          Remove-Item "$d/godot.zip", "$d/templates.zip"
+          Invoke-WebRequest "https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe" -OutFile "$d/rcedit-x64.exe"
+
+      - name: Install templates and point the editor at rcedit (exe icon)
+        shell: pwsh
+        run: |
+          $d = "${{ runner.temp }}/godot"
+          $tdir = "$env:APPDATA/Godot/export_templates/$env:GODOT_VERSION.stable"
+          New-Item -ItemType Directory -Force $tdir | Out-Null
+          Copy-Item "$d/tpl/templates/*" $tdir -Recurse -Force
+          $rc = ("$d/rcedit-x64.exe" -replace '\\', '/')
+          Set-Content -Encoding utf8 "$env:APPDATA/Godot/editor_settings-$env:GODOT_VERSION.tres" @"
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/windows/rcedit = "$rc"
+          "@
+
+      - name: Export Windows build
+        shell: pwsh
+        run: |
+          $g = "${{ runner.temp }}/godot/Godot_v$env:GODOT_VERSION-stable_win64_console.exe"
+          New-Item -ItemType Directory -Force builds/windows | Out-Null
+          & $g --headless --editor --quit --path . | Out-Null # import assets first
+          & $g --headless --path . --export-release "Windows Desktop" builds/windows/GearShiftProvingGrounds.exe
+          if (-not (Test-Path builds/windows/GearShiftProvingGrounds.exe)) { throw "Export failed: no exe" }
+          Get-Item builds/windows/GearShiftProvingGrounds.exe | Format-List Name, Length
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "build-${{ github.run_number }}"
+          $msg = git log -1 --pretty=%B
+          $notes = "$msg`n`nCommit: ${{ github.sha }}"
+          $notes | Out-File -Encoding utf8 notes.md
+          gh release create $tag builds/windows/GearShiftProvingGrounds.exe --title "Build ${{ github.run_number }}" --notes-file notes.md --latest

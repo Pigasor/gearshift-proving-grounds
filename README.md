@@ -2,6 +2,8 @@
 
 Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik test sahası oyunu.
 
+**[⬇️ Son sürümü indir (Windows .exe)](https://github.com/Pigasor/gearshift-proving-grounds/releases/latest/download/GearShiftProvingGrounds.exe)** — her güncellemede otomatik olarak yeniden derlenir.
+
 ## Özellikler
 
 - **Gerçekçi sürüş fiziği:** Raycast süspansiyon, tekerlek başına dönüş ve patinaj, lastik sürtünme çemberi, ağırlık transferi, hava direnci ve aerodinamik bastırma kuvveti
