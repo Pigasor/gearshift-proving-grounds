@@ -57,7 +57,7 @@ const BANGS: Dictionary = {
 	"megane":     {"crack": 0.003, "tone": 0.25, "body": 0.020, "f0": 135.0, "f1": 70.0, "boom": 0.5, "pops": 1, "gap": 0.0, "level": 0.45}, # TCe turbo: muffled pop
 	"sahin":      {"crack": 0.004, "tone": 0.30, "body": 0.045, "f0": 100.0, "f1": 50.0, "boom": 0.9, "pops": 1, "gap": 0.0, "level": 0.75}, # carburettor: classic loud "PAT"
 	"cup":        {"crack": 0.003, "tone": 0.22, "body": 0.040, "f0": 85.0, "f1": 40.0, "boom": 1.1, "pops": 3, "gap": 0.05, "level": 0.95}, # NASCAR V8: open-header "brap-brap"
-	"rzr":        {"crack": 0.002, "tone": 0.50, "body": 0.015, "f0": 170.0, "f1": 95.0, "boom": 0.35, "pops": 2, "gap": 0.045, "level": 0.55}, # UTV 4-cylinder: sharp little crackle
+	"buggy":      {"crack": 0.002, "tone": 0.50, "body": 0.015, "f0": 170.0, "f1": 95.0, "boom": 0.35, "pops": 2, "gap": 0.045, "level": 0.55}, # Honda 2.4 buggy: sharp little crackle
 }
 const BANG_DEFAULT: Dictionary = {"crack": 0.003, "tone": 0.25, "body": 0.03, "f0": 110.0, "f1": 50.0, "boom": 0.8, "pops": 1, "gap": 0.0, "level": 0.8}
 var _bang_lp: float = 0.0

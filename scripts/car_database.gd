@@ -156,18 +156,18 @@ const CARS: Array = [
 				"tq_from": 1400.0, "tq_to": 1700.0, "power_rpm": 2100.0, "idle": 850.0, "limiter": 2300.0, "max_rpm": 2400.0,
 				"turbo": 1.4, "gears": [-4.5, 0.0, 6.0, 4.2, 3.0, 2.15, 1.55, 1.12], "final": 16.2, "vmax": 42.0, "sound": "i6_diesel_big" },
 		] },
-	# --- Sport UTV / dune buggy: 4-cylinder, 4WD, long-travel suspension ---
-	{ "id": "rzr", "name": "Polarys RZR Pro R", "class": "Off-Road",
-		"body": { "length": 3.66, "width": 1.88, "height": 1.88, "wheelbase": 2.64, "track": 1.70,
-			"front_overhang": 0.55, "tire_r": 0.41, "mass": 980.0, "cd_area": 0.75, "drive": "AWD",
-			"color": Color(0.85, 0.12, 0.10), "style": "buggy",
-			"setup": {"offroad_tires": true, "suspension_rest_length": 0.42, "suspension_travel": 0.40, "spring_stiffness": 16000.0,
-				"damper_bump": 1700.0, "damper_rebound": 2400.0, "anti_roll_stiffness": 5000.0, "camera_scale": 1.1,
-				"max_steer_angle_deg": 38.0, "brake_bias_front": 0.6, "shift_delay_seconds": 0.15} },
+	# --- Dune buggy (tube frame): Honda 2.4, four-wheel drive (it has to climb the mountain trail), 750 kg ---
+	{ "id": "buggy", "name": "Arial Nomadd", "class": "Off-Road",
+		"body": { "length": 3.2, "width": 1.85, "height": 1.45, "wheelbase": 2.32, "track": 1.6,
+			"front_overhang": 0.45, "tire_r": 0.37, "mass": 750.0, "cd_area": 0.75, "drive": "AWD",
+			"color": Color(0.96, 0.74, 0.06), "style": "buggy", "coilovers": true, "ground_clearance": 0.42,
+			"setup": {"offroad_tires": true, "suspension_rest_length": 0.35, "suspension_travel": 0.32, "spring_stiffness": 22000.0,
+				"damper_bump": 1800.0, "damper_rebound": 2600.0, "anti_roll_stiffness": 4000.0, "camera_scale": 1.0,
+				"max_steer_angle_deg": 36.0, "brake_bias_front": 0.6, "shift_delay_seconds": 0.12, "tire_grip_factor": 1.05} },
 		"engines": [
-			{ "label": "2.0 ProStar Fury - 225 HP", "cyl": 4, "fuel": "benzin", "hp": 225.0, "torque": 205.0,
-				"tq_from": 6000.0, "tq_to": 7000.0, "power_rpm": 8000.0, "idle": 1200.0, "limiter": 8500.0, "max_rpm": 8800.0,
-				"turbo": 0.0, "gears": [-2.3, 0.0, 3.2, 2.1, 1.5, 1.15, 0.9], "final": 10.7, "vmax": 137.0, "trans": "dct" },
+			{ "label": "2.4 i-VTEC - 235 HP", "cyl": 4, "fuel": "benzin", "hp": 235.0, "torque": 300.0,
+				"tq_from": 4300.0, "tq_to": 5200.0, "power_rpm": 7200.0, "idle": 900.0, "limiter": 7400.0, "max_rpm": 7700.0,
+				"turbo": 0.0, "gears": [-3.0, 0.0, 3.27, 2.13, 1.52, 1.16, 0.92, 0.74], "final": 5.9, "vmax": 201.0, "trans": "dct" },
 		] },
 ]
 

@@ -13,6 +13,7 @@ func _ready() -> void:
 	_build_offroad_dunes()
 	_build_suspension_zone()
 	_build_hill_park()
+	_build_mountain()
 	_build_environment_props()
 
 # --- Textured Materials ---
@@ -214,7 +215,7 @@ func _build_mega_highway() -> void:
 	var d: float = 1300.0
 	var corner_r: float = 180.0
 	var max_bank_deg: float = 8.0
-	var base_y: float = 0.07
+	var base_y: float = 0.035
 
 	# Centre-line samples: [position xz, outward normal xz, bank angle]
 	var samples: Array = []
@@ -269,7 +270,7 @@ func _build_mega_highway() -> void:
 		road_in.append(Vector3(pi_xz.x, base_y, pi_xz.y))
 		road_out.append(Vector3(po_xz.x, outer_y, po_xz.y))
 		var shi: Vector2 = pi_xz - n * 6.0
-		sh_in.append(Vector3(shi.x, 0.045, shi.y))
+		sh_in.append(Vector3(shi.x, 0.02, shi.y))
 		var so: Vector2 = po_xz + n * (6.0 + outer_y * 2.0) # earth embankment under raised outer edge
 		slope_out.append(Vector3(so.x, -0.05, so.y))
 
@@ -366,7 +367,7 @@ const CIRCUIT_POINTS: Array[Vector2] = [
 ]
 
 func _build_grand_prix_circuit() -> void:
-	var y: float = 0.08
+	var y: float = 0.04 # track surface just above the grass (was 0.08: the edge lines looked raised)
 	var half: float = CIRCUIT_WIDTH * 0.5
 	# 1) Closed Catmull-Rom spline through the control points
 	var pts: Array[Vector2] = []
@@ -449,10 +450,10 @@ func _build_grand_prix_circuit() -> void:
 			var kd: Array[float] = []
 			for k in range(i0, i1):
 				var across: Vector3 = (left[k] - right[k]).normalized()
-				kl_in.append(left[k] + Vector3(0, 0.02, 0))
-				kl_out.append(left[k] + across * 1.6 + Vector3(0, 0.02, 0))
-				kr_in.append(right[k] + Vector3(0, 0.02, 0))
-				kr_out.append(right[k] - across * 1.6 + Vector3(0, 0.02, 0))
+				kl_in.append(left[k] + Vector3(0, 0.01, 0))
+				kl_out.append(left[k] + across * 1.6 + Vector3(0, 0.01, 0))
+				kr_in.append(right[k] + Vector3(0, 0.01, 0))
+				kr_out.append(right[k] - across * 1.6 + Vector3(0, 0.01, 0))
 				kd.append(dist[k])
 			_add_strip(kl_in, kl_out, kd, 0.0, 1.0, 1.0 / 8.0, mat_kerb_striped, kerb_faces)
 			_add_strip(kr_out, kr_in, kd, 0.0, 1.0, 1.0 / 8.0, mat_kerb_striped, kerb_faces)
@@ -774,7 +775,7 @@ const OVAL_RADIUS: float = 140.0
 const OVAL_WIDTH: float = 18.0
 
 func _build_nascar_oval() -> void:
-	var base_y: float = 0.08
+	var base_y: float = 0.04
 	var turn_bank: float = deg_to_rad(24.0)
 	var straight_bank: float = deg_to_rad(8.0)
 	var ce := OVAL_CENTER + Vector2(OVAL_STRAIGHT * 0.5, 0.0) # east turn centre
@@ -827,8 +828,8 @@ func _build_nascar_oval() -> void:
 		var bo: Vector2 = pout + n * (4.0 + out_y * 1.6) # earth bank behind the raised outer wall
 		bank_out.append(Vector3(bo.x, -0.05, bo.y))
 		# white line along the inside edge of the racing surface
-		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * 0.015)
-		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * 0.015)
+		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * 0.008)
+		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * 0.008)
 
 	# plain racing asphalt (the highway texture has lane lines), the apron a different shade
 	var mat_oval: StandardMaterial3D = mat_track.duplicate() as StandardMaterial3D
@@ -859,3 +860,389 @@ func _build_nascar_oval() -> void:
 	var sl: Array[Vector3] = [Vector3(sx - 0.6, base_y + 0.02, zin), Vector3(sx + 0.6, base_y + 0.02, zin)]
 	var sr: Array[Vector3] = [Vector3(sx - 0.6, y_out + 0.02, zout), Vector3(sx + 0.6, y_out + 0.02, zout)]
 	_add_strip(sl, sr, [0.0, 1.2] as Array[float], 0.0, 1.0, 1.0, mat_road_white, unused)
+	_build_oval_stands()
+
+# Grandstands along both straights of the oval, packed with fans (one MultiMesh for bodies and one
+# for heads: thousands of people for the cost of two draw calls)
+func _build_oval_stands() -> void:
+	var rows: int = 10
+	var depth: float = 2.6
+	var rise: float = 1.4
+	var length: float = 300.0
+	var seat: float = 0.9
+	var x0: float = OVAL_CENTER.x - length * 0.5
+	var bodies: Array[Transform3D] = []
+	var body_cols: Array[Color] = []
+	var heads: Array[Transform3D] = []
+	var head_cols: Array[Color] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2024
+	var shirts: Array = [Color(0.85, 0.1, 0.1), Color(0.1, 0.3, 0.85), Color(0.95, 0.8, 0.1), Color(0.95, 0.95, 0.95),
+		Color(0.1, 0.1, 0.12), Color(0.1, 0.6, 0.25), Color(0.95, 0.45, 0.05), Color(0.55, 0.2, 0.7)]
+	var skins: Array = [Color(0.96, 0.8, 0.66), Color(0.85, 0.64, 0.48), Color(0.6, 0.42, 0.3), Color(0.38, 0.26, 0.18)]
+	# south stand (cars pass on the start / finish straight) faces -Z, north stand faces +Z
+	for side in [[OVAL_CENTER.y + OVAL_RADIUS + OVAL_WIDTH * 0.5 + 13.0, 1.0], [OVAL_CENTER.y - OVAL_RADIUS - OVAL_WIDTH * 0.5 - 13.0, -1.0]]:
+		var zf: float = side[0]
+		var s: float = side[1]
+		for k in range(rows):
+			var top: float = 1.5 + k * rise
+			var zc: float = zf + s * (k + 0.5) * depth
+			_create_static_box(Vector3(OVAL_CENTER.x, top * 0.5, zc), Vector3(length, top, depth), mat_concrete_wall)
+			var n: int = int(length / seat)
+			for j in range(n):
+				if rng.randf() < 0.18:
+					continue # an empty seat
+				var x: float = x0 + (j + 0.5) * seat + rng.randf_range(-0.1, 0.1)
+				var z: float = zc - s * 0.3
+				var face := Basis(Vector3.UP, 0.0 if s < 0.0 else PI) # look at the track
+				bodies.append(Transform3D(face.scaled(Vector3(0.5, 0.75, 0.32)), Vector3(x, top + 0.4, z)))
+				body_cols.append(shirts[rng.randi() % shirts.size()])
+				heads.append(Transform3D(face.scaled(Vector3(0.24, 0.26, 0.24)), Vector3(x, top + 0.92, z)))
+				head_cols.append(skins[rng.randi() % skins.size()])
+		# roof over the upper rows and a big sign on the main stand
+		var roof_y: float = 1.5 + rows * rise + 4.0
+		_create_static_box(Vector3(OVAL_CENTER.x, roof_y, zf + s * rows * depth * 0.6), Vector3(length + 4.0, 0.4, rows * depth * 0.75), mat_metal_blue)
+		for px in range(-3, 4):
+			_create_static_box(Vector3(OVAL_CENTER.x + px * 49.0, roof_y * 0.5, zf + s * (rows * depth + 0.3)), Vector3(0.6, roof_y, 0.6), mat_concrete_wall)
+		if s > 0.0:
+			var sign := Label3D.new()
+			sign.text = "GEARSHIFT SPEEDWAY"
+			sign.font_size = 260
+			sign.pixel_size = 0.05
+			sign.modulate = Color(1.0, 0.85, 0.1)
+			sign.outline_size = 30
+			sign.position = Vector3(OVAL_CENTER.x, roof_y + 4.5, zf + s * rows * depth * 0.6 - 4.0)
+			sign.rotation_degrees = Vector3(0, 180, 0) # faces the track (-Z)
+			add_child(sign)
+	_add_crowd(bodies, body_cols)
+	_add_crowd(heads, head_cols)
+
+func _add_crowd(xforms: Array[Transform3D], cols: Array[Color]) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var box := BoxMesh.new()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.9
+	box.material = mat
+	mm.mesh = box
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+		mm.set_instance_color(i, cols[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+
+# --- MOUNTAIN (north-west, between the hill park and the highway ring) ---
+# A 110 m mountain. A two-lane road winds round it to the summit (a logarithmic spiral: its radius
+# shrinks as it climbs, so the grade stays ~9% all the way instead of getting steeper near the
+# top), with a crash barrier on the drop side. Straight up the west face runs a steep dirt trail
+# (~24 deg) for the monster truck and the buggy, littered with rocks, bushes and fallen trees.
+const MTN_CENTER := Vector2(-800, -880)
+const MTN_H: float = 110.0
+const MTN_R0: float = 290.0 # foot of the mountain (and where the road starts)
+const MTN_R1: float = 60.0 # summit plateau
+const MTN_TURN: float = 8.6 # radians the road winds round (~1.4 turns)
+const MTN_ROAD_W: float = 9.0
+const MTN_TRAIL_ANGLE: float = PI # the steep trail climbs the west face
+
+var _mtn_noise: FastNoiseLite
+
+# Road radius at spiral angle th (0 at the foot, MTN_TURN at the top), with a gentle wiggle
+func _mtn_road_r(th: float) -> float:
+	var a: float = MTN_TURN / log(MTN_R0 / MTN_R1)
+	var fade: float = sin(clampf(th / MTN_TURN, 0.0, 1.0) * PI)
+	return MTN_R0 * exp(-th / a) + 6.0 * sin(th * 2.3) * fade
+
+# Height profile of the mountain at radius r: a straight 25 deg cone with a rounded foot (no kink
+# where the meadow meets the slope). The road (a log spiral) lies on it at a steady ~9% grade.
+func _mtn_cone(r: float) -> float:
+	var u: float = clampf((MTN_R0 - r) / (MTN_R0 - MTN_R1), 0.0, 1.0)
+	return MTN_H * (u * u / 0.2 if u < 0.1 else u - 0.05)
+
+# Road height at spiral angle th: the cone height under the un-wiggled spiral (always climbing)
+func _mtn_road_h(th: float) -> float:
+	var a: float = MTN_TURN / log(MTN_R0 / MTN_R1)
+	return _mtn_cone(MTN_R0 * exp(-th / a))
+
+# Natural ground height (cone + rough noise) at distance r from the centre
+func _mtn_natural(x: float, z: float, r: float) -> float:
+	var u: float = clampf((MTN_R0 - r) / (MTN_R0 - MTN_R1), 0.0, 1.0)
+	var rough: float = sin(u * PI) # no bumps at the foot or on the summit plateau
+	# the steep trail is rough but drivable: much smaller bumps along it
+	var phi: float = atan2(z - MTN_CENTER.y, x - MTN_CENTER.x)
+	var off_trail: float = absf(angle_difference(phi, MTN_TRAIL_ANGLE)) * r
+	rough *= lerpf(0.25, 1.0, clampf((off_trail - 6.0) / 20.0, 0.0, 1.0))
+	return _mtn_cone(r) + _mtn_noise.get_noise_2d(x, z) * 3.0 * rough
+
+# Height of the mountain at (x, z): natural slope, cut flat where the road passes
+# (returns [height, distance to the road centre line, road height there])
+func _mtn_height(x: float, z: float) -> Array:
+	var d := Vector2(x, z) - MTN_CENTER
+	var r: float = d.length()
+	var nat: float = _mtn_natural(x, z, r)
+	var phi: float = fposmod(atan2(d.y, d.x), TAU)
+	var best: float = 1e9
+	var road_h: float = 0.0
+	for k in range(3):
+		var th: float = phi + TAU * k
+		if th > MTN_TURN:
+			break
+		var dist: float = absf(r - _mtn_road_r(th))
+		if dist < best:
+			best = dist
+			road_h = _mtn_road_h(th)
+	var h: float = nat
+	var inner: float = MTN_ROAD_W * 0.5 + 1.5
+	if best < inner:
+		h = road_h - 0.1
+	elif best < inner + 12.0:
+		h = lerpf(road_h - 0.1, nat, smoothstep(0.0, 1.0, (best - inner) / 12.0))
+	return [h, best, road_h]
+
+func _build_mountain() -> void:
+	_mtn_noise = FastNoiseLite.new()
+	_mtn_noise.seed = 77
+	_mtn_noise.frequency = 0.02
+	_mtn_noise.fractal_octaves = 3
+	# 1) terrain grid (only cells on the mountain; the meadow around it is the ground itself)
+	var n: int = 168
+	var ext: float = MTN_R0 + 15.0
+	var step: float = ext * 2.0 / n
+	var hs := PackedFloat32Array()
+	hs.resize((n + 1) * (n + 1))
+	for j in range(n + 1):
+		for i in range(n + 1):
+			var x: float = MTN_CENTER.x - ext + i * step
+			var z: float = MTN_CENTER.y - ext + j * step
+			var r: float = Vector2(x, z).distance_to(MTN_CENTER)
+			hs[j * (n + 1) + i] = (_mtn_height(x, z)[0] as float) if r < MTN_R0 + 4.0 else -0.4
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var faces := PackedVector3Array()
+	for j in range(n):
+		for i in range(n):
+			var cx: float = MTN_CENTER.x - ext + (i + 0.5) * step
+			var cz: float = MTN_CENTER.y - ext + (j + 0.5) * step
+			if Vector2(cx, cz).distance_to(MTN_CENTER) > MTN_R0 + 6.0:
+				continue
+			var p00 := Vector3(MTN_CENTER.x - ext + i * step, hs[j * (n + 1) + i], MTN_CENTER.y - ext + j * step)
+			var p10 := Vector3(p00.x + step, hs[j * (n + 1) + i + 1], p00.z)
+			var p01 := Vector3(p00.x, hs[(j + 1) * (n + 1) + i], p00.z + step)
+			var p11 := Vector3(p00.x + step, hs[(j + 1) * (n + 1) + i + 1], p00.z + step)
+			for tri in [[p00, p10, p01], [p10, p11, p01]]:
+				var nrm: Vector3 = (tri[2] - tri[0]).cross(tri[1] - tri[0]).normalized()
+				for v in tri:
+					st.set_normal(nrm)
+					st.set_uv(Vector2(v.x, v.z) / 8.0)
+					st.add_vertex(v)
+					faces.append(v)
+	var mat_mtn: StandardMaterial3D = mat_grass.duplicate() as StandardMaterial3D
+	mat_mtn.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mesh_i := MeshInstance3D.new()
+	mesh_i.mesh = st.commit()
+	mesh_i.material_override = mat_mtn
+	add_child(mesh_i)
+	_add_collision_body(faces, "grass")
+
+	# 2) the winding road + crash barrier on the outer (drop) side
+	var road_in: Array[Vector3] = []
+	var road_out: Array[Vector3] = []
+	var rail_top: Array[Vector3] = []
+	var dist: Array[float] = []
+	var acc: float = 0.0
+	var samples: int = 900
+	for s in range(samples + 1):
+		var th: float = MTN_TURN * float(s) / samples
+		var r: float = _mtn_road_r(th)
+		var dir := Vector2(cos(th), sin(th))
+		var c: Vector2 = MTN_CENTER + dir * r
+		var y: float = _mtn_road_h(th)
+		var pin: Vector2 = c - dir * MTN_ROAD_W * 0.5
+		var pout: Vector2 = c + dir * MTN_ROAD_W * 0.5
+		if s > 0:
+			acc += Vector2(road_in[-1].x, road_in[-1].z).distance_to(pin)
+		dist.append(acc)
+		road_in.append(Vector3(pin.x, y, pin.y))
+		road_out.append(Vector3(pout.x, y, pout.y))
+		rail_top.append(Vector3(pout.x, y + 0.8, pout.y))
+	var mat_mroad: StandardMaterial3D = mat_road_asphalt.duplicate() as StandardMaterial3D
+	mat_mroad.uv1_scale = Vector3(1, 1, 1)
+	mat_mroad.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var road_faces := PackedVector3Array()
+	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_mroad, road_faces, 2)
+	_add_collision_body(road_faces, "asphalt")
+	var mat_rail: StandardMaterial3D = mat_concrete_wall.duplicate() as StandardMaterial3D
+	mat_rail.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var rail_faces := PackedVector3Array()
+	# the barrier stops where the steep trail crosses the road, so trail drivers can get through
+	var seg_in: Array[Vector3] = []
+	var seg_top: Array[Vector3] = []
+	var seg_d: Array[float] = []
+	for s in range(samples + 1):
+		var th: float = MTN_TURN * float(s) / samples
+		var gap: bool = absf(angle_difference(th, MTN_TRAIL_ANGLE)) * _mtn_road_r(th) < 6.0
+		if not gap:
+			seg_in.append(road_out[s]); seg_top.append(rail_top[s]); seg_d.append(dist[s])
+		if (gap or s == samples) and seg_in.size() > 1:
+			_add_strip(seg_in, seg_top, seg_d, 0.0, 1.0, 1.0 / 4.0, mat_rail, rail_faces)
+			seg_in = []; seg_top = []; seg_d = []
+		elif gap:
+			seg_in = []; seg_top = []; seg_d = []
+	_add_collision_body(rail_faces, "concrete")
+
+	# 3) the steep trail: a dirt strip straight up the west face, then its obstacles
+	var t_in: Array[Vector3] = []
+	var t_out: Array[Vector3] = []
+	var t_d: Array[float] = []
+	var tdir := Vector2(cos(MTN_TRAIL_ANGLE), sin(MTN_TRAIL_ANGLE))
+	var tside := Vector2(-tdir.y, tdir.x)
+	var r_t: float = MTN_R0 + 12.0
+	while r_t > MTN_R1 - 10.0:
+		var c: Vector2 = MTN_CENTER + tdir * r_t
+		var a: Vector2 = c - tside * 3.2
+		var b: Vector2 = c + tside * 3.2
+		t_in.append(Vector3(a.x, (_mtn_height(a.x, a.y)[0] as float) + 0.06, a.y))
+		t_out.append(Vector3(b.x, (_mtn_height(b.x, b.y)[0] as float) + 0.06, b.y))
+		t_d.append(MTN_R0 + 12.0 - r_t)
+		r_t -= 2.0
+	var trail_faces := PackedVector3Array()
+	_add_strip(t_in, t_out, t_d, 0.0, 1.0, 1.0 / 6.0, mat_dirt_dunes, trail_faces, 3)
+	_add_collision_body(trail_faces, "dirt")
+	_mtn_obstacles(tdir, tside)
+
+	# 4) summit: flag and sign
+	var top := Vector3(MTN_CENTER.x, MTN_H, MTN_CENTER.y)
+	_create_static_box(top + Vector3(0, 5.0, 0), Vector3(0.25, 10.0, 0.25), mat_concrete_wall)
+	var flag := MeshInstance3D.new()
+	var fm := BoxMesh.new()
+	fm.size = Vector3(0.05, 1.6, 2.6)
+	flag.mesh = fm
+	flag.material_override = mat_ramp_orange
+	flag.position = top + Vector3(0, 9.0, 1.3)
+	add_child(flag)
+	var sign := Label3D.new()
+	sign.text = "ZİRVE  ·  110 m"
+	sign.font_size = 160
+	sign.pixel_size = 0.03
+	sign.outline_size = 24
+	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sign.position = top + Vector3(0, 12.5, 0)
+	add_child(sign)
+
+# Rocks, fallen trees and bushes on the steep trail; trees and bushes on the slopes
+func _mtn_obstacles(tdir: Vector2, tside: Vector2) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 909
+	var rock_mat := StandardMaterial3D.new()
+	rock_mat.albedo_color = Color(0.42, 0.4, 0.37)
+	rock_mat.roughness = 1.0
+	var bark := StandardMaterial3D.new()
+	bark.albedo_color = Color(0.33, 0.22, 0.13)
+	bark.roughness = 1.0
+	var road_cross: float = _mtn_road_r(MTN_TRAIL_ANGLE) # where the trail crosses the road: keep clear
+	# rocks (solid, half buried, random tilt)
+	for k in range(46):
+		var r: float = rng.randf_range(MTN_R1 + 5.0, MTN_R0 - 4.0)
+		if absf(r - road_cross) < 11.0:
+			continue
+		var off: float = rng.randf_range(-3.4, 3.4)
+		var p2: Vector2 = MTN_CENTER + tdir * r + tside * off
+		var y: float = _mtn_height(p2.x, p2.y)[0]
+		# in the wheel tracks: low, half-buried slabs you bump over; big boulders only along the edges
+		var mid: bool = absf(off) < 2.6
+		var sz := Vector3(rng.randf_range(0.5, 1.3), rng.randf_range(0.3, 0.5) if mid else rng.randf_range(0.5, 1.0), rng.randf_range(0.5, 1.2))
+		var tilt: float = 8.0 if mid else 20.0
+		_create_static_box(Vector3(p2.x, y + sz.y * (0.0 if mid else 0.3), p2.y), sz, rock_mat, Vector3(rng.randf_range(-tilt, tilt), rng.randf_range(0, 360), rng.randf_range(-tilt, tilt)))
+	# fallen trees lying across the trail
+	for r in [95.0, 128.0, 205.0, 232.0, 262.0]:
+		var p2: Vector2 = MTN_CENTER + tdir * r + tside * rng.randf_range(-1.0, 1.0)
+		var y: float = _mtn_height(p2.x, p2.y)[0]
+		var rad: float = rng.randf_range(0.22, 0.32)
+		var body := StaticBody3D.new()
+		body.set_meta("surface", "dirt")
+		var cs := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = rad
+		cyl.height = 8.0
+		cs.shape = cyl
+		body.add_child(cs)
+		var mi := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = rad * 0.8
+		cm.bottom_radius = rad
+		cm.height = 8.0
+		mi.mesh = cm
+		mi.material_override = bark
+		body.add_child(mi)
+		# lying flat across the trail (the cone is level in that direction), a little skewed
+		var along := Vector3(tside.x, 0, tside.y).rotated(Vector3.UP, rng.randf_range(-0.3, 0.3))
+		body.transform = Transform3D(Basis(Vector3.UP.cross(along).normalized(), along, Vector3.UP.cross(along).normalized().cross(along)).orthonormalized(), Vector3(p2.x, y + rad * 0.1, p2.y)) # half sunk in the earth: a hard bump, not a wall
+		add_child(body)
+	# bushes (visual) on the trail and slopes, trees (solid trunks) on the slopes
+	var bush_x: Array[Transform3D] = []
+	var bush_c: Array[Color] = []
+	for k in range(420):
+		var on_trail: bool = k < 70
+		var r: float = rng.randf_range(MTN_R1, MTN_R0 - 3.0)
+		var phi: float = MTN_TRAIL_ANGLE + (rng.randf_range(-4.0, 4.0) / r if on_trail else rng.randf_range(0.0, TAU))
+		var p2: Vector2 = MTN_CENTER + Vector2(cos(phi), sin(phi)) * r
+		var hinfo: Array = _mtn_height(p2.x, p2.y)
+		if (hinfo[1] as float) < MTN_ROAD_W * 0.5 + 1.0:
+			continue
+		var s: float = rng.randf_range(0.6, 1.6)
+		bush_x.append(Transform3D(Basis().scaled(Vector3(s * 1.3, s, s * 1.2)), Vector3(p2.x, (hinfo[0] as float) + s * 0.35, p2.y)))
+		bush_c.append(Color(rng.randf_range(0.12, 0.3), rng.randf_range(0.32, 0.5), rng.randf_range(0.08, 0.16)))
+	_mtn_multimesh(SphereMesh.new(), bush_x, bush_c)
+	var trunk_x: Array[Transform3D] = []
+	var crown_x: Array[Transform3D] = []
+	var crown_c: Array[Color] = []
+	for k in range(170):
+		var r: float = rng.randf_range(MTN_R1 + 15.0, MTN_R0 - 8.0)
+		var phi: float = rng.randf_range(0.0, TAU)
+		if absf(angle_difference(phi, MTN_TRAIL_ANGLE)) * r < 14.0:
+			continue
+		var p2: Vector2 = MTN_CENTER + Vector2(cos(phi), sin(phi)) * r
+		var hinfo: Array = _mtn_height(p2.x, p2.y)
+		if (hinfo[1] as float) < MTN_ROAD_W * 0.5 + 6.0:
+			continue
+		var y: float = hinfo[0]
+		var hgt: float = rng.randf_range(6.0, 10.0)
+		trunk_x.append(Transform3D(Basis().scaled(Vector3(0.35, hgt * 0.45, 0.35)), Vector3(p2.x, y + hgt * 0.225, p2.y)))
+		crown_x.append(Transform3D(Basis().scaled(Vector3(hgt * 0.35, hgt * 0.7, hgt * 0.35)), Vector3(p2.x, y + hgt * 0.45 + hgt * 0.35, p2.y)))
+		crown_c.append(Color(0.1, rng.randf_range(0.3, 0.42), 0.12))
+		_create_static_box(Vector3(p2.x, y + 1.5, p2.y), Vector3(0.5, 3.0, 0.5), bark).visible = false # solid trunk
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.6
+	trunk_mesh.bottom_radius = 0.8
+	trunk_mesh.height = 1.0
+	_mtn_multimesh(trunk_mesh, trunk_x, [] as Array[Color], bark)
+	var crown := CylinderMesh.new()
+	crown.top_radius = 0.0
+	crown.bottom_radius = 1.0
+	crown.height = 1.0
+	_mtn_multimesh(crown, crown_x, crown_c)
+
+func _mtn_multimesh(mesh: Mesh, xforms: Array[Transform3D], cols: Array[Color], mat: Material = null) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = not cols.is_empty()
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+		if mm.use_colors:
+			mm.set_instance_color(i, cols[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	if mat:
+		mmi.material_override = mat
+	else:
+		var m := StandardMaterial3D.new()
+		m.vertex_color_use_as_albedo = true
+		m.roughness = 1.0
+		mmi.material_override = m
+	add_child(mmi)

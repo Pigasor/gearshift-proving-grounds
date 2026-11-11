@@ -21,6 +21,7 @@ const AREAS: Array = [
 	["TEPE PARKI", Vector2(-800, 0)],
 	["OTOYOL HALKASI", Vector2(0, 1330)],
 	["NASCAR OVALİ", Vector2(620, 930)],
+	["DAĞ", Vector2(-800, -880)],
 	["SÜSPANSİYON YOLU", Vector2(-75, -110)],
 ]
 

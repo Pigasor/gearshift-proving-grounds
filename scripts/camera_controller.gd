@@ -35,6 +35,7 @@ var _trauma: float = 0.0
 var _shake_t: float = 0.0
 var _prev_car_vel: Vector3 = Vector3.ZERO
 var _prev_car_pos: Vector3 = Vector3.ZERO
+var _last_car_key = null
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -295,7 +296,11 @@ func _update_shake(delta: float, step: float) -> void:
 	var v: Vector3 = target_vehicle.linear_velocity
 	var p: Vector3 = target_vehicle.global_position
 	var moved: float = p.distance_to(_prev_car_pos)
-	if step > 0.0 and moved < (v.length() + _prev_car_vel.length()) * step + 0.5:
+	# a car change (garage) zeroes the speed: that is not a crash
+	var car_key = target_vehicle.get("spawn_count")
+	var changed: bool = car_key != _last_car_key
+	_last_car_key = car_key
+	if not changed and step > 0.0 and moved < (v.length() + _prev_car_vel.length()) * step + 0.5:
 		var accel: float = (v - _prev_car_vel).length() / step
 		if accel > SHAKE_ACCEL:
 			_trauma = minf(_trauma + (accel - SHAKE_ACCEL) * step * 0.07, 1.0) # ~0.4 at a 20 km/h knock, full at 50+

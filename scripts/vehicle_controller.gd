@@ -17,6 +17,7 @@ var exhaust_smokes: Array[ExhaustSmoke] = [] # one per tailpipe
 var engine_sound: String = "" # AudioSynth profile picked by the car (CarDatabase "sound"), "" = by engine type
 var front_wheel_r: float = 0.0 # smaller front wheels (tractor), visual only; 0 = same as the rear
 var _rim_mat: StandardMaterial3D # shared by all four rims: chrome, or painted per car (body "rim")
+var _coilovers: Array = [] # per-wheel coil-over springs (buggy): chassis to wheel, follow the suspension
 var backfire_count: int = 0 # bumped on every backfire; the audio plays a bang when it changes
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
 var front_lateral_bias: float = 1.13
@@ -29,6 +30,12 @@ const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "ker
 const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
 var offroad_tires: bool = false
 var wheel_surface: Array[String] = ["asphalt", "asphalt", "asphalt", "asphalt"]
+# Tyre contact data for TyreFX (skid marks, smoke, flying grass): world point, ground normal,
+# wheelspin (m/s, + = wheel faster than the ground) and sideways slide (m/s)
+var wheel_contact_pos: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
+var wheel_contact_normal: Array[Vector3] = [Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP]
+var wheel_long_slip: Array[float] = [0.0, 0.0, 0.0, 0.0]
+var wheel_lat_slip: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var input_blocked: bool = false # true while the garage menu is open (inputs ignored, car rolls on)
 var steer_sensitivity: float = 1.0 # how fast the wheel turns with keys (Settings)
 var joy_deadzone: float = 0.08 # gamepad stick dead zone (Settings)
@@ -136,6 +143,7 @@ var wheel_contact_point: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.Z
 var g_force_lateral: float = 0.0
 var g_force_longitudinal: float = 0.0
 var is_handbrake_active: bool = false
+var is_burnout: bool = false # handbrake + throttle at a standstill: driven wheels spin on the spot
 
 # --- INTERNAL STATE ---
 var _current_steer_angle: float = 0.0
@@ -158,7 +166,12 @@ var _prev_clutch_rpm: float = 900.0
 var _slip_time: float = 0.0 # how long the auto clutch has been slipping under throttle
 var _since_upshift: float = 10.0
 var _manual_hold: bool = false # automatic box keeps the gear the driver picked
-var _upshift_thr: float = 0.0 # pedal at the last automatic upshift
+# Teleport done while the game is paused (big map, ESC menu): the physics server could hand back the
+# pre-pause position on the next step, so the new transform is applied again inside the physics step.
+var spawn_count: int = 0 # bumped on every car change (the camera must not read the speed reset as a crash)
+var _teleport_pending: bool = false
+var _teleport_xform: Transform3D
+var _since_low_thr: float = 10.0 # seconds since the throttle was last below 75% (kickdown trigger)
 var _dir_change_armed: bool = true # auto box: may switch D<->R with the next pedal press
 var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
@@ -206,6 +219,9 @@ func _ready() -> void:
 	linear_damp = 0.0
 	angular_damp = 3.2
 	continuous_cd = true # fast drops/crashes must not pass through the ground
+	var fx := TyreFX.new()
+	fx.vehicle = self
+	add_child(fx)
 	apply_car(current_vehicle_type, 0)
 
 # Realistic wheel inside each RollNode (axle = X): open tyre tread + rounded sidewalls, chrome rim
@@ -431,6 +447,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	engine_cylinders = int(en.get("cyl", 4))
 	engine_fuel = str(en.get("fuel", "benzin"))
 	_update_wheel_colliders()
+	spawn_count += 1
 	# the new car appears where the old one was, standing still
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
@@ -518,8 +535,9 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var chassis_col := get_node_or_null("CollisionChassis") as CollisionShape3D
 	var cabin_col := get_node_or_null("CollisionCabin") as CollisionShape3D
 	if chassis_col and chassis_col.shape is BoxShape3D:
-		(chassis_col.shape as BoxShape3D).size = Vector3(W - 0.08, 0.62, L - 0.12)
-		chassis_col.position = Vector3(0.0, ground_y + 0.18 + 0.31, z_mid)
+		var clear: float = float(b.get("ground_clearance", 0.18)) # high-riding off-roaders clear logs and rocks
+		(chassis_col.shape as BoxShape3D).size = Vector3(W - 0.08, 0.8 - clear, L - 0.12)
+		chassis_col.position = Vector3(0.0, ground_y + clear + (0.8 - clear) * 0.5, z_mid)
 	if cabin_col and cabin_col.shape is BoxShape3D:
 		(cabin_col.shape as BoxShape3D).size = Vector3(W * 0.78, H - 0.95, 2.1)
 		cabin_col.position = Vector3(0.0, ground_y + 0.80 + (H - 0.95) * 0.5, z_mid - 0.15)
@@ -549,6 +567,22 @@ func _rebuild_body(b: Dictionary) -> void:
 	var ground_y: float = -(tire_radius + suspension_rest_length - sag)
 	var builder := BodyBuilder.new()
 	_brake_light_mats.append_array(builder.build(visual_models_parent, b, ground_y, tire_radius))
+	if b.get("coilovers", false):
+		var spring_mat := StandardMaterial3D.new()
+		spring_mat.albedo_color = Color(0.85, 0.08, 0.06)
+		spring_mat.metallic = 0.4
+		spring_mat.roughness = 0.35
+		for i in 4:
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.065
+			cm.bottom_radius = 0.065
+			cm.height = 1.0
+			cm.radial_segments = 10
+			cm.material = spring_mat
+			var mi := MeshInstance3D.new()
+			mi.mesh = cm
+			visual_models_parent.add_child(mi)
+			_coilovers.append(mi)
 	# on the hood just ahead of the windscreen, and just ahead of the nose
 	cam_hood = Vector3(0.0, builder.g + float(builder.s["cowl"]) + 0.2, builder.cowl_z + 0.3)
 	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
@@ -819,6 +853,7 @@ func _build_real_car_model(car_type: String) -> void:
 # Remove the current procedural body parts
 func _clear_car_model() -> void:
 	_dynamic_links.clear()
+	_coilovers.clear()
 	_brake_light_mats.clear()
 	if visual_models_parent == null:
 		return
@@ -1586,12 +1621,24 @@ func _read_inputs(delta: float) -> void:
 	var speed_steer_factor: float = clampf(1.0 / (1.0 + pow(speed_mps / 24.0, 1.4)), 0.14, 1.0)
 	if using_wheel:
 		speed_steer_factor = 1.0 # a real wheel: the driver's hands decide, no speed limiting
+	# Countersteer: in a slide the wheels may turn as far as the slide angle (+8 deg) at any speed.
+	# The speed limit kept them at ~18 deg in a 40 deg drift, so the front tyres went on pushing the
+	# nose further round instead of catching the car.
+	var countersteer: bool = false
+	var v_loc: Vector3 = global_transform.basis.inverse() * linear_velocity
+	if not using_wheel and speed_mps > 5.0 and v_loc.z > 1.0:
+		var beta: float = rad_to_deg(atan2(v_loc.x, v_loc.z)) # slide angle, + = travelling to the car's left
+		if raw_steer * beta > 0.0 and absf(beta) > 5.0:
+			countersteer = true
+			speed_steer_factor = maxf(speed_steer_factor, minf((absf(beta) + 8.0) / max_steer_angle_deg, 1.0))
 	var target_steer: float = raw_steer * max_steer_angle_deg * speed_steer_factor
 	# Keyboard steering ramps in more gently at speed, but always returns to centre quickly.
 	var steering_in: bool = absf(target_steer) > absf(_current_steer_angle) and signf(target_steer) == signf(_current_steer_angle) or absf(_current_steer_angle) < 0.01
 	var steer_rate: float = 18.0
 	if steering_in and absf(raw_steer) > 0.0:
 		steer_rate = lerpf(14.0, 8.5, clampf(speed_mps / 50.0, 0.0, 1.0))
+	if countersteer:
+		steer_rate = 20.0 # catching a slide needs quick hands
 	if using_wheel and absf(raw_steer) > 0.0 and not (Input.is_action_pressed("steer_left") or Input.is_action_pressed("steer_right")):
 		steer_rate = 40.0 # the wheel itself is the input: follow it almost directly
 	_current_steer_angle = lerpf(_current_steer_angle, target_steer, clampf(delta * steer_rate * steer_sensitivity, 0.0, 1.0))
@@ -1704,6 +1751,8 @@ func _apply_aerodynamics(_delta: float) -> void:
 
 func _process_automatic_transmission(delta: float) -> void:
 	_since_upshift += delta
+	# kickdown is the pedal being pushed down (time since it was last under 75%), not a held pedal
+	_since_low_thr = 0.0 if _throttle_input < 0.75 else _since_low_thr + delta
 	if absf(linear_velocity.dot(global_transform.basis.z)) < 1.5 or not is_automatic:
 		_manual_hold = false
 	if not is_automatic or _is_shifting:
@@ -1727,23 +1776,25 @@ func _process_automatic_transmission(delta: float) -> void:
 		# still shifts at the limiter instead of bouncing off it. Pulling away slowly (e.g. on a hill)
 		# only the car's speed counts, so spinning wheels there never cause an early upshift.
 		var moving: bool = absf(linear_velocity.dot(global_transform.basis.z)) > 7.0
-		var near_limit: bool = g_rpm > limiter_rpm - 300.0 or (current_rpm > limiter_rpm - 200.0 and (g_rpm > limiter_rpm * 0.82 or moving))
+		var near_limit: bool = g_rpm > limiter_rpm - 300.0 or (_throttle_input > 0.05 and current_rpm > limiter_rpm - 200.0 and (g_rpm > limiter_rpm * 0.82 or moving))
 		# Shift point follows the pedal like a real automatic: gentle throttle or cruising shifts
 		# early (low revs), only a floored pedal holds the gear up to the limiter.
 		var shift_rpm: float = lerpf(limiter_rpm * 0.42, limiter_rpm - 300.0, clampf(_throttle_input / 0.9, 0.0, 1.0))
-		var early: bool = _throttle_input < 0.85 and _brake_input < 0.1 and g_rpm > shift_rpm and next_rpm > limiter_rpm * 0.34
+		# off the throttle the gear is held (engine braking), no lift-off upshifts
+		var early: bool = _throttle_input > 0.05 and _throttle_input < 0.85 and _brake_input < 0.1 and g_rpm > shift_rpm and next_rpm > limiter_rpm * 0.34
 		# never into a gear the car would lug in right away (with wheelspin that caused 6-7-6-7 hunting)
 		if (near_limit or (early and not _manual_hold)) and next_rpm > idle_rpm * 1.6 and next_rpm > limiter_rpm * 0.33:
 			shift_up()
 			_auto_shift_cooldown = 0.5
 			_since_upshift = 0.0
-			_upshift_thr = _throttle_input
 			return
 
 	if current_gear > 2:
 		var prev_rpm: float = _ground_rpm(current_gear - 1)
 		var lugging: bool = g_rpm < limiter_rpm * 0.28
-		var kickdown: bool = not _manual_hold and _throttle_input > 0.9 and g_rpm < limiter_rpm * 0.5 and (_since_upshift > 2.5 or _upshift_thr < 0.6) and current_rpm < limiter_rpm * 0.6 # no 2-1-2-1 hunting right after an upshift (e.g. up a hill); an engine already revving high (wheelspin) needs no kickdown
+		# kickdown: pedal just floored -> one jump to the lowest gear that stays clear of the limiter;
+		# a held pedal never re-triggers it, so no 2-3-2-3 hunting after an upshift
+		var kickdown: bool = not _manual_hold and _throttle_input > 0.9 and _since_low_thr < 0.5 and current_rpm < limiter_rpm * 0.75
 		if (lugging or kickdown) and prev_rpm < limiter_rpm - 900.0:
 			# kickdown goes straight to the lowest gear that stays clear of the limiter (6->4, not 6->5->4)
 			var target: int = current_gear - 1
@@ -2011,20 +2062,23 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 			_auto_clutch = clampf(_auto_clutch, 0.0, 1.0)
 			eng = _auto_clutch
 		cap = peak_tq * 1.5 * eng * eng
-	_clutch_torque = signf(slip) * cap
+	# A converter's fluid torque cannot vanish from one step to the next: computed from last step's
+	# wheel speed it did, so a spinning wheel caught up, lost all torque, stopped, and spun again
+	# every other frame - automatics could hardly spin their tyres. Smoothing finds the real balance.
+	_clutch_torque = lerpf(_clutch_torque, signf(slip) * cap, clampf(delta * 15.0, 0.0, 1.0)) if use_tc else signf(slip) * cap
 	var inertia: float = maxf(engine_inertia, 0.08)
 	var new_rpm: float = current_rpm + (t_net - _clutch_torque) / inertia * (60.0 / TAU) * delta
 	# Engine and gearbox speeds meet: lock up if the clutch can hold the engine's torque
 	if slip != 0.0 and signf(new_rpm - w_rpm) != signf(slip):
 		var can_lock: bool = cap >= absf(t_net) * 0.9 and eng > 0.95 and w_rpm >= floor_rpm
 		if use_tc:
-			can_lock = w_rpm > idle_rpm * 1.25
+			can_lock = _ground_rpm(current_gear) > idle_rpm * 1.25 # the CAR rolling, not wheelspin (burnouts)
 		if can_lock:
 			_clutch_slipping = false
 			_clutch_torque = 0.0
 			_tc_mult = 1.0
 		new_rpm = w_rpm
-	elif use_tc and w_rpm > idle_rpm * 1.25 and slip > 0.0 and (w_rpm / maxf(current_rpm, 1.0) > 0.93 or w_rpm > stall_rpm * 0.85):
+	elif use_tc and _ground_rpm(current_gear) > idle_rpm * 1.25 and slip > 0.0 and (w_rpm / maxf(current_rpm, 1.0) > 0.93 or w_rpm > stall_rpm * 0.85):
 		# lock-up clutch closes once the car is rolling (it used to wait for a 93% speed ratio,
 		# which never came under full load - the converter kept slipping ~3000 rpm at top speed)
 		_clutch_slipping = false
@@ -2148,8 +2202,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	var speed_for_tcs: float = linear_velocity.length()
 	for i in range(4):
 		var want_cut: float = 0.0
-		if tcs_enabled and _throttle_input > 0.1 and _is_driven(i) and wheel_is_grounded[i]:
-			var allowed_spin: float = 1.2 + 0.06 * speed_for_tcs
+		if tcs_enabled and not is_burnout and _throttle_input > 0.1 and _is_driven(i) and wheel_is_grounded[i]:
+			var allowed_spin: float = maxf(2.5, 0.15 * speed_for_tcs) # same slip the torque cap below allows
 			want_cut = clampf((_wheel_spin_speed(i) - allowed_spin) / 3.0, 0.0, 0.9)
 			if absf(wheel_slip_lateral[i]) > 0.45 and speed_for_tcs > 8.0:
 				want_cut = maxf(want_cut, 0.4) # power oversteer: ease off
@@ -2167,11 +2221,16 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	if slipping_now:
 		gear_mult = 0.0 # a slipping clutch doesn't tie the engine's inertia to the wheels
 	var engine_share: float = engine_inertia * gear_mult * gear_mult / float(maxi(n_driven, 1))
+	# Burnout: slow, in gear, handbrake + throttle -> the handbrake holds the axle that is NOT driven
+	# (the front on RWD/AWD) so the driven wheels spin and the tyres smoke; TCS stays out of it.
+	var burnout: bool = _handbrake_input > 0.5 and _throttle_input > 0.5 and current_gear >= 2 and absf(linear_velocity.dot(global_transform.basis.z)) < 5.5
+	var hb_front: bool = burnout and drivetrain_mode != "FWD"
+	is_burnout = burnout
 	var speed_now: float = linear_velocity.length()
 	# How many grounded wheels are braking (they share the job of holding the car)
 	var n_braked: int = 0
 	for i in range(4):
-		if wheel_is_grounded[i] and (_brake_input > 0.01 or (i >= 2 and _handbrake_input > 0.01) or engine_drag[i] > 0.0):
+		if wheel_is_grounded[i] and (_brake_input > 0.01 or ((i >= 2) != hb_front and _handbrake_input > 0.01) or engine_drag[i] > 0.0):
 			n_braked += 1
 
 	for i in range(4):
@@ -2238,7 +2297,7 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var grip_mult: float = tire_grip_factor * float(surf_table.get(surface, 1.0))
 			# Handbrake at speed: locked rear tyres slide (drift entry). Slow or parked, the tyres keep
 			# their full grip so the handbrake really holds the car (e.g. on a hill).
-			if is_handbrake_active and i >= 2:
+			if is_handbrake_active and i >= 2 and not hb_front:
 				grip_mult *= lerpf(1.0, 0.40, clampf((speed_now - 3.0) / 9.0, 0.0, 1.0))
 
 			# Slip-angle based tyre model (simplified Pacejka "magic formula").
@@ -2261,7 +2320,7 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var is_front: bool = (i < 2)
 			var brake_factor: float = brake_bias_front if is_front else (1.0 - brake_bias_front)
 			var total_brake_torque: float = _brake_input * brake_torque_max * brake_factor
-			if not is_front:
+			if is_front == hb_front: # rear axle, or the front one in a burnout
 				total_brake_torque += _handbrake_input * handbrake_torque_max
 			var engine_brake_only: bool = total_brake_torque <= 0.0
 			total_brake_torque += engine_drag[i]
@@ -2280,8 +2339,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# put on the road right now (load x grip, less what cornering already uses). More power
 			# then means more acceleration up to the grip limit - never a power LOSS (the old slip-
 			# based cut threw away up to 90% of the power once a big engine started spinning).
-			if tcs_enabled and _is_driven(i) and drive_torques[i] != 0.0:
-				var t_lim: float = long_room * r_tyre * 1.12
+			if tcs_enabled and not burnout and _is_driven(i) and drive_torques[i] != 0.0:
+				# like a real TCS it lets a little wheelspin through (~15% of the speed, at least 2.5 m/s)
+				# before cutting back to the grip limit, so hard launches still chirp and leave marks
+				var spin_now: float = absf(wheel_angular_velocity[i] * r_tyre - forward_vel)
+				var t_lim: float = long_room * r_tyre * (1.35 if spin_now < maxf(2.5, absf(forward_vel) * 0.15) else 1.0)
 				if absf(drive_torques[i]) > t_lim:
 					drive_torques[i] = signf(drive_torques[i]) * t_lim
 			var w_pred: float = wheel_angular_velocity[i] + drive_torques[i] / inertia * delta
@@ -2329,6 +2391,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 				wheel_angular_velocity[i] = w_pred - long_mag * r_tyre * delta / inertia
 				if slipping_now and _clutch_torque > 0.0 and _is_driven(i):
 					wheel_angular_velocity[i] = _cap_to_engine(wheel_angular_velocity[i], active_gear_ratio)
+			# for the tyre effects (marks, smoke, flying grass)
+			wheel_contact_pos[i] = result.position
+			wheel_contact_normal[i] = n_contact
+			wheel_long_slip[i] = wheel_angular_velocity[i] * r_tyre - forward_vel
+			wheel_lat_slip[i] = lateral_vel
 			var combined: float = sqrt(long_mag * long_mag + lateral_force_mag * lateral_force_mag)
 			if combined > total_grip and combined > 0.001:
 				var scale_f: float = total_grip / combined
@@ -2415,6 +2482,16 @@ func _update_wheel_visuals(delta: float) -> void:
 
 		mount.position.x = mount_offset.x
 		mount.position.z = mount_offset.z
+		if i < _coilovers.size():
+			# coil-over from a fixed point on the chassis down to this wheel's hub: it stretches and
+			# compresses with this wheel alone, so every wheel visibly works on its own
+			var sd: float = signf(mount_offset.x)
+			var top := Vector3(mount_offset.x - sd * 0.38, mount_offset.y - suspension_rest_length + 0.62, mount_offset.z)
+			var bot: Vector3 = mount.position + Vector3(-sd * 0.14, 0.04, 0.0)
+			var along: Vector3 = top - bot
+			var y: Vector3 = along.normalized()
+			var x: Vector3 = y.cross(Vector3.FORWARD).normalized()
+			(_coilovers[i] as MeshInstance3D).transform = Transform3D(Basis(x, y * along.length(), x.cross(y)), (top + bot) * 0.5)
 
 		# Steer (Y) on Mount node (Negative when A is pressed, pointing Left!)
 		var steer_angle: float = deg_to_rad(_current_steer_angle) if i < 2 else 0.0
@@ -2492,6 +2569,8 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	global_transform = Transform3D(b, Vector3(ground_pos.x, ground_y, ground_pos.z) + n_up * (tire_radius + suspension_rest_length + 0.15))
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	_teleport_xform = global_transform
+	_teleport_pending = true
 	_prev_body_pos = Vector3.INF
 	_dir_change_armed = true
 	current_rpm = idle_rpm
@@ -2502,6 +2581,13 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
 	if timer:
 		timer.cancel()
+
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if _teleport_pending:
+		_teleport_pending = false
+		state.transform = _teleport_xform
+		state.linear_velocity = Vector3.ZERO
+		state.angular_velocity = Vector3.ZERO
 
 func reset_vehicle() -> void:
 	global_transform = _initial_transform

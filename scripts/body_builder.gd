@@ -39,7 +39,7 @@ const STYLES: Dictionary = {
 	# place the hood camera
 	"tractor": { "hood": 0.69, "ws": 0.1, "roof": 0.1, "rw": 0.05, "nose": 1.6, "cowl": 1.95, "belt": 2.0,
 		"deck": 1.5, "taper_f": 0.0, "taper_r": 0.0, "tumble": 0.9, "spoiler": "none" },
-	"buggy": { "hood": 0.35, "ws": 0.1, "roof": 0.2, "rw": 0.1, "nose": 0.9, "cowl": 1.05, "belt": 1.1,
+	"buggy": { "hood": 0.39, "ws": 0.1, "roof": 0.2, "rw": 0.1, "nose": 0.9, "cowl": 0.95, "belt": 1.1,
 		"deck": 1.0, "taper_f": 0.0, "taper_r": 0.0, "tumble": 0.9, "spoiler": "none" },
 	# Nissan GT-R R35: tall muscular coupe, C-pillar "shark fin", high tail, small wing
 	"gtr": { "hood": 0.285, "ws": 0.165, "roof": 0.17, "rw": 0.22, "nose": 0.66, "cowl": 0.86, "belt": 0.98,
@@ -709,44 +709,72 @@ func _build_tractor(tire_r: float) -> void:
 	exhausts.append(Vector3(0.38, g + 3.2, cab_f + 0.12))
 	exhaust_up = true
 
-# Sport UTV / dune buggy: tube roll cage, short nose and fenders, two seats, rear engine cover,
-# long-travel coilovers, LED light bar.
-func _build_buggy(tire_r: float) -> void:
+# Dune buggy (tube-frame, like an Ariel Nomad): low yellow side pods and nose with black stripes,
+# round headlights, tube bumper, roll cage with yellow braces, exposed engine at the back.
+# The red coilovers are added by the car (they follow each wheel's suspension).
+func _build_buggy(_tire_r: float) -> void:
+	var cage := _glow(Color(0.07, 0.07, 0.08), 0.0)
+	var yellow := paint
+	var engine := _glow(Color(0.35, 0.36, 0.38), 0.0)
 	var zfa: float = wb * 0.5
 	var zra: float = -wb * 0.5
-	var trk: float = hw - 0.1
-	var cage := _glow(Color(0.08, 0.08, 0.09), 0.0)
-	var shock := _glow(Color(0.98, 0.55, 0.05), 0.0)
-	_box(Vector3(0, g + 0.45, 0), Vector3(1.2, 0.08, wb + 0.2), black) # skid plate / floor
-	_box(Vector3(0, g + 0.85, zf - 0.5), Vector3(1.25, 0.32, 0.95), paint, Vector3(12, 0, 0)) # nose
-	_box(Vector3(0, g + 1.02, 0.62), Vector3(1.3, 0.3, 0.3), black) # dash
-	_box(Vector3(0, g + 0.95, zr + 0.55), Vector3(1.3, 0.45, 0.9), paint) # engine cover / bed
+	var fy: float = g + 0.42 # frame rail height
+	# lower frame: side rails and cross members
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * trk, g + tire_r * 2.0 + 0.12, zfa), Vector3(0.36, 0.06, 0.85), paint, Vector3(0, 0, sd * -10.0))
-		_box(Vector3(sd * trk, g + tire_r * 2.0 + 0.14, zra), Vector3(0.36, 0.06, 0.85), paint, Vector3(0, 0, sd * -10.0))
-		_box(Vector3(sd * 0.36, g + 0.82, -0.2), Vector3(0.5, 0.45, 0.5), black) # seats
-		_box(Vector3(sd * 0.36, g + 1.2, -0.48), Vector3(0.5, 0.7, 0.12), black, Vector3(-10, 0, 0))
-		_box(Vector3(sd * 0.4, g + 0.92, zf - 0.03), Vector3(0.22, 0.08, 0.05), head) # headlights
-		_box(Vector3(sd * 0.5, g + 1.0, zr + 0.08), Vector3(0.14, 0.08, 0.05), tail)
-		# coilovers from the frame to each wheel
-		_tube(Vector3(sd * 0.55, g + 1.15, zfa - 0.1), Vector3(sd * (trk - 0.05), g + tire_r + 0.15, zfa), 0.05, shock)
-		_tube(Vector3(sd * 0.55, g + 1.2, zra + 0.15), Vector3(sd * (trk - 0.05), g + tire_r + 0.15, zra), 0.05, shock)
-	_box(Vector3(-0.36, g + 1.22, 0.32), Vector3(0.34, 0.34, 0.04), black, Vector3(-30, 0, 0)) # steering wheel
-	# roll cage
-	var top_f: float = 0.25
-	var top_r: float = -0.75
-	var top_y: float = g + 1.85
+		_tube(Vector3(sd * 0.5, fy, zf - 0.35), Vector3(sd * 0.5, fy, zr + 0.35), 0.04, cage)
+	for z in [zf - 0.35, 0.6, -0.6, zr + 0.35]:
+		_tube(Vector3(-0.5, fy, z), Vector3(0.5, fy, z), 0.035, cage)
+	_box(Vector3(0, fy - 0.03, 0), Vector3(1.0, 0.03, wb), black) # floor pan
+	# yellow tub: side pods + nose (with two black stripes) + headlights
 	for sd in [-1.0, 1.0]:
-		var x: float = sd * 0.6
-		_tube(Vector3(x, g + 1.0, 0.78), Vector3(x, top_y, top_f), 0.035, cage) # A-pillar
-		_tube(Vector3(x, top_y, top_f), Vector3(x, top_y, top_r), 0.035, cage) # roof rail
-		_tube(Vector3(x, top_y, top_r), Vector3(sd * 0.62, g + 0.9, top_r - 0.12), 0.035, cage) # B-pillar
-		_tube(Vector3(sd * 0.66, g + 1.2, 0.65), Vector3(sd * 0.66, g + 1.2, top_r), 0.03, cage) # door bar
-		_tube(Vector3(sd * 0.6, g + 0.95, zf - 0.1), Vector3(sd * 0.6, g + 0.55, zf - 0.1), 0.035, cage) # front bumper
-	_tube(Vector3(-0.6, top_y, top_f), Vector3(0.6, top_y, top_f), 0.035, cage)
-	_tube(Vector3(-0.6, top_y, top_r), Vector3(0.6, top_y, top_r), 0.035, cage)
-	_tube(Vector3(-0.6, top_y, top_r), Vector3(0.62, g + 0.9, top_r - 0.12), 0.03, cage) # diagonal
-	_tube(Vector3(-0.6, g + 0.75, zf - 0.1), Vector3(0.6, g + 0.75, zf - 0.1), 0.035, cage)
-	_box(Vector3(0, top_y + 0.04, (top_f + top_r) * 0.5), Vector3(1.25, 0.04, 1.05), paint) # roof
-	_box(Vector3(0, top_y + 0.04, top_f + 0.04), Vector3(1.0, 0.07, 0.07), head) # LED bar
-	_pipe(Vector3(0.35, g + 0.82, zr + 0.06), 0.045)
+		_box(Vector3(sd * 0.6, g + 0.72, 0.15), Vector3(0.24, 0.5, 1.7), yellow)
+		_cyl_z(Vector3(sd * 0.42, g + 0.86, zf - 0.08), 0.1, 0.08, head)
+		_cyl_z(Vector3(sd * 0.42, g + 0.86, zf - 0.13), 0.12, 0.05, cage)
+	_box(Vector3(0, g + 0.78, zf - 0.55), Vector3(1.25, 0.32, 1.05), yellow, Vector3(-9, 0, 0))
+	for sx in [-0.14, 0.14]:
+		_box(Vector3(sx, g + 0.95, zf - 0.55), Vector3(0.1, 0.02, 1.06), black, Vector3(-9, 0, 0))
+	# tube front bumper / nerf bar
+	_tube(Vector3(-0.55, g + 0.62, zf + 0.02), Vector3(0.55, g + 0.62, zf + 0.02), 0.04, cage)
+	_tube(Vector3(-0.45, g + 0.42, zf + 0.06), Vector3(0.45, g + 0.42, zf + 0.06), 0.04, cage)
+	for sx in [-0.45, 0.45]:
+		_tube(Vector3(sx, g + 0.42, zf + 0.06), Vector3(sx, g + 0.62, zf + 0.02), 0.035, cage)
+	# cockpit: two seats and a steering wheel
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * 0.27, g + 0.62, -0.35), Vector3(0.44, 0.22, 0.48), black)
+		_box(Vector3(sd * 0.27, g + 0.95, -0.62), Vector3(0.44, 0.65, 0.1), black, Vector3(-12, 0, 0))
+	_box(Vector3(-0.27, g + 1.0, 0.25), Vector3(0.32, 0.32, 0.04), black, Vector3(-35, 0, 0))
+	# roll cage: main hoop behind the seats, A-pillars, roof rails, rear braces
+	var top_y: float = g + 1.5
+	var hoop_z: float = -0.78
+	var front_z: float = 0.35
+	for sd in [-1.0, 1.0]:
+		var x: float = sd * 0.55
+		_tube(Vector3(x, fy, hoop_z), Vector3(x * 0.92, top_y, hoop_z), 0.04, cage) # main hoop leg
+		_tube(Vector3(x, g + 0.85, 0.85), Vector3(x * 0.92, top_y, front_z), 0.04, cage) # A-pillar
+		_tube(Vector3(x * 0.92, top_y, front_z), Vector3(x * 0.92, top_y, hoop_z), 0.04, cage) # roof rail
+		_tube(Vector3(x * 0.92, top_y, hoop_z), Vector3(sd * 0.45, fy + 0.2, zr + 0.3), 0.035, cage) # rear brace
+		_tube(Vector3(sd * 0.2, top_y - 0.02, hoop_z - 0.02), Vector3(sd * 0.2, g + 0.75, hoop_z - 0.02), 0.03, yellow) # yellow brace
+	_tube(Vector3(-0.51, top_y, hoop_z), Vector3(0.51, top_y, hoop_z), 0.04, cage)
+	_tube(Vector3(-0.51, top_y, front_z), Vector3(0.51, top_y, front_z), 0.04, cage)
+	_tube(Vector3(-0.55, g + 0.9, hoop_z), Vector3(0.55, g + 0.9, hoop_z), 0.035, cage)
+	# exposed engine and the rear frame around it
+	_box(Vector3(0, g + 0.72, zra + 0.25), Vector3(0.62, 0.45, 0.55), engine)
+	_box(Vector3(0.18, g + 1.0, zra + 0.25), Vector3(0.18, 0.12, 0.4), black) # intake
+	_tube(Vector3(-0.5, g + 0.95, zr + 0.3), Vector3(0.5, g + 0.95, zr + 0.3), 0.035, cage)
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * 0.45, g + 0.95, zr + 0.28), Vector3(0.14, 0.07, 0.04), tail)
+	_pipe(Vector3(-0.25, g + 0.62, zr + 0.22), 0.045)
+
+# Disc facing forward (+Z): headlights
+func _cyl_z(pos: Vector3, r: float, h: float, mat: Material) -> void:
+	var cm := CylinderMesh.new()
+	cm.top_radius = r
+	cm.bottom_radius = r
+	cm.height = h
+	cm.radial_segments = 16
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	mi.material_override = mat
+	mi.position = pos
+	mi.rotation_degrees = Vector3(90, 0, 0)
+	_parent.add_child(mi)

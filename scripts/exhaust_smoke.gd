@@ -1,103 +1,90 @@
 class_name ExhaustSmoke
-extends CPUParticles3D
-# Exhaust smoke from one tailpipe: a faint haze at idle that thickens with revs and throttle;
-# diesels puff darker soot under load. Particles live in world space but start with most of the
-# car's speed (the wake drags the gas along) and are spread over the distance the car covered
-# since the last frame, so the plume stays continuous at any speed instead of a row of dots.
-# Turbo boost (Shift) and upshift backfires shoot a flame out of the pipe.
+extends GPUParticles3D
+# Exhaust smoke from one tailpipe, GPU particles:
+# - each puff is a noisy, soft-edged smoke sprite that spins, grows and drifts in turbulence
+#   (the usual "noise texture + turbulence + soft particles" look of game engines' smoke demos)
+# - puffs inherit most of the car's velocity and are emitted along the path the pipe moved
+#   through between frames (interpolate), so the plume is one continuous stream at any speed
+# - idle and low revs: barely a haze; it thickens with revs and throttle; diesels go dark under load
+# - turbo boost (Shift) and upshift backfires shoot a flame out of the pipe
 
 var vehicle: Node
-var flame: CPUParticles3D
+var flame: GPUParticles3D
 var pipe_pos: Vector3 # tip of the pipe (car-local)
 var pipe_dir: Vector3 = Vector3(0.0, 0.15, -1.0) # out of the pipe (car forward is +Z)
 var share: float = 1.0 # 1 / number of pipes on the car
 var _pop_t: float = 0.0
+var _pm: ParticleProcessMaterial
 
 func _ready() -> void:
-	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # alpha-blended puffs would cast solid black discs
-	preprocess = 1.3 # run one lifetime up front: never-emitted particle slots render as black discs (Godot 4.3)
-	amount = maxi(int(200.0 * share), 100)
-	emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	lifetime = 1.3
+	position = pipe_pos
+	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	amount = maxi(int(70.0 * share), 24)
+	lifetime = 1.8
 	local_coords = false
-	direction = Vector3(0.0, 0.15, -1.0) # out of the pipe, backwards (car forward is +Z)
-	spread = 14.0
-	gravity = Vector3(0.0, 0.7, 0.0) # warm gas rises a little
-	damping_min = 1.5
-	damping_max = 2.5
-	scale_amount_min = 0.7
-	scale_amount_max = 1.1
-	var grow := Curve.new()
-	grow.max_value = 2.0
-	grow.add_point(Vector2(0.0, 0.25))
-	grow.add_point(Vector2(1.0, 1.8))
-	scale_amount_curve = grow
-	var fade := Gradient.new()
-	fade.set_color(0, Color(1, 1, 1, 0.9))
-	fade.set_color(1, Color(1, 1, 1, 0.0))
-	color_ramp = fade
-	# soft round puff
-	var puff := Gradient.new()
-	puff.set_color(0, Color(1, 1, 1, 1))
-	puff.set_color(1, Color(1, 1, 1, 0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = puff
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	var mat := StandardMaterial3D.new()
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.vertex_color_use_as_albedo = true
-	mat.albedo_texture = tex
-	mat.disable_receive_shadows = true
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.32, 0.32)
-	quad.material = mat
-	mesh = quad
-	_make_flame(tex)
-	restart() # applies the preprocess now that every setting is in place
+	fixed_fps = 60
+	interpolate = true
+	visibility_aabb = AABB(Vector3(-40, -10, -40), Vector3(80, 40, 80))
+	_pm = ParticleProcessMaterial.new()
+	_pm.direction = pipe_dir
+	_pm.spread = 8.0
+	_pm.initial_velocity_min = 1.5
+	_pm.initial_velocity_max = 3.0
+	_pm.inherit_velocity_ratio = 0.8 # the car's wake carries the gas along
+	_pm.gravity = Vector3(0.0, 0.45, 0.0) # warm gas rises
+	_pm.damping_min = 0.8
+	_pm.damping_max = 1.6
+	_pm.angle_min = 0.0
+	_pm.angle_max = 360.0
+	_pm.angular_velocity_min = -50.0
+	_pm.angular_velocity_max = 50.0
+	_pm.scale_min = 0.6
+	_pm.scale_max = 1.0
+	_pm.scale_curve = FxTex.curve([Vector2(0.0, 0.25), Vector2(0.4, 1.2), Vector2(1.0, 2.6)], 3.0)
+	_pm.color_ramp = FxTex.ramp([0.0, 0.1, 0.5, 1.0], [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0)])
+	_pm.turbulence_enabled = true
+	_pm.turbulence_noise_strength = 2.0
+	_pm.turbulence_noise_scale = 3.0
+	_pm.turbulence_influence_min = 0.05
+	_pm.turbulence_influence_max = 0.15
+	process_material = _pm
+	draw_pass_1 = FxTex.smoke_mesh(0.45)
+	amount_ratio = 0.1
+	_make_flame()
 
-func _make_flame(tex: Texture2D) -> void:
-	flame = CPUParticles3D.new()
-	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	flame.amount = 40
+func _make_flame() -> void:
+	flame = GPUParticles3D.new()
+	flame.amount = 32
 	flame.lifetime = 0.14
 	flame.local_coords = true # stays on the pipe at any speed
 	flame.emitting = false
-	flame.visible = false
-	flame.preprocess = 0.14
-	flame.direction = Vector3(0, 0, -1)
-	flame.spread = 6.0
-	flame.gravity = Vector3.ZERO
-	flame.initial_velocity_min = 6.0
-	flame.initial_velocity_max = 9.0
-	flame.scale_amount_min = 0.8
-	flame.scale_amount_max = 1.2
-	var shrink := Curve.new()
-	shrink.add_point(Vector2(0.0, 1.0))
-	shrink.add_point(Vector2(1.0, 0.3))
-	flame.scale_amount_curve = shrink
-	var heat := Gradient.new() # blue core -> orange -> gone
-	heat.set_color(0, Color(0.55, 0.7, 1.0, 1.0))
-	heat.set_color(1, Color(1.0, 0.35, 0.05, 0.0))
-	heat.add_point(0.35, Color(1.0, 0.65, 0.2, 0.9))
-	flame.color_ramp = heat
+	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	flame.fixed_fps = 60
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = pipe_dir
+	pm.spread = 6.0
+	pm.initial_velocity_min = 6.0
+	pm.initial_velocity_max = 9.0
+	pm.gravity = Vector3.ZERO
+	pm.scale_min = 0.8
+	pm.scale_max = 1.2
+	pm.scale_curve = FxTex.curve([Vector2(0.0, 1.0), Vector2(1.0, 0.3)])
+	pm.color_ramp = FxTex.ramp([0.0, 0.35, 1.0], [Color(0.55, 0.7, 1.0, 1.0), Color(1.0, 0.65, 0.2, 0.9), Color(1.0, 0.35, 0.05, 0.0)])
+	flame.process_material = pm
 	var mat := StandardMaterial3D.new()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mat.vertex_color_use_as_albedo = true
-	mat.albedo_texture = tex
+	mat.albedo_texture = FxTex.soft()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(0.22, 0.22)
 	quad.material = mat
-	flame.mesh = quad
+	flame.draw_pass_1 = quad
 	add_child(flame)
 
-# Backfire: a short bang of flame (upshift at high revs)
+# Backfire: a short bang of flame (upshift in the red zone)
 func backfire() -> void:
 	_pop_t = 0.09
 
@@ -109,41 +96,23 @@ func _process(delta: float) -> void:
 	var lim: float = maxf(float(vehicle.get("limiter_rpm")), idle + 1.0)
 	var revs: float = clampf((float(vehicle.get("current_rpm")) - idle) / (lim - idle), 0.0, 1.0)
 	var thr: float = float(vehicle.get("pedal_throttle"))
-	var fwd_v: float = body.linear_velocity.dot(body.global_transform.basis.z)
-	var spd: float = absf(fwd_v)
-	# at speed the puffs settle far apart behind the car: a shorter life keeps the trail short and dense
-	lifetime = lerpf(1.3, 0.45, clampf(spd / 30.0, 0.0, 1.0))
-	var puff: float = lerpf(1.0, 2.5, clampf(spd / 40.0, 0.0, 1.0)) # bigger puffs at speed overlap into a streak
-	scale_amount_min = 0.7 * puff
-	scale_amount_max = 1.1 * puff
-	# gas leaves the pipe and is carried along by the wake (85% of the car's speed), then slows
-	var v: Vector3 = pipe_dir.normalized() * (1.2 + 4.0 * revs) + Vector3(0.0, 0.0, fwd_v * 0.85)
-	direction = v.normalized() if v.length() > 0.01 else pipe_dir
-	initial_velocity_min = v.length() * 0.92
-	initial_velocity_max = v.length() * 1.08
-	spread = lerpf(14.0, 2.0, clampf(spd / 15.0, 0.0, 1.0))
-	damping_min = maxf(1.5, spd * 1.0)
-	damping_max = maxf(2.5, spd * 1.6)
-	# this frame's puffs fill the stretch the pipe moved through since the last frame
-	var half: float = maxf(spd * delta * 0.5, 0.005)
-	emission_box_extents = Vector3(0.01, 0.01, half)
-	position = pipe_pos - Vector3(0.0, 0.0, half * signf(fwd_v))
-	var wind: float = lerpf(1.0, 0.5, clampf((spd * 3.6 - 20.0) / 80.0, 0.0, 1.0)) # thins out with speed
-	# Idle and low revs: only a barely visible haze; smoke builds from ~30% of the rev range up and
-	# with the throttle. dens keeps the total the same however many pipes / particles there are.
+	var kmh: float = body.linear_velocity.length() * 3.6
+	# idle and low revs: only a faint haze; smoke builds from ~30% of the rev range and with throttle
 	var k: float = smoothstep(0.3, 1.0, revs) * (0.35 + 0.65 * thr)
-	var dens: float = minf(200.0 * share / float(amount), 1.0)
+	var wind: float = lerpf(1.0, 0.6, clampf((kmh - 20.0) / 80.0, 0.0, 1.0)) # thins out with speed
+	amount_ratio = clampf(0.12 + 0.88 * k, 0.0, 1.0)
+	_pm.initial_velocity_min = 1.2 + 3.0 * revs
+	_pm.initial_velocity_max = 2.4 + 5.0 * revs
 	if str(vehicle.get("engine_fuel")) == "dizel":
-		var c: float = lerpf(0.55, 0.16, thr)
-		color = Color(c, c, c, (0.005 + 0.28 * k) * wind * dens)
+		var c: float = lerpf(0.6, 0.12, thr * revs)
+		_pm.color = Color(c, c, c, (0.10 + 0.55 * k) * wind)
 	else:
-		color = Color(0.86, 0.86, 0.88, (0.003 + 0.18 * k) * wind * dens)
+		_pm.color = Color(0.78, 0.79, 0.82, (0.06 + 0.5 * k) * wind)
 
 	_pop_t -= delta
 	var popping: bool = _pop_t > 0.0
 	flame.emitting = bool(vehicle.get("turbo_boost_active")) or popping
-	flame.visible = flame.emitting # never-emitted CPU particles render as a black square
-	flame.position = pipe_pos - position # the flame sits on the pipe itself
-	flame.direction = pipe_dir
-	flame.scale_amount_min = 1.6 if popping else 0.8
-	flame.scale_amount_max = 2.2 if popping else 1.2
+	var fpm := flame.process_material as ParticleProcessMaterial
+	fpm.direction = pipe_dir
+	fpm.scale_min = 1.6 if popping else 0.8
+	fpm.scale_max = 2.2 if popping else 1.2

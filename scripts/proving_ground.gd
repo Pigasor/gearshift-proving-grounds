@@ -5,6 +5,7 @@ extends Node3D
 
 # Performance Testing Metrics
 var is_measuring_accel: bool = false
+var _accel_armed: bool = false # car was at a standstill: the next pull-away is timed
 var accel_timer: float = 0.0
 var time_0_100: float = 0.0
 var best_0_100: float = 0.0
@@ -37,6 +38,7 @@ func _physics_process(delta: float) -> void:
 	# Teleport / reset (car jumped > 30 m in one step): drop measurements in progress
 	if vehicle.global_position.distance_to(_last_pos) > 30.0:
 		is_measuring_accel = false
+		_accel_armed = false
 		is_measuring_quarter_mile = false
 		is_in_air = false
 	_last_pos = vehicle.global_position
@@ -49,12 +51,15 @@ func _physics_process(delta: float) -> void:
 func _track_acceleration(delta: float) -> void:
 	var speed: float = vehicle.current_speed_kmh
 
-	# 0-100 km/h tracking
-	if speed < 1.0 and not is_measuring_accel:
-		# Ready at standstill
-		pass
-	elif speed >= 1.0 and speed < 100.0:
-		if not is_measuring_accel and vehicle.current_gear >= 2:
+	# 0-100 km/h tracking: armed only at a standstill, so a run always starts from 0 (it used to
+	# restart whenever the speed dipped under 100, giving 0.8 s or 72 s "runs")
+	if speed < 1.0:
+		_accel_armed = true
+		is_measuring_accel = false # stopped again before 100: start over
+		is_measuring_quarter_mile = false
+	elif speed < 100.0:
+		if _accel_armed and not is_measuring_accel and vehicle.current_gear >= 2:
+			_accel_armed = false
 			is_measuring_accel = true
 			accel_timer = 0.0
 			is_measuring_quarter_mile = true
@@ -62,7 +67,7 @@ func _track_acceleration(delta: float) -> void:
 			quarter_mile_start_pos = vehicle.global_position
 		elif is_measuring_accel:
 			accel_timer += delta
-	elif speed >= 100.0 and is_measuring_accel:
+	if speed >= 100.0 and is_measuring_accel:
 		time_0_100 = accel_timer
 		is_measuring_accel = false
 		if best_0_100 == 0.0 or time_0_100 < best_0_100:
