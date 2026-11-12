@@ -39,7 +39,7 @@ var _burble_lp: float = 0.0
 # second, a buzzing "brrr" whose pitch falls to ~175 Hz as the turbo spins down, with a "tu-tu-tu"
 # of bright air on top. Synthesised after a reference flutter the user picked (its pitch glide,
 # ~6 Hz wobble and ~11 Hz air chop), then made thinner and softer on request - see _flutter_sample.
-const FLUTTER_CARS: Dictionary = {"supra": 1.0}
+const FLUTTER_CARS: Dictionary = {} # off for now (the Supra flutter is to be redone later): {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
 const FLUT_LEN: float = 1.1 # seconds

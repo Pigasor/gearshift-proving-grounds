@@ -477,7 +477,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
 	current_rpm = idle_rpm
-	_engage_gear_now(2 if is_automatic else 1)
+	_engage_gear_now(1) # neutral: the new car must not creep off on its own (auto picks D/R from the pedals)
 
 func _apply_engine(en: Dictionary) -> void:
 	use_torque_curve = true
@@ -1970,7 +1970,9 @@ func _calculate_g_forces(delta: float) -> void:
 	g_force_longitudinal = lerpf(g_force_longitudinal, local_accel.z / 9.81, delta * 12.0)
 	current_speed_kmh = linear_velocity.length() * 3.6
 
+const RPM_DROP_RATE: float = 6000.0 # rpm per second the engine can lose at most (outside gear changes)
 func _update_drivetrain(delta: float) -> void:
+	var rpm_before: float = current_rpm
 	if _is_shifting:
 		_shift_timer -= delta
 		if _shift_timer <= 0.0:
@@ -2077,6 +2079,11 @@ func _update_drivetrain(delta: float) -> void:
 		_clutch_slipping = true # next gear starts from a slipping clutch / converter
 		_auto_clutch = 0.0
 
+	# The flywheel and crank can't lose revs instantly: when spinning tyres hook up (or the clutch
+	# bites) the revs fall over a few tenths of a second (~6000 rpm/s), not in one frame.
+	# (gear changes have their own rev-matching above)
+	if not _is_shifting:
+		current_rpm = maxf(current_rpm, rpm_before - RPM_DROP_RATE * delta)
 	# Rolling down a hill can drive the engine past the limiter (no fuel, engine braking only).
 	current_rpm = clampf(current_rpm, idle_rpm * 0.5, max_rpm * 1.12)
 
@@ -2711,7 +2718,7 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	_prev_body_pos = Vector3.INF
 	_dir_change_armed = true
 	current_rpm = idle_rpm
-	_engage_gear_now(2)
+	_engage_gear_now(1) # neutral after a teleport: no creeping away
 	_reset_turbo_boost()
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
@@ -2735,7 +2742,7 @@ func reset_vehicle() -> void:
 	_prev_body_pos = Vector3.INF
 	_dir_change_armed = true
 	current_rpm = idle_rpm
-	_engage_gear_now(2) # also cancels a gear change that was in progress
+	_engage_gear_now(1) # neutral; also cancels a gear change that was in progress
 	_reset_turbo_boost()
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
