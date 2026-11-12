@@ -35,14 +35,19 @@ var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
 # Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
-# throttle shuts, the compressor surges and the trapped air chatters back through it: a hissy "s",
-# then a train of short hollow "tu" chirps that slow down and fade as the pressure bleeds off.
+# throttle shuts, the compressor surges and the trapped air chatters back through it (see
+# _flutter_sample).
 const FLUTTER_CARS: Dictionary = {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
 var _flut_ph: float = 0.0
-var _flut_air: Vector2 = Vector2.ZERO # state-variable filters (low, band): bright air "t / s"
-var _flut_hol: Vector2 = Vector2.ZERO # hollow resonance of the intake pipe: the "u"
+var _flut_air: Vector2 = Vector2.ZERO # band-pass state (low, band): the hollow ~240 Hz body
+var _flut_hol: Vector2 = Vector2.ZERO # high-pass / low-pass state: the 1.5-8 kHz air
+var _flut_lp: float = 0.0
+var _flut_micro: float = 0.0
+var _flut_menv: float = 0.0
+var _flut_wph: float = 0.0
+const FLUT_LEN: float = 1.1 # seconds
 var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -423,24 +428,37 @@ func generate(frames_available: int) -> PackedVector2Array:
 	return out
 
 func _flutter_sample(dt: float, noise: float) -> float:
+	# Modelled on a recording of a 2JZ flutter: not separate chirps but one dense, rough burst of air
+	# that "tu-tu-tu"s about 13 times a second (slowing to ~10), each "tu" itself a rattle of ~45
+	# tiny pressure pulses a second. Energy: a hollow ~240 Hz body + broadband 1.5-8 kHz air, with
+	# a faint turbo whistle sliding down from ~4.6 kHz as the compressor spins down.
 	_flut_t += dt
 	var ft: float = _flut_t
-	var k: float = clampf(ft / 0.7, 0.0, 1.0)
-	var rate: float = lerpf(19.0, 10.0, k) # chirps per second, slowing down
+	var k: float = clampf(ft / FLUT_LEN, 0.0, 1.0)
+	var rate: float = lerpf(13.5, 10.0, k)
 	_flut_ph += rate * dt
-	var tp: float = fmod(_flut_ph, 1.0) / rate # seconds since this chirp started
-	# bright air (the "t" of each chirp and the opening "s")
-	var fa: float = 2.0 * sin(PI * lerpf(2600.0, 1700.0, k) * dt)
-	_flut_air.x += fa * _flut_air.y
-	_flut_air.y += fa * (noise - _flut_air.x - 0.45 * _flut_air.y)
-	# hollow, slightly falling resonance (the "u")
-	var fh: float = 2.0 * sin(PI * lerpf(820.0, 560.0, k) * (1.0 + 0.25 * exp(-tp / 0.006)) * dt)
-	_flut_hol.x += fh * _flut_hol.y
-	_flut_hol.y += fh * (noise - _flut_hol.x - 0.16 * _flut_hol.y)
-	var attack: float = minf(tp / 0.0025, 1.0)
-	var chirp: float = _flut_air.y * 0.55 * exp(-tp / 0.006) + _flut_hol.y * 0.5 * exp(-tp / 0.02)
-	var hiss: float = _flut_air.y * 0.7 * exp(-ft / 0.035) # the opening "s"
-	var out: float = (chirp * attack * minf(ft / 0.02, 1.0) + hiss) * exp(-ft * 2.6) * _flut_amp
-	if ft > 0.85:
+	var tp: float = fmod(_flut_ph, 1.0) / rate # time since this "tu" started
+	var slow: float = 0.35 + 0.65 * exp(-tp / 0.032)
+	# fast rattle: jittered micro pulses (~45 / s)
+	_flut_micro -= dt
+	if _flut_micro <= 0.0:
+		_flut_micro = randf_range(0.016, 0.028)
+		_flut_menv = 1.0
+	_flut_menv *= 0.9985 # ~15 ms
+	var fast: float = 0.55 + 0.45 * _flut_menv
+	# hollow body (band-pass ~240 Hz)
+	var fl: float = 2.0 * sin(PI * 240.0 * dt)
+	_flut_air.x += fl * _flut_air.y
+	_flut_air.y += fl * (noise - _flut_air.x - 0.25 * _flut_air.y)
+	# air: noise above ~1.5 kHz, below ~8 kHz
+	_flut_hol.x += (noise - _flut_hol.x) * 0.19
+	_flut_hol.y += ((noise - _flut_hol.x) - _flut_hol.y) * 0.5
+	_flut_lp += (_flut_hol.y - _flut_lp) * 0.5
+	_flut_wph = fmod(_flut_wph + lerpf(4600.0, 3400.0, k) * TAU * dt, TAU)
+	var body: float = _flut_air.y * 2.2
+	var air: float = _flut_lp * 2.1 + sin(_flut_wph) * 0.15
+	var env: float = minf(ft / 0.008, 1.0) * (1.0 - smoothstep(FLUT_LEN * 0.55, FLUT_LEN, ft))
+	var out: float = (body + air) * slow * fast * env * _flut_amp
+	if ft > FLUT_LEN:
 		_flut_t = -1.0
 	return out

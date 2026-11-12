@@ -85,14 +85,15 @@ func _ready() -> void:
 	GameSettings.apply_scene_start.call_deferred()
 
 	_flip_label = Label.new()
-	_flip_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_flip_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	_flip_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_flip_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_flip_label.anchor_top = 0.2 # upper part of the screen, clear of the car
+	_flip_label.anchor_bottom = 0.2
 	_flip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_flip_label.add_theme_font_size_override("font_size", 34)
+	_flip_label.add_theme_font_size_override("font_size", 24)
 	_flip_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	_flip_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	_flip_label.add_theme_constant_override("outline_size", 10)
+	_flip_label.add_theme_constant_override("outline_size", 8)
 	_flip_label.visible = false
 	$HUD.add_child(_flip_label)
 	_lights_label = Label.new()

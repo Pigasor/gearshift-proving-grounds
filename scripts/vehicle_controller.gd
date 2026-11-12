@@ -607,23 +607,27 @@ func _rebuild_body(b: Dictionary) -> void:
 	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
 	_place_exhausts(builder.exhausts, builder.exhaust_up)
 	# headlight beams at the front corners (switched with L / K)
-	_head_mat = builder.head
-	_beams.clear()
-	_flares.clear()
+	var lamp_y: float = builder.g + float(builder.s["nose"]) - 0.06
+	_add_headlamps([Vector3(-(builder.hw - 0.35), lamp_y, builder.zf + 0.05), Vector3(builder.hw - 0.35, lamp_y, builder.zf + 0.05)], builder.head)
+
+# Headlight beams + glow on the lamp glass at these (car-local) lamp positions; head_mat = the
+# lamp glass material, brightened with the lights.
+func _add_headlamps(lamps: Array, head_mat: StandardMaterial3D) -> void:
+	_head_mat = head_mat
 	var flare_mat := StandardMaterial3D.new()
 	flare_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	flare_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	flare_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flare_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	flare_mat.billboard_keep_scale = true # the size per light mode comes from the node scale
 	flare_mat.albedo_texture = FxTex.soft()
-	flare_mat.albedo_color = Color(1.0, 0.93, 0.78)
-	flare_mat.no_depth_test = false
+	flare_mat.albedo_color = Color(1.0, 0.93, 0.78, 0.7)
 	var flare_q := QuadMesh.new()
 	flare_q.size = Vector2(1, 1)
 	flare_q.material = flare_mat
-	for sd in [-1.0, 1.0]:
+	for p in lamps:
 		var sl := SpotLight3D.new()
-		sl.position = Vector3(sd * (builder.hw - 0.35), builder.g + float(builder.s["nose"]) - 0.1, builder.zf + 0.05)
+		sl.position = p
 		sl.light_color = Color(1.0, 0.95, 0.85)
 		sl.light_specular = 0.2
 		visual_models_parent.add_child(sl)
@@ -631,7 +635,7 @@ func _rebuild_body(b: Dictionary) -> void:
 		var fl := MeshInstance3D.new()
 		fl.mesh = flare_q
 		fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		fl.position = sl.position + Vector3(0, 0, 0.12)
+		fl.position = p + Vector3(0, 0, 0.08)
 		visual_models_parent.add_child(fl)
 		_flares.append(fl)
 	_update_lights()
@@ -646,7 +650,7 @@ func _update_lights() -> void:
 		sl.basis = Basis.looking_at(Vector3(0.0, -0.01 if high_beam else -0.1, 1.0))
 	for fl in _flares:
 		fl.visible = on or light_mode == 1
-		fl.scale = Vector3.ONE * (1.6 if high_beam else [0.0, 0.45, 1.0][light_mode])
+		fl.scale = Vector3.ONE * (0.26 if high_beam else [0.0, 0.1, 0.18][light_mode])
 	if _head_mat:
 		_head_mat.emission_energy_multiplier = 8.0 if high_beam else [0.3, 1.4, 4.5][light_mode]
 	_tail_base = 1.2 if light_mode == 0 and not high_beam else 3.0
@@ -915,6 +919,9 @@ func _build_real_car_model(car_type: String) -> void:
 
 # Remove the current procedural body parts
 func _clear_car_model() -> void:
+	_beams.clear()
+	_flares.clear()
+	_head_mat = null
 	_dynamic_links.clear()
 	_coilovers.clear()
 	_brake_light_mats.clear()
@@ -1265,12 +1272,14 @@ func _build_trophy_truck_mesh() -> void:
 	skid_m.size = Vector3(1.1, 0.45, 0.08)
 	_create_part(skid_m, steel, Vector3(0, 0.05, 2.18), Vector3(35, 0, 0))
 
-	# Roof 4-Pod LED Lightbar
+	# Roof 4-Pod LED Lightbar (its headlights: brightens with L / K)
+	var pod_mat := led_light.duplicate() as StandardMaterial3D
 	for p in range(4):
 		var pod_m := BoxMesh.new()
 		pod_m.size = Vector3(0.18, 0.10, 0.12)
 		var px: float = -0.45 + (p * 0.30)
-		_create_part(pod_m, led_light, Vector3(px, 1.02, 0.4))
+		_create_part(pod_m, pod_mat, Vector3(px, 1.02, 0.4))
+	_add_headlamps([Vector3(-0.3, 1.02, 0.5), Vector3(0.3, 1.02, 0.5)], pod_mat)
 
 	# Open Rear Trophy Truck Bed with Tubular Frame
 	var bed_floor_m := BoxMesh.new()
@@ -1543,8 +1552,10 @@ func _build_monster_truck_mesh() -> void:
 	_create_part(grille_m, chrome, Vector3(0, 0.78, 2.46))
 	var hl_m := BoxMesh.new()
 	hl_m.size = Vector3(0.36, 0.18, 0.08)
-	_create_part(hl_m, led, Vector3(-0.95, 0.8, 2.46))
-	_create_part(hl_m, led, Vector3(0.95, 0.8, 2.46))
+	var head := led.duplicate() as StandardMaterial3D # its own glass: brightens with the lights
+	_create_part(hl_m, head, Vector3(-0.95, 0.8, 2.46))
+	_create_part(hl_m, head, Vector3(0.95, 0.8, 2.46))
+	_add_headlamps([Vector3(-0.95, 0.8, 2.52), Vector3(0.95, 0.8, 2.52)], head)
 	var push_m := BoxMesh.new()
 	push_m.size = Vector3(2.3, 0.16, 0.16)
 	_create_part(push_m, black, Vector3(0, 0.42, 2.5))
@@ -2183,7 +2194,8 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 		cap = peak_tq * 1.5 * eng * eng
 	# Brake held at a standstill with the throttle down (a launch from a brake stand): the clutch /
 	# converter lets the engine rev freely; let go of the brake and the car launches.
-	if _brake_input > 0.3 and _throttle_input > 0.1 and current_gear >= 2 and not wheel_clutch and absf(linear_velocity.dot(global_transform.basis.z)) < 1.0:
+	# (front-wheel drive spins its tyres instead - see the line lock in _simulate_suspension_and_tires)
+	if _brake_input > 0.3 and _throttle_input > 0.1 and current_gear >= 2 and not wheel_clutch and drivetrain_mode != "FWD" and absf(linear_velocity.dot(global_transform.basis.z)) < 1.0:
 		cap = 0.0
 		_auto_clutch = 0.0
 		_slip_time = 0.0
@@ -2349,7 +2361,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	var engine_share: float = engine_inertia * gear_mult * gear_mult / float(maxi(n_driven, 1))
 	# Burnout: slow, in gear, handbrake + throttle -> the handbrake holds the axle that is NOT driven
 	# (the front on RWD/AWD) so the driven wheels spin and the tyres smoke; TCS stays out of it.
-	var burnout: bool = _handbrake_input > 0.5 and _throttle_input > 0.5 and current_gear >= 2 and absf(linear_velocity.dot(global_transform.basis.z)) < 5.5
+	# Front-wheel drive: foot brake + throttle does it too ("line lock"): the brake then holds only the
+	# rear wheels and the driven fronts spin.
+	var line_lock: bool = drivetrain_mode == "FWD" and _brake_input > 0.3 and _handbrake_input < 0.5
+	var burnout: bool = (_handbrake_input > 0.5 or line_lock) and _throttle_input > 0.5 and current_gear >= 2 and absf(linear_velocity.dot(global_transform.basis.z)) < 5.5
+	line_lock = line_lock and burnout
 	var hb_front: bool = burnout and drivetrain_mode != "FWD"
 	is_burnout = burnout
 	var speed_now: float = linear_velocity.length()
@@ -2452,6 +2468,8 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			var is_front: bool = (i < 2)
 			var brake_factor: float = brake_bias_front if is_front else (1.0 - brake_bias_front)
 			var total_brake_torque: float = _brake_input * brake_torque_max * brake_factor
+			if line_lock:
+				total_brake_torque = 0.0 if is_front else _brake_input * handbrake_torque_max
 			if is_front == hb_front: # rear axle, or the front one in a burnout
 				total_brake_torque += _handbrake_input * handbrake_torque_max
 			var engine_brake_only: bool = total_brake_torque <= 0.0
@@ -2462,6 +2480,10 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# grip for it), so the car still turns on throttle at speed instead of ploughing straight.
 			var total_grip: float = lat_grip * normal_force
 			var long_room: float = maxf(sqrt(maxf(total_grip * total_grip - lateral_force_mag * lateral_force_mag, 0.0)), total_grip * 0.35)
+			# FWD line lock: the braked rear tyres alone can't hold back grippy driven fronts, so the car
+			# would just crawl forward. Spinning tyres grip far less: let the fronts break loose.
+			if line_lock and _is_driven(i):
+				long_room *= 0.3
 
 			# --- Per-wheel spin & tyre longitudinal force (one solve covers drive, wheelspin,
 			# engine braking, braking and lock-up) ---
