@@ -493,23 +493,30 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 # --- Tuning UI Callbacks ---
 func _on_option_car_select_item_selected(index: int) -> void:
 	if vehicle:
-		vehicle.apply_car(option_car_select.get_item_id(index), 0)
-		_sync_tuning_sliders_from_vehicle()
+		_switch_car(option_car_select.get_item_id(index))
 
 func _on_option_engine_selected(index: int) -> void:
 	if vehicle:
 		vehicle.apply_car(int(vehicle.current_vehicle_type), index)
+		# remember the engine for this car (also across game sessions)
+		var engines: Dictionary = GameSettings.get_value("car_engines")
+		engines[str(vehicle.current_vehicle_type)] = index
+		GameSettings.values["car_engines"] = engines
+		GameSettings.save()
 		_sync_tuning_sliders_from_vehicle()
 
 func _cycle_next_car() -> void:
 	if vehicle:
-		vehicle.apply_car((int(vehicle.current_vehicle_type) + 1) % CarDatabase.count(), 0)
-		_sync_tuning_sliders_from_vehicle()
+		_switch_car((int(vehicle.current_vehicle_type) + 1) % CarDatabase.count())
 
 func _cycle_prev_car() -> void:
 	if vehicle:
-		vehicle.apply_car((int(vehicle.current_vehicle_type) - 1 + CarDatabase.count()) % CarDatabase.count(), 0)
-		_sync_tuning_sliders_from_vehicle()
+		_switch_car((int(vehicle.current_vehicle_type) - 1 + CarDatabase.count()) % CarDatabase.count())
+
+# Switch to a car with the engine last picked for it
+func _switch_car(idx: int) -> void:
+	vehicle.apply_car(idx, int((GameSettings.get_value("car_engines") as Dictionary).get(str(idx), 0)))
+	_sync_tuning_sliders_from_vehicle()
 
 func _on_btn_quick_car_pressed() -> void:
 	# many cars to pick from: open the garage on its car tab instead of cycling one by one

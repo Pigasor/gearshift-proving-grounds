@@ -60,6 +60,7 @@ var defaults: Dictionary = {
 	"time_of_day": 12.0, # hour the clock is set to (Settings > Görüntü)
 	"day_cycle": true, # the clock keeps running
 	"day_length": 1, # index into DayNight.DAY_MINUTES (10 / 24 / 48 min)
+	"car_engines": {}, # car index (as text) -> engine index last picked for it in the garage
 	# Audio
 	"master_volume": 0.8,
 	"mute": false,

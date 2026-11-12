@@ -299,11 +299,58 @@ func _build_mega_highway() -> void:
 	_add_strip(road_out, slope_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
 	_add_collision_body(road_faces, "asphalt")
 	_add_collision_body(dirt_faces, "dirt")
+	# street lamps along the inside of the ring, every ~90 m
+	var lamp_d: float = 0.0
+	for i in range(samples.size() - 1):
+		if dist[i] >= lamp_d:
+			var lp: Vector2 = (samples[i][0] as Vector2) - (samples[i][1] as Vector2) * (hw_w * 0.5 + 7.5)
+			_street_lamp(Vector3(lp.x, 0.0, lp.y), samples[i][1])
+			lamp_d += 90.0
 
 	# Concrete guardrails along the outer edge of the north & south straights
 	var straight_len: float = (d - corner_r) * 2.0
 	_create_static_box(Vector3(0, 0.8, d + 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
 	_create_static_box(Vector3(0, 0.8, -d - 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
+
+# Street lamp: pole, an arm reaching over the road and a glowing head; its warm light is in the
+# "floodlights" group, so DayNight switches it on at dusk. Far lamps fade out (cheap at night).
+var _lamp_head_mat: StandardMaterial3D
+func _street_lamp(base: Vector3, to_road: Vector2) -> void:
+	if _lamp_head_mat == null:
+		_lamp_head_mat = StandardMaterial3D.new()
+		_lamp_head_mat.albedo_color = Color(1.0, 0.92, 0.75)
+		_lamp_head_mat.emission_enabled = true
+		_lamp_head_mat.emission = Color(1.0, 0.85, 0.6)
+		_lamp_head_mat.emission_energy_multiplier = 3.0
+	var h: float = 9.0
+	var d3 := Vector3(to_road.x, 0.0, to_road.y).normalized()
+	_create_static_box(base + Vector3(0, h * 0.5, 0), Vector3(0.22, h, 0.22), mat_concrete_wall)
+	var face := Basis.looking_at(d3)
+	var arm := MeshInstance3D.new()
+	var am := BoxMesh.new()
+	am.size = Vector3(0.12, 0.12, 2.4)
+	arm.mesh = am
+	arm.material_override = mat_concrete_wall
+	arm.transform = Transform3D(face, base + Vector3(0, h, 0) + d3 * 1.2)
+	add_child(arm)
+	var head := MeshInstance3D.new()
+	var hm := BoxMesh.new()
+	hm.size = Vector3(0.45, 0.14, 0.8)
+	head.mesh = hm
+	head.material_override = _lamp_head_mat
+	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	head.transform = Transform3D(face, base + Vector3(0, h - 0.05, 0) + d3 * 2.3)
+	add_child(head)
+	var l := OmniLight3D.new()
+	l.position = base + Vector3(0, h - 0.6, 0) + d3 * 2.3
+	l.light_color = Color(1.0, 0.84, 0.6)
+	l.light_energy = 2.4
+	l.omni_range = 30.0
+	l.distance_fade_enabled = true
+	l.distance_fade_begin = 280.0
+	l.distance_fade_length = 60.0
+	l.add_to_group("floodlights")
+	add_child(l)
 
 # Static trimesh body from collected faces, tagged with its surface type.
 func _add_collision_body(faces: PackedVector3Array, surface: String) -> StaticBody3D:
@@ -430,6 +477,21 @@ func _build_grand_prix_circuit() -> void:
 	var track_faces := PackedVector3Array()
 	_add_strip(left, right, dist, 0.0, 1.0, 1.0 / 20.0, mat_track, track_faces)
 	_add_collision_body(track_faces, "asphalt")
+	# street lamps beside the circuit every ~80 m (never where another part of the track passes)
+	var lamp_d: float = 0.0
+	for i in range(count - 1):
+		if dist[i] < lamp_d:
+			continue
+		var nrm2 := Vector2(-tangents[i].y, tangents[i].x)
+		var lp: Vector2 = pts[i] + nrm2 * (half + 20.0) # well clear of the run-off: cars run wide
+		var clear: bool = true
+		for q in pts:
+			if q.distance_to(lp) < half + 16.0:
+				clear = false
+				break
+		if clear:
+			_street_lamp(Vector3(lp.x, 0.0, lp.y), -nrm2)
+			lamp_d = dist[i] + 80.0
 	var unused := PackedVector3Array()
 	var edge_l: Array[Vector3] = []
 	var edge_r: Array[Vector3] = []
@@ -895,6 +957,19 @@ func _build_nascar_oval() -> void:
 		sd.append(u * OVAL_WIDTH)
 	_add_strip(sl, sr, sd, 0.0, 1.0, 1.0, mat_road_white, unused)
 	_build_oval_stands()
+	# stadium floodlight masts: behind both turns and in the infield
+	for m in [Vector2(OVAL_STRAIGHT * 0.5 + OVAL_RADIUS + 40.0, 0.0), Vector2(-(OVAL_STRAIGHT * 0.5 + OVAL_RADIUS + 40.0), 0.0),
+			Vector2(110.0, 0.0), Vector2(-110.0, 0.0)]:
+		var mp := Vector3(OVAL_CENTER.x + m.x, 0.0, OVAL_CENTER.y + m.y)
+		_create_static_box(mp + Vector3(0, 14.0, 0), Vector3(0.8, 28.0, 0.8), mat_concrete_wall)
+		_create_static_box(mp + Vector3(0, 28.3, 0), Vector3(4.0, 1.2, 1.0), mat_metal_blue)
+		var fl := OmniLight3D.new()
+		fl.position = mp + Vector3(0, 27.0, 0)
+		fl.light_color = Color(1.0, 0.96, 0.9)
+		fl.light_energy = 9.0
+		fl.omni_range = 190.0
+		fl.add_to_group("floodlights")
+		add_child(fl)
 
 # Grandstands along both straights of the oval, packed with fans (one MultiMesh for bodies and one
 # for heads: thousands of people for the cost of two draw calls)
@@ -1126,6 +1201,16 @@ func _build_mountain() -> void:
 		elif gap:
 			seg_in = []; seg_top = []; seg_d = []
 	_add_collision_body(rail_faces, "concrete")
+	# lamps on the mountain side of the road every ~70 m
+	var lamp_d: float = 0.0
+	for s2 in range(samples + 1):
+		if dist[s2] < lamp_d:
+			continue
+		var th2: float = MTN_TURN * float(s2) / samples
+		var out_dir := Vector2(cos(th2), sin(th2))
+		var lp: Vector3 = road_in[s2] - Vector3(out_dir.x, 0.0, out_dir.y) * 1.2
+		_street_lamp(lp, out_dir)
+		lamp_d += 70.0
 
 	# 3) the steep trail: a dirt strip straight up the west face, then its obstacles
 	var t_in: Array[Vector3] = []

@@ -169,7 +169,7 @@ const EN: Dictionary = {
 	"Parıltı Efekti (Glow)": "Glow",
 	"Atmosfer Sisi": "Atmospheric Fog",
 	"Görüş Mesafesi": "Draw Distance",
-	"Projektör Işıkları": "Floodlights",
+	"Gece Işıkları (lambalar, projektörler)": "Night Lights (street lamps, floodlights)",
 	"İpucu: FPS düşükse önce Render Ölçeği'ni ve Gölgeler'i düşür.": "Tip: if the FPS is low, lower Render Scale and Shadows first.",
 	"Ana Ses Seviyesi": "Master Volume",
 	"Sesi Kapat": "Mute",

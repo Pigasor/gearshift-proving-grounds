@@ -301,7 +301,7 @@ func _build_tabs() -> void:
 	_add_check(gr, "Parıltı Efekti (Glow)", "glow")
 	_add_check(gr, "Atmosfer Sisi", "fog")
 	_add_slider(gr, "Görüş Mesafesi", "draw_distance", 500.0, 4000.0, 100.0, 1.0, " m")
-	_add_check(gr, "Projektör Işıkları", "floodlights")
+	_add_check(gr, "Gece Işıkları (lambalar, projektörler)", "floodlights")
 	_note(gr, "İpucu: FPS düşükse önce Render Ölçeği'ni ve Gölgeler'i düşür.")
 
 	# SES

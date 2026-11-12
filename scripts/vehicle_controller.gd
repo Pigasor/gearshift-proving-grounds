@@ -51,7 +51,6 @@ var high_beam: bool = false # K
 var _head_mat: StandardMaterial3D
 var _tail_base: float = 1.2
 var _beams: Array[SpotLight3D] = []
-var _flares: Array[MeshInstance3D] = [] # glow on the headlamp glass, seen from in front / the side
 var wheel_inertia: float = 1.2
 var engine_inertia: float = 0.25
 
@@ -418,6 +417,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # Pick a car + engine from CarDatabase (garage menu). Legacy cars use their tuned presets below.
 func apply_car(index: int, engine_index: int = 0) -> void:
+	_reset_turbo_boost()
 	var c: Dictionary = CarDatabase.car(index)
 	index = clampi(index, 0, CarDatabase.count() - 1)
 	engine_index = clampi(engine_index, 0, (c["engines"] as Array).size() - 1)
@@ -610,21 +610,10 @@ func _rebuild_body(b: Dictionary) -> void:
 	var lamp_y: float = builder.g + float(builder.s["nose"]) - 0.06
 	_add_headlamps([Vector3(-(builder.hw - 0.35), lamp_y, builder.zf + 0.05), Vector3(builder.hw - 0.35, lamp_y, builder.zf + 0.05)], builder.head)
 
-# Headlight beams + glow on the lamp glass at these (car-local) lamp positions; head_mat = the
-# lamp glass material, brightened with the lights.
+# Headlight beams at these (car-local) lamp positions; head_mat = the lamp glass material, which
+# glows brighter with the lights.
 func _add_headlamps(lamps: Array, head_mat: StandardMaterial3D) -> void:
 	_head_mat = head_mat
-	var flare_mat := StandardMaterial3D.new()
-	flare_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	flare_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	flare_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	flare_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	flare_mat.billboard_keep_scale = true # the size per light mode comes from the node scale
-	flare_mat.albedo_texture = FxTex.soft()
-	flare_mat.albedo_color = Color(1.0, 0.93, 0.78, 0.7)
-	var flare_q := QuadMesh.new()
-	flare_q.size = Vector2(1, 1)
-	flare_q.material = flare_mat
 	for p in lamps:
 		var sl := SpotLight3D.new()
 		sl.position = p
@@ -632,27 +621,18 @@ func _add_headlamps(lamps: Array, head_mat: StandardMaterial3D) -> void:
 		sl.light_specular = 0.2
 		visual_models_parent.add_child(sl)
 		_beams.append(sl)
-		var fl := MeshInstance3D.new()
-		fl.mesh = flare_q
-		fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		fl.position = p + Vector3(0, 0, 0.08)
-		visual_models_parent.add_child(fl)
-		_flares.append(fl)
 	_update_lights()
 
 func _update_lights() -> void:
 	var on: bool = light_mode == 2 or high_beam
 	for sl in _beams:
 		sl.visible = on
-		sl.spot_range = 150.0 if high_beam else 55.0
-		sl.spot_angle = 22.0 if high_beam else 34.0
-		sl.light_energy = 10.0 if high_beam else 5.0
+		sl.spot_range = 200.0 if high_beam else 75.0
+		sl.spot_angle = 26.0 if high_beam else 40.0
+		sl.light_energy = 18.0 if high_beam else 9.0
 		sl.basis = Basis.looking_at(Vector3(0.0, -0.01 if high_beam else -0.1, 1.0))
-	for fl in _flares:
-		fl.visible = on or light_mode == 1
-		fl.scale = Vector3.ONE * (0.26 if high_beam else [0.0, 0.1, 0.18][light_mode])
 	if _head_mat:
-		_head_mat.emission_energy_multiplier = 8.0 if high_beam else [0.3, 1.4, 4.5][light_mode]
+		_head_mat.emission_energy_multiplier = 16.0 if high_beam else [0.3, 3.0, 9.0][light_mode]
 	_tail_base = 1.2 if light_mode == 0 and not high_beam else 3.0
 
 # Smoke emitter on every tailpipe tip (local); up = vertical stacks blowing upwards
@@ -920,7 +900,6 @@ func _build_real_car_model(car_type: String) -> void:
 # Remove the current procedural body parts
 func _clear_car_model() -> void:
 	_beams.clear()
-	_flares.clear()
 	_head_mat = null
 	_dynamic_links.clear()
 	_coilovers.clear()
@@ -1820,13 +1799,12 @@ func _read_inputs(delta: float) -> void:
 		elif absf(forward_speed) < 0.5 and raw_brake < 0.1 and raw_throttle < 0.1:
 			_dir_change_armed = true
 		if current_gear >= 2:
-			# Stopped and pressing S again -> reverse. Rolling backwards (e.g. couldn't make it up a
-			# hill) -> the gearbox follows the car into R instead of staying in 1st.
-			# (Only at low speed - a car that spins round in a slide must not drop into R.)
-			if (_dir_change_armed and forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1) or (forward_speed < -1.2 and forward_speed > -6.0):
+			# Stopped and pressing S again -> reverse. Only the driver picks the direction: rolling back
+			# a little (on a hill, off a wall) stays in D like a real automatic - it used to drop into R.
+			if _dir_change_armed and forward_speed < 0.8 and raw_brake > 0.2 and raw_throttle < 0.1:
 				_engage_gear_now(0)
 		elif current_gear == 0:
-			if (_dir_change_armed and forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1) or (forward_speed > 1.2 and forward_speed < 6.0):
+			if _dir_change_armed and forward_speed > -0.8 and raw_throttle > 0.2 and raw_brake < 0.1:
 				_engage_gear_now(2)
 		elif current_gear == 1: # neutral in auto mode: pick a direction from the pedals
 			if raw_throttle > 0.2:
@@ -2729,6 +2707,7 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	_dir_change_armed = true
 	current_rpm = idle_rpm
 	_engage_gear_now(2)
+	_reset_turbo_boost()
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
 		_prev_raw_compression[i] = 0.0
@@ -2752,14 +2731,18 @@ func reset_vehicle() -> void:
 	_dir_change_armed = true
 	current_rpm = idle_rpm
 	_engage_gear_now(2) # also cancels a gear change that was in progress
+	_reset_turbo_boost()
+	for i in range(4):
+		wheel_angular_velocity[i] = 0.0
+		_prev_raw_compression[i] = 0.0
+
+# Fresh boost: no cooldown left over (car change, teleport, reset)
+func _reset_turbo_boost() -> void:
 	turbo_boost_bar = 0.0
 	turbo_boost_active = false
 	turbo_boost_timer = 0.0
 	turbo_boost_cooldown_timer = 0.0
 	turbo_boost_ready = true
-	for i in range(4):
-		wheel_angular_velocity[i] = 0.0
-		_prev_raw_compression[i] = 0.0
 
 # Recover (R / gamepad Y): put the car back on its wheels right where it is, dropped from a
 # little above the ground (never high), facing the way it was heading. Can be pressed again and

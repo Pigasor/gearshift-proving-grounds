@@ -35,19 +35,14 @@ var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
 # Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
-# throttle shuts, the compressor surges and the trapped air chatters back through it (see
-# _flutter_sample).
+# throttle shuts, the compressor surges and the trapped air chatters back through it. Two synthesised
+# versions never sounded right, so this plays a recording (sounds/supra_flutter.wav, its engine
+# rumble filtered out - our engine sound plays underneath).
 const FLUTTER_CARS: Dictionary = {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
-var _flut_ph: float = 0.0
-var _flut_air: Vector2 = Vector2.ZERO # band-pass state (low, band): the hollow ~240 Hz body
-var _flut_hol: Vector2 = Vector2.ZERO # high-pass / low-pass state: the 1.5-8 kHz air
-var _flut_lp: float = 0.0
-var _flut_micro: float = 0.0
-var _flut_menv: float = 0.0
-var _flut_wph: float = 0.0
-const FLUT_LEN: float = 1.1 # seconds
+var _flut_player: AudioStreamPlayer
+const FLUT_LEN: float = 1.6 # seconds (length of the recording)
 var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -134,6 +129,9 @@ func _ready() -> void:
 	audio_player.stream = generator
 	audio_player.play()
 	playback = audio_player.get_stream_playback()
+	_flut_player = AudioStreamPlayer.new()
+	_flut_player.stream = load("res://sounds/supra_flutter.wav")
+	add_child(_flut_player)
 
 func _physics_process(delta: float) -> void:
 	if vehicle == null or playback == null:
@@ -158,8 +156,10 @@ func _physics_process(delta: float) -> void:
 	var fresh: bool = _flut_t < 0.0 or _flut_t > 0.25 # don't restart a flutter that just began
 	if flut_k > 0.0 and fresh and vehicle.turbo_boost_bar > 0.3 and (upshift or lifted):
 		_flut_t = 0.0
-		_flut_ph = 0.0
 		_flut_amp = flut_k * clampf(vehicle.turbo_boost_bar / 1.2, 0.35, 1.0)
+		_flut_player.volume_db = linear_to_db(_flut_amp * 0.9)
+		_flut_player.pitch_scale = randf_range(0.96, 1.04) # never twice exactly the same
+		_flut_player.play()
 	if gear_now >= 2 or gear_now == 0:
 		_flut_gear = gear_now
 	if _previous_throttle > 0.5 and current_thr < 0.15:
@@ -406,9 +406,10 @@ func generate(frames_available: int) -> PackedVector2Array:
 				_bov_amp = 0.0
 				_bov_env = 0.0
 
-		var flut_sample: float = 0.0
-		if _flut_t >= 0.0:
-			flut_sample = tanh(_flutter_sample(dt, noise) * 2.0) * 0.6
+		if _flut_t >= 0.0: # the flutter itself plays from _flut_player; this times the engine duck
+			_flut_t += dt
+			if _flut_t > FLUT_LEN:
+				_flut_t = -1.0
 
 		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
 		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
@@ -423,42 +424,6 @@ func generate(frames_available: int) -> PackedVector2Array:
 
 		# the throttle is shut while it flutters: the engine drops back and the chatter stands out
 		var duck: float = (1.0 - 0.45 * exp(-_flut_t * 2.6)) if _flut_t >= 0.0 else 1.0
-		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
+		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
-	return out
-
-func _flutter_sample(dt: float, noise: float) -> float:
-	# Modelled on a recording of a 2JZ flutter: not separate chirps but one dense, rough burst of air
-	# that "tu-tu-tu"s about 13 times a second (slowing to ~10), each "tu" itself a rattle of ~45
-	# tiny pressure pulses a second. Energy: a hollow ~240 Hz body + broadband 1.5-8 kHz air, with
-	# a faint turbo whistle sliding down from ~4.6 kHz as the compressor spins down.
-	_flut_t += dt
-	var ft: float = _flut_t
-	var k: float = clampf(ft / FLUT_LEN, 0.0, 1.0)
-	var rate: float = lerpf(13.5, 10.0, k)
-	_flut_ph += rate * dt
-	var tp: float = fmod(_flut_ph, 1.0) / rate # time since this "tu" started
-	var slow: float = 0.35 + 0.65 * exp(-tp / 0.032)
-	# fast rattle: jittered micro pulses (~45 / s)
-	_flut_micro -= dt
-	if _flut_micro <= 0.0:
-		_flut_micro = randf_range(0.016, 0.028)
-		_flut_menv = 1.0
-	_flut_menv *= 0.9985 # ~15 ms
-	var fast: float = 0.55 + 0.45 * _flut_menv
-	# hollow body (band-pass ~240 Hz)
-	var fl: float = 2.0 * sin(PI * 240.0 * dt)
-	_flut_air.x += fl * _flut_air.y
-	_flut_air.y += fl * (noise - _flut_air.x - 0.25 * _flut_air.y)
-	# air: noise above ~1.5 kHz, below ~8 kHz
-	_flut_hol.x += (noise - _flut_hol.x) * 0.19
-	_flut_hol.y += ((noise - _flut_hol.x) - _flut_hol.y) * 0.5
-	_flut_lp += (_flut_hol.y - _flut_lp) * 0.5
-	_flut_wph = fmod(_flut_wph + lerpf(4600.0, 3400.0, k) * TAU * dt, TAU)
-	var body: float = _flut_air.y * 2.2
-	var air: float = _flut_lp * 2.1 + sin(_flut_wph) * 0.15
-	var env: float = minf(ft / 0.008, 1.0) * (1.0 - smoothstep(FLUT_LEN * 0.55, FLUT_LEN, ft))
-	var out: float = (body + air) * slow * fast * env * _flut_amp
-	if ft > FLUT_LEN:
-		_flut_t = -1.0
 	return out

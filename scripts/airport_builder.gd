@@ -192,6 +192,17 @@ func _runway() -> void:
 	while ez < RW_Z1:
 		for s in [-1.0, 1.0]:
 			_visual(_box_mesh(Vector3(0.35, 0.35, 0.35)), mat_light_white, Vector3(s * (RW_W * 0.5 + 1.0), 0.18, ez), Vector3.ZERO, false)
+			# a soft warm pool of light around each one at night (DayNight switches the group)
+			var el := OmniLight3D.new()
+			el.position = Vector3(s * (RW_W * 0.5 + 1.0), 0.7, ez)
+			el.light_color = Color(1.0, 0.9, 0.72)
+			el.light_energy = 0.9
+			el.omni_range = 12.0
+			el.distance_fade_enabled = true
+			el.distance_fade_begin = 220.0
+			el.distance_fade_length = 50.0
+			el.add_to_group("floodlights")
+			mb.add_child(el)
 		ez += 60.0
 
 	# Drag-race distances from the drag start line (yellow lines across the runway + labels)

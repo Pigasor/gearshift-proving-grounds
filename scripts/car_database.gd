@@ -148,7 +148,8 @@ const CARS: Array = [
 		"body": { "length": 4.95, "width": 2.55, "height": 3.05, "wheelbase": 2.76, "track": 1.95,
 			"front_overhang": 1.55, "tire_r": 0.92, "mass": 7000.0, "cd_area": 1.6, "drive": "AWD",
 			"color": Color(0.21, 0.49, 0.18), "style": "tractor", "rim": Color(0.98, 0.82, 0.08),
-			"setup": {"front_wheel_r": 0.62, "offroad_tires": true, "suspension_rest_length": 0.18, "suspension_travel": 0.12,
+			"ground_clearance": 0.55, # clears the rocks on the mountain trail
+			"setup": {"front_wheel_r": 0.62, "offroad_tires": true, "suspension_rest_length": 0.28, "suspension_travel": 0.14,
 				"camera_scale": 1.6, "max_steer_angle_deg": 45.0, "wheel_inertia": 40.0, "engine_inertia": 1.2,
 				"anti_roll_stiffness": 30000.0, "brake_bias_front": 0.4, "shift_delay_seconds": 0.4, "tire_grip_factor": 0.95} },
 		"engines": [
