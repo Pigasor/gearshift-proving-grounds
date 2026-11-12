@@ -57,6 +57,8 @@ var engine_inertia: float = 0.25
 # --- CURRENT VEHICLE TYPE ---
 # Index into CarDatabase.CARS (0-5 are the original cars, same numbers as VehicleType)
 @export var current_vehicle_type: int = VehicleType.GT_SPORT
+var is_monster: bool = false # monster-truck chassis (Goliath and its siblings): wall climbing, wide wheels
+var legacy_paint: Color = Color(0, 0, 0, 0) # paint for a hand-built legacy body (alpha 0 = its own colour)
 var current_engine_index: int = 0
 var record_key: int = 0 # lap records: car index, or car*100+engine for non-default engines
 var engine_cylinders: int = 6
@@ -430,6 +432,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 		if roll != null:
 			roll.position = Vector3.ZERO
 	_place_exhausts([Vector3(-0.55, -0.05, -2.4)], false) # legacy trophy truck; bodies / monster override
+	legacy_paint = c.get("paint", Color(0, 0, 0, 0))
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
 		_apply_engine(en)
@@ -459,6 +462,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 		if is_inside_tree() and new_ride > old_ride:
 			global_position += Vector3.UP * (new_ride - old_ride + 0.1)
 	current_vehicle_type = index
+	is_monster = int(c.get("legacy", -1)) == VehicleType.MONSTER_TRUCK
 	current_engine_index = engine_index
 	record_key = index if engine_index == 0 else index * 100 + engine_index
 	engine_classic = bool(c.get("classic", false))
@@ -535,6 +539,7 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	handbrake_torque_max = 9000.0
 	brake_bias_front = 0.68
 	shift_delay_seconds = 0.32 # an ordinary gearbox, not a race DCT
+	center_of_mass = Vector3(0.0, -0.12, 0.18) # engine up front (mid / rear-engined cars override it in "setup")
 	# per-model setup (race car, tractor, buggy...): overrides any of the values above
 	var setup: Dictionary = b.get("setup", {})
 	for k in setup:
@@ -544,7 +549,6 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var wb: float = float(b["wheelbase"])
 	var tr: float = float(b["track"])
 	wheel_offsets = [Vector3(-tr * 0.5, 0.0, wb * 0.5), Vector3(tr * 0.5, 0.0, wb * 0.5), Vector3(-tr * 0.5, 0.0, -wb * 0.5), Vector3(tr * 0.5, 0.0, -wb * 0.5)]
-	center_of_mass = Vector3(0.0, -0.12, 0.18) # engine up front
 	# Collision: lower body + cabin, sized to the car
 	var ground_y: float = -(tire_radius + suspension_rest_length - 0.09)
 	var L: float = float(b["length"])
@@ -654,7 +658,7 @@ func _place_exhausts(tips: Array, up: bool) -> void:
 # platform edges. A cylinder per wheel (a bit smaller than the tyre, at the fully compressed
 # position) blocks that without ever touching the road during normal driving.
 func _update_wheel_colliders() -> void:
-	var monster: bool = current_vehicle_type == VehicleType.MONSTER_TRUCK
+	var monster: bool = is_monster
 	for i in range(4):
 		var nm: String = "CollisionWheel%d" % i
 		var col := get_node_or_null(nm) as CollisionShape3D
@@ -672,6 +676,7 @@ func _update_wheel_colliders() -> void:
 func apply_vehicle_preset(type: int) -> void:
 	var old_ride: float = tire_radius + suspension_rest_length
 	current_vehicle_type = type
+	is_monster = type == VehicleType.MONSTER_TRUCK
 	current_engine_index = 0
 	record_key = type
 	# Values the realistic (database) cars change - restore the legacy defaults
@@ -1388,7 +1393,7 @@ func _update_dynamic_links() -> void:
 # Body origin sits ~1.2 m above the ground; wheel centres are ~0.38 m below it, tyres reach ~0.45 m above it.
 func _build_monster_truck_mesh() -> void:
 	var paint := StandardMaterial3D.new()
-	paint.albedo_color = Color(0.36, 0.82, 0.10) # Toxic lime green
+	paint.albedo_color = legacy_paint if legacy_paint.a > 0.0 else Color(0.36, 0.82, 0.10) # Toxic lime green
 	paint.metallic = 0.6
 	paint.roughness = 0.22
 	paint.clearcoat_enabled = true
@@ -1569,7 +1574,7 @@ func _physics_process(delta: float) -> void:
 # can climb it. Lift off and it peels away and falls.
 func _monster_wall_climb() -> void:
 	wall_climbing = false
-	if current_vehicle_type != VehicleType.MONSTER_TRUCK or _throttle_input < 0.15 or current_gear < 2:
+	if not is_monster or _throttle_input < 0.15 or current_gear < 2:
 		return
 	var b: Basis = global_transform.basis
 	var g: float = mass * 9.81
@@ -2800,7 +2805,7 @@ func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector
 		# up a wall. Walls are now left to the collision shapes, like in reality.
 		# (abs: some ground meshes report their face normal pointing down)
 		# (the monster truck is the exception: it is meant to climb walls, see _monster_wall_climb)
-		if absf(hit.normal.y) < 0.45 and (current_vehicle_type != VehicleType.MONSTER_TRUCK or hit.collider.has_meta("no_climb")):
+		if absf(hit.normal.y) < 0.45 and (not is_monster or hit.collider.has_meta("no_climb")):
 			continue
 		var tt: float = (hit.position - mount).length()
 		var side: float = tt * sin(absf(a))

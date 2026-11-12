@@ -199,7 +199,8 @@ func _physics_process(delta: float) -> void:
 # Start the current car's backfire bang (BANGS)
 func trigger_bang() -> void:
 	_bang_t = 0.0
-	_bang = BANGS.get(str(CarDatabase.car(int(vehicle.get("current_vehicle_type")))["id"]), BANG_DEFAULT)
+	var car_d: Dictionary = CarDatabase.car(int(vehicle.get("current_vehicle_type")))
+	_bang = BANGS.get(str(car_d.get("bang", car_d["id"])), BANG_DEFAULT) # "bang": borrow another car's
 	_bk = [float(_bang["crack"]), float(_bang["tone"]), float(_bang["body"]), float(_bang["f0"]), float(_bang["f1"]),
 		float(_bang["boom"]), float(_bang["pops"]), float(_bang["gap"]), float(_bang["level"])]
 	# low-passed noise gets quieter the darker the tone: scale it back to the same loudness
