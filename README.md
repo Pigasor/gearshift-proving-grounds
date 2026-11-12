@@ -50,3 +50,7 @@ Oyunu bu bilgisayara normal bir program gibi kurmak (exe + masaüstü kısayolu)
 Tüm tuşlar ayarlar menüsünden değiştirilebilir. Gamepad ve direksiyon seti desteklenir.
 
 Arayüz fontu: [Chakra Petch](https://fonts.google.com/specimen/Chakra+Petch) (SIL Open Font License, `fonts/OFL.txt`).
+
+## Ses kaynakları
+
+- Supra turbo flutter: "Turbo flutter" — spinopel, [Pixabay](https://pixabay.com/sound-effects/film-special-effects-turbo-flutter-336362/) (Pixabay Content License; ticari kullanım serbest, atıf gerekmez). Diğer tüm sesler oyun içinde sentezlenir.

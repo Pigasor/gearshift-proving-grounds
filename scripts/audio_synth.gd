@@ -35,17 +35,14 @@ var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
 # Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
-# throttle shuts and the compressor surges: the trapped air pulses back through it ~185 times a
-# second, a buzzing "brrr" whose pitch falls to ~128 Hz as the turbo spins down, with a "tu-tu-tu"
-# of bright air on top. Synthesised from measurements of a reference flutter the user picked
-# (pitch glide, harmonic balance, ~6 Hz body wobble, ~11 Hz air chop) - see _flutter_sample.
+# throttle shuts and the compressor surges. Plays a recorded flutter: sounds/supra_flutter.wav is cut
+# from "Turbo flutter" by spinopel on Pixabay (Pixabay Content License: free for commercial use,
+# no attribution required), high-passed at 200 Hz.
 const FLUTTER_CARS: Dictionary = {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
-const FLUT_LEN: float = 1.1 # seconds
-# state: 0 pulse phase, 1 pitch, 2-3 body resonance (low, band), 4-5 low-pass, 6-8 breath noise,
-# 9 "tu" phase, 10 wobble phase, 11-13 bright air filter
-var _fv: PackedFloat32Array = PackedFloat32Array([0, 185, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+var _flut_player: AudioStreamPlayer
+const FLUT_LEN: float = 1.5 # seconds (length of the clip)
 var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -132,6 +129,9 @@ func _ready() -> void:
 	audio_player.stream = generator
 	audio_player.play()
 	playback = audio_player.get_stream_playback()
+	_flut_player = AudioStreamPlayer.new()
+	_flut_player.stream = load("res://sounds/supra_flutter.wav")
+	add_child(_flut_player)
 
 func _physics_process(delta: float) -> void:
 	if vehicle == null or playback == null:
@@ -157,9 +157,9 @@ func _physics_process(delta: float) -> void:
 	if flut_k > 0.0 and fresh and vehicle.turbo_boost_bar > 0.3 and (upshift or lifted):
 		_flut_t = 0.0
 		_flut_amp = flut_k * clampf(vehicle.turbo_boost_bar / 1.2, 0.35, 1.0)
-		_fv[0] = 0.0
-		_fv[1] = 185.0
-		_fv[9] = 0.0
+		_flut_player.volume_db = linear_to_db(_flut_amp * 0.9)
+		_flut_player.pitch_scale = randf_range(0.96, 1.04) # never twice exactly the same
+		_flut_player.play()
 	if gear_now >= 2 or gear_now == 0:
 		_flut_gear = gear_now
 	if _previous_throttle > 0.5 and current_thr < 0.15:
@@ -406,9 +406,10 @@ func generate(frames_available: int) -> PackedVector2Array:
 				_bov_amp = 0.0
 				_bov_env = 0.0
 
-		var flut_sample: float = 0.0
-		if _flut_t >= 0.0:
-			flut_sample = _flutter_sample(dt, noise)
+		if _flut_t >= 0.0: # the flutter plays from _flut_player; this times the engine duck
+			_flut_t += dt
+			if _flut_t > FLUT_LEN:
+				_flut_t = -1.0
 
 		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
 		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
@@ -423,48 +424,6 @@ func generate(frames_available: int) -> PackedVector2Array:
 
 		# the throttle is shut while it flutters: the engine drops back and the chatter stands out
 		var duck: float = (1.0 - 0.45 * exp(-_flut_t * 2.6)) if _flut_t >= 0.0 else 1.0
-		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
+		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
 	return out
-
-# One sample of the flutter (prototyped offline against the reference, filters tuned at 44.1 kHz):
-# - a pulse train (sharp decaying pulse each period) whose pitch glides 185 -> 128 Hz with +-2%
-#   jitter, through a ~260 Hz body resonance + a ~900 Hz low-pass: the buzzy surge
-# - breathy 120 Hz-1 kHz air under it; both wobble irregularly ~6 times a second
-# - bright 2.5-7 kHz air chopped into ~11 "tu"s a second (5 ms rise, 40 ms decay)
-func _flutter_sample(dt: float, noise: float) -> float:
-	_flut_t += dt
-	var t: float = _flut_t
-	var k: float = minf(t / 0.95, 1.0)
-	var v := _fv
-	v[0] += v[1] * dt
-	if v[0] >= 1.0:
-		v[0] -= 1.0
-		v[1] = 185.0 * pow(128.0 / 185.0, k) * randf_range(0.98, 1.02)
-	var src: float = exp(-v[0] * 9.0)
-	var fr: float = 0.0370 # 2 sin(pi 260 / 44100)
-	v[2] += fr * v[3]
-	v[3] += fr * (src - v[2] - 0.5 * v[3])
-	v[4] += (src - v[4]) * 0.12
-	v[5] += (v[4] - v[5]) * 0.12
-	var voiced: float = v[3] * 0.6 + v[5] * 0.4
-	v[6] += (noise - v[6]) * 0.13
-	v[7] += (v[6] - v[7]) * 0.13
-	v[8] += (v[7] - v[8]) * 0.017
-	var breath: float = v[7] - v[8]
-	var rate: float = lerpf(10.5, 11.5, k)
-	v[9] = fmod(v[9] + rate * dt, 1.0)
-	var tp: float = v[9] / rate
-	var chop: float = 0.35 + 0.65 * minf(tp / 0.005, 1.0) * exp(-tp / 0.04)
-	v[10] += 5.5 * (0.6 + 0.8 * absf(sin(7.3 * t) + 0.5 * sin(2.9 * t + 1.0))) * dt
-	var wob: float = 1.0 - 0.45 * (0.5 + 0.5 * sin(TAU * v[10]))
-	v[11] += (noise - v[11]) * 0.30
-	var a1: float = noise - v[11]
-	v[12] += (a1 - v[12]) * 0.30
-	var a2: float = a1 - v[12]
-	v[13] += (a2 - v[13]) * 0.5
-	_fv = v
-	var env: float = minf(t / 0.01, 1.0) * (1.0 if t < 0.45 else maxf(0.0, 1.0 - (t - 0.45) / 0.65))
-	if t > FLUT_LEN:
-		_flut_t = -1.0
-	return ((voiced + breath * 1.8) * wob + v[13] * chop) * env * 0.95 * _flut_amp
