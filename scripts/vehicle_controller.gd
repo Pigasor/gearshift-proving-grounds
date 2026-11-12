@@ -24,7 +24,7 @@ var front_lateral_bias: float = 1.13
 # Pedal positions 0..1 as the driver presses them (HUD), and the tail-light materials
 # Tyre grip per surface. Road tyres: great on tarmac, poor on loose ground.
 # Off-road tyres (Trophy Truck, monster truck): a bit less on tarmac, far better off-road.
-const SURFACE_GRIP_ROAD: Dictionary = {"asphalt": 1.0, "concrete": 0.95, "kerb": 0.92, "dirt": 0.6, "grass": 0.5, "sand": 0.45}
+const SURFACE_GRIP_ROAD: Dictionary = {"asphalt": 1.0, "concrete": 0.95, "kerb": 0.92, "dirt": 0.64, "grass": 0.55, "sand": 0.475}
 const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "kerb": 0.88, "dirt": 0.95, "grass": 0.85, "sand": 0.8}
 # Extra rolling resistance (fraction of wheel load) on soft ground
 const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
@@ -46,6 +46,11 @@ const STEER_RATIO: float = 14.0 # steering-wheel degrees per road-wheel degree (
 var pedal_throttle: float = 0.0
 var pedal_brake: float = 0.0
 var _brake_light_mats: Array[StandardMaterial3D] = []
+var light_mode: int = 0 # L cycles: 0 off, 1 parking lights, 2 low beam
+var high_beam: bool = false # K
+var _head_mat: StandardMaterial3D
+var _tail_base: float = 1.2
+var _beams: Array[SpotLight3D] = []
 var wheel_inertia: float = 1.2
 var engine_inertia: float = 0.25
 
@@ -376,6 +381,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		is_automatic = !is_automatic
 	elif event.is_action_pressed("repair", false, true):
 		repair_vehicle()
+	elif event.is_action_pressed("lights", false, true):
+		light_mode = (light_mode + 1) % 3
+		_update_lights()
+	elif event.is_action_pressed("high_beam", false, true):
+		high_beam = not high_beam
+		_update_lights()
 	elif event.is_action_pressed("reset_car", false, true):
 		reset_vehicle()
 	elif event.is_action_pressed("slow_mo", false, true):
@@ -593,6 +604,29 @@ func _rebuild_body(b: Dictionary) -> void:
 	cam_hood = Vector3(0.0, builder.g + float(builder.s["cowl"]) + 0.2, builder.cowl_z + 0.3)
 	cam_bumper = Vector3(0.0, builder.g + 0.5, builder.zf + 0.1)
 	_place_exhausts(builder.exhausts, builder.exhaust_up)
+	# headlight beams at the front corners (switched with L / K)
+	_head_mat = builder.head
+	_beams.clear()
+	for sd in [-1.0, 1.0]:
+		var sl := SpotLight3D.new()
+		sl.position = Vector3(sd * (builder.hw - 0.35), builder.g + float(builder.s["nose"]) - 0.1, builder.zf + 0.05)
+		sl.light_color = Color(1.0, 0.95, 0.85)
+		sl.light_specular = 0.2
+		visual_models_parent.add_child(sl)
+		_beams.append(sl)
+	_update_lights()
+
+func _update_lights() -> void:
+	var on: bool = light_mode == 2 or high_beam
+	for sl in _beams:
+		sl.visible = on
+		sl.spot_range = 140.0 if high_beam else 45.0
+		sl.spot_angle = 16.0 if high_beam else 30.0
+		sl.light_energy = 9.0 if high_beam else 4.0
+		sl.basis = Basis.looking_at(Vector3(0.0, -0.01 if high_beam else -0.1, 1.0))
+	if _head_mat:
+		_head_mat.emission_energy_multiplier = 8.0 if high_beam else [0.3, 1.4, 4.5][light_mode]
+	_tail_base = 1.2 if light_mode == 0 and not high_beam else 3.0
 
 # Smoke emitter on every tailpipe tip (local); up = vertical stacks blowing upwards
 func _place_exhausts(tips: Array, up: bool) -> void:
@@ -2341,9 +2375,9 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# Loose ground (grass, dirt, sand) gives way: the tyre needs a bigger slip angle for its (lower)
 			# grip, so the car visibly slides and the tail steps out sooner than on tarmac.
 			var loose: bool = SURFACE_ROLLING_DRAG.has(surface)
-			var magic: float = sin(1.55 * atan((10.0 if not loose else (8.0 if offroad_tires else 5.5)) * slip_angle))
+			var magic: float = sin(1.55 * atan((10.0 if not loose else (9.0 if offroad_tires else 7.75)) * slip_angle))
 			if loose and i >= 2 and not offroad_tires:
-				grip_mult *= 0.93
+				grip_mult *= 0.965
 			# Front tyres get a little extra cornering grip: a more neutral balance, so the car turns in
 			# at speed instead of washing wide (understeer). Clamped by the friction circle below.
 			# The bias eases off a little at very high speed to keep the car stable flat-out.
@@ -2547,7 +2581,7 @@ func _update_wheel_visuals(delta: float) -> void:
 
 	# Tail lights: dim running lights, brighter the harder the brake pedal is pressed
 	for m in _brake_light_mats:
-		m.emission_energy_multiplier = 1.2 + 7.0 * _brake_input
+		m.emission_energy_multiplier = _tail_base + 7.0 * _brake_input
 
 # Place the car on the ground at a map location, facing yaw_deg (0 = +Z), standing still.
 # Find an open, level spot for the car at (or near) `target`: not on a roof, a plane, a ramp or a

@@ -28,12 +28,14 @@ const ACTIONS: Array = [
 	["reset_car", "Başlangıca Dön", [KEY_ENTER]],
 	["minimap", "Mini Harita Yakın / Geniş", [KEY_N]],
 	["full_map", "Büyük Harita", [KEY_M]],
+	["lights", "Farlar (Park / Kısa)", [KEY_L]],
+	["high_beam", "Uzun Far", [KEY_K]],
 ]
 
 var defaults: Dictionary = {
 	"language": "", # "" = pick from the system language on first start ("tr" or "en")
 	# Display
-	"window_mode": 0, # 0 windowed, 1 borderless fullscreen, 2 exclusive fullscreen
+	"window_mode": 1, # 0 windowed, 1 borderless fullscreen, 2 exclusive fullscreen
 	"resolution": 0,
 	"vsync": 1, # 0 off, 1 on, 2 adaptive
 	"max_fps": 0,
@@ -303,6 +305,7 @@ func save() -> void:
 	for a in bindings:
 		cfg.set_value("bindings", a, bindings[a])
 	cfg.set_value("meta", "bindings_version", 2)
+	cfg.set_value("meta", "display_version", 2)
 	cfg.save(SAVE_PATH)
 
 func _load() -> void:
@@ -325,6 +328,9 @@ func _load() -> void:
 			if a != "full_map":
 				(bindings[a] as Array).erase(KEY_M)
 		bindings["full_map"] = [KEY_M]
+	# display v2: the game starts fullscreen at the monitor's own resolution (old saves were windowed)
+	if int(cfg.get_value("meta", "display_version", 1)) < 2:
+		values["window_mode"] = 1
 
 # ---------------- Language ----------------
 # Source texts are Turkish; English comes from I18n.EN. (Fallback locale is "tr" in

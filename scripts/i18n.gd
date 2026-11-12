@@ -206,6 +206,8 @@ const EN: Dictionary = {
 	"Başlangıca Dön": "Reset to Start",
 	"Mini Harita Yakın / Geniş": "Minimap Close / Wide",
 	"Büyük Harita": "Big Map",
+	"Farlar (Park / Kısa)": "Lights (Parking / Low Beam)",
+	"Uzun Far": "High Beam",
 	# steering wheel set
 	"🎮  DİREKSİYON SETİ": "🎮  STEERING WHEEL SET",
 	"Direksiyon Seti Kullan": "Use Steering Wheel",

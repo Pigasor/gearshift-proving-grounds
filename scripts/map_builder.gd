@@ -766,18 +766,28 @@ func _create_kicker(base: Vector3, dir: float, width: float, angle_deg: float, h
 	_add_collision_body(faces, _surface_for(mat))
 
 # --- NASCAR OVAL (south-east, inside the highway ring) ---
-# A 1-mile (~1.6 km) oval like Dover: 360 m straights, 140 m radius turns banked 24 deg, straights
-# banked 8 deg, flat apron inside, concrete wall and an earth bank outside. Raced anti-clockwise
+# A 1-mile (~1.6 km) oval: 360 m straights, 140 m radius turns banked up to 10 deg, straights 3 deg,
+# flat apron inside, concrete wall and an earth bank outside. The banking starts flat at the apron
+# and curves up (no kink / step at the inside line). Raced anti-clockwise
 # (left turns): on the south straight the cars head +X.
 const OVAL_CENTER := Vector2(620, 930)
 const OVAL_STRAIGHT: float = 360.0
 const OVAL_RADIUS: float = 140.0
 const OVAL_WIDTH: float = 18.0
+const OVAL_COLS: int = 8
+
+# Height of the racing surface at u (0 inside edge .. 1 outside edge) for a bank angle: the slope
+# eases in from 0 over the inner 35% (smoothstep), then stays at the bank angle.
+func _oval_h(u: float, bank: float) -> float:
+	var a: float = 0.35
+	var x: float = clampf(u / a, 0.0, 1.0)
+	var area: float = a * (x * x * x - x * x * x * x * 0.5) + maxf(u - a, 0.0)
+	return OVAL_WIDTH * tan(bank) * area
 
 func _build_nascar_oval() -> void:
 	var base_y: float = 0.04
-	var turn_bank: float = deg_to_rad(14.0) # outer edge ~4.5 m up (24 deg towered 8 m over the apron)
-	var straight_bank: float = deg_to_rad(4.0)
+	var turn_bank: float = deg_to_rad(10.0) # outer edge ~2.6 m above the apron
+	var straight_bank: float = deg_to_rad(3.0) # ~0.8 m
 	var ce := OVAL_CENTER + Vector2(OVAL_STRAIGHT * 0.5, 0.0) # east turn centre
 	var cw := OVAL_CENTER - Vector2(OVAL_STRAIGHT * 0.5, 0.0) # west turn centre
 	# centre-line samples: [position xz, outward normal xz, bank]
@@ -802,6 +812,9 @@ func _build_nascar_oval() -> void:
 
 	var road_in: Array[Vector3] = []
 	var road_out: Array[Vector3] = []
+	var cols: Array = [] # cols[c] = points along the track at u = c / OVAL_COLS
+	for c in range(OVAL_COLS + 1):
+		cols.append([] as Array[Vector3])
 	var apron_in: Array[Vector3] = []
 	var wall_top: Array[Vector3] = []
 	var bank_out: Array[Vector3] = []
@@ -817,9 +830,13 @@ func _build_nascar_oval() -> void:
 		dist.append(acc)
 		var pin: Vector2 = p - n * OVAL_WIDTH * 0.5
 		var pout: Vector2 = p + n * OVAL_WIDTH * 0.5
-		var out_y: float = base_y + OVAL_WIDTH * tan(samples[i][2])
+		var out_y: float = base_y + _oval_h(1.0, samples[i][2])
 		var vin := Vector3(pin.x, base_y, pin.y)
 		var vout := Vector3(pout.x, out_y, pout.y)
+		for c in range(OVAL_COLS + 1):
+			var u: float = float(c) / OVAL_COLS
+			var q: Vector2 = pin.lerp(pout, u)
+			cols[c].append(Vector3(q.x, base_y + _oval_h(u, samples[i][2]), q.y))
 		road_in.append(vin)
 		road_out.append(vout)
 		var ap: Vector2 = pin - n * 9.0
@@ -828,8 +845,8 @@ func _build_nascar_oval() -> void:
 		var bo: Vector2 = pout + n * (4.0 + out_y * 1.6) # earth bank behind the raised outer wall
 		bank_out.append(Vector3(bo.x, -0.05, bo.y))
 		# white line along the inside edge of the racing surface
-		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * 0.008)
-		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * 0.008)
+		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * (0.008 + _oval_h(0.03, samples[i][2])))
+		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * (0.008 + _oval_h(0.05, samples[i][2])))
 
 	# plain racing asphalt (the highway texture has lane lines), the apron a different shade
 	var mat_oval: StandardMaterial3D = mat_track.duplicate() as StandardMaterial3D
@@ -840,7 +857,8 @@ func _build_nascar_oval() -> void:
 	mat_wall.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	var road_faces := PackedVector3Array()
-	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 18.0, mat_oval, road_faces, 8)
+	for c in range(OVAL_COLS):
+		_add_strip(cols[c], cols[c + 1], dist, float(c) / OVAL_COLS, float(c + 1) / OVAL_COLS, 1.0 / 18.0, mat_oval, road_faces)
 	_add_strip(apron_in, road_in, dist, 0.0, 0.5, 1.0 / 18.0, mat_asphalt, road_faces)
 	_add_collision_body(road_faces, "asphalt")
 	var wall_faces := PackedVector3Array()
@@ -855,11 +873,16 @@ func _build_nascar_oval() -> void:
 	# start / finish line across the south straight
 	var sx: float = OVAL_CENTER.x
 	var zin: float = OVAL_CENTER.y + OVAL_RADIUS - OVAL_WIDTH * 0.5
-	var zout: float = OVAL_CENTER.y + OVAL_RADIUS + OVAL_WIDTH * 0.5
-	var y_out: float = base_y + OVAL_WIDTH * tan(straight_bank)
-	var sl: Array[Vector3] = [Vector3(sx - 0.6, base_y + 0.02, zin), Vector3(sx + 0.6, base_y + 0.02, zin)]
-	var sr: Array[Vector3] = [Vector3(sx - 0.6, y_out + 0.02, zout), Vector3(sx + 0.6, y_out + 0.02, zout)]
-	_add_strip(sl, sr, [0.0, 1.2] as Array[float], 0.0, 1.0, 1.0, mat_road_white, unused)
+	var sl: Array[Vector3] = []
+	var sr: Array[Vector3] = []
+	var sd: Array[float] = []
+	for c in range(OVAL_COLS + 1): # follows the curved banking across the track
+		var u: float = float(c) / OVAL_COLS
+		var y: float = base_y + 0.02 + _oval_h(u, straight_bank)
+		sl.append(Vector3(sx + 0.6, y, zin + u * OVAL_WIDTH))
+		sr.append(Vector3(sx - 0.6, y, zin + u * OVAL_WIDTH))
+		sd.append(u * OVAL_WIDTH)
+	_add_strip(sl, sr, sd, 0.0, 1.0, 1.0, mat_road_white, unused)
 	_build_oval_stands()
 
 # Grandstands along both straights of the oval, packed with fans (one MultiMesh for bodies and one
@@ -1069,12 +1092,11 @@ func _build_mountain() -> void:
 		road_in.append(Vector3(pin.x, y, pin.y))
 		road_out.append(Vector3(pout.x, y, pout.y))
 		rail_top.append(Vector3(pout.x, y + 0.8, pout.y))
-	var mat_mroad: StandardMaterial3D = mat_road_asphalt.duplicate() as StandardMaterial3D
-	mat_mroad.uv1_scale = Vector3(1, 1, 1)
+	var mat_mroad: StandardMaterial3D = mat_dirt_dunes.duplicate() as StandardMaterial3D # dirt road
 	mat_mroad.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var road_faces := PackedVector3Array()
-	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_mroad, road_faces, 2)
-	_add_collision_body(road_faces, "asphalt")
+	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 8.0, mat_mroad, road_faces, 2)
+	_add_collision_body(road_faces, "dirt")
 	var mat_rail: StandardMaterial3D = mat_concrete_wall.duplicate() as StandardMaterial3D
 	mat_rail.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var rail_faces := PackedVector3Array()

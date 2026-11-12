@@ -35,13 +35,14 @@ var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
 # Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
-# compressor surges - the trapped air chatters back through it in quick, slowing puffs
+# throttle shuts, the compressor surges and the trapped air chatters back through it: a hissy "s",
+# then a train of short hollow "tu" chirps that slow down and fade as the pressure bleeds off.
 const FLUTTER_CARS: Dictionary = {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
 var _flut_ph: float = 0.0
-var _flut_lp1: float = 0.0
-var _flut_lp2: float = 0.0
+var _flut_air: Vector2 = Vector2.ZERO # state-variable filters (low, band): bright air "t / s"
+var _flut_hol: Vector2 = Vector2.ZERO # hollow resonance of the intake pipe: the "u"
 var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -147,11 +148,15 @@ func _physics_process(delta: float) -> void:
 	var flut_k: float = float(FLUTTER_CARS.get(str(CarDatabase.car(int(vehicle.get("current_vehicle_type")))["id"]), 0.0))
 	var gear_now: int = int(vehicle.current_gear)
 	var lifted: bool = _previous_throttle > 0.5 and current_thr < 0.15
-	if flut_k > 0.0 and vehicle.turbo_boost_bar > 0.3 and ((gear_now > _flut_gear and _flut_gear >= 2) or lifted):
+	# (an upshift passes through neutral, so compare with the last driving gear)
+	var upshift: bool = gear_now >= 2 and _flut_gear >= 2 and gear_now > _flut_gear
+	var fresh: bool = _flut_t < 0.0 or _flut_t > 0.25 # don't restart a flutter that just began
+	if flut_k > 0.0 and fresh and vehicle.turbo_boost_bar > 0.3 and (upshift or lifted):
 		_flut_t = 0.0
 		_flut_ph = 0.0
 		_flut_amp = flut_k * clampf(vehicle.turbo_boost_bar / 1.2, 0.35, 1.0)
-	_flut_gear = gear_now
+	if gear_now >= 2 or gear_now == 0:
+		_flut_gear = gear_now
 	if _previous_throttle > 0.5 and current_thr < 0.15:
 		_overrun_timer = 0.65 # Exhaust overrun crackles
 		if vehicle.turbo_boost_bar > 0.45 and _bov_cooldown <= 0.0 and flut_k <= 0.0: # the Supra flutters instead
@@ -398,16 +403,7 @@ func generate(frames_available: int) -> PackedVector2Array:
 
 		var flut_sample: float = 0.0
 		if _flut_t >= 0.0:
-			_flut_t += dt
-			# puffs ~24 a second slowing to ~12 over half a second, each a sharp chuff that dies away
-			_flut_ph += lerpf(24.0, 12.0, clampf(_flut_t / 0.55, 0.0, 1.0)) * dt
-			var gate: float = exp(-fmod(_flut_ph, 1.0) * 9.0)
-			_flut_lp1 += (noise - _flut_lp1) * 0.35
-			_flut_lp2 += (noise - _flut_lp2) * 0.04
-			var chuff: float = (_flut_lp1 - _flut_lp2) * 0.8 + sin(TAU * 190.0 * _flut_t) * 0.3
-			flut_sample = chuff * gate * exp(-_flut_t * 4.5) * _flut_amp * 0.55
-			if _flut_t > 0.6:
-				_flut_t = -1.0
+			flut_sample = tanh(_flutter_sample(dt, noise) * 2.0) * 0.6
 
 		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
 		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
@@ -420,6 +416,31 @@ func generate(frames_available: int) -> PackedVector2Array:
 			var squeal: float = (_skid_lp1 - _skid_lp2) * 0.8 + sin(_skid_phase) * 0.25
 			skid_sample = squeal * _skid_gain * 0.045
 
-		var mixed: float = clampf(engine_sample + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
+		# the throttle is shut while it flutters: the engine drops back and the chatter stands out
+		var duck: float = (1.0 - 0.45 * exp(-_flut_t * 2.6)) if _flut_t >= 0.0 else 1.0
+		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
+	return out
+
+func _flutter_sample(dt: float, noise: float) -> float:
+	_flut_t += dt
+	var ft: float = _flut_t
+	var k: float = clampf(ft / 0.7, 0.0, 1.0)
+	var rate: float = lerpf(19.0, 10.0, k) # chirps per second, slowing down
+	_flut_ph += rate * dt
+	var tp: float = fmod(_flut_ph, 1.0) / rate # seconds since this chirp started
+	# bright air (the "t" of each chirp and the opening "s")
+	var fa: float = 2.0 * sin(PI * lerpf(2600.0, 1700.0, k) * dt)
+	_flut_air.x += fa * _flut_air.y
+	_flut_air.y += fa * (noise - _flut_air.x - 0.45 * _flut_air.y)
+	# hollow, slightly falling resonance (the "u")
+	var fh: float = 2.0 * sin(PI * lerpf(820.0, 560.0, k) * (1.0 + 0.25 * exp(-tp / 0.006)) * dt)
+	_flut_hol.x += fh * _flut_hol.y
+	_flut_hol.y += fh * (noise - _flut_hol.x - 0.16 * _flut_hol.y)
+	var attack: float = minf(tp / 0.0025, 1.0)
+	var chirp: float = _flut_air.y * 0.55 * exp(-tp / 0.006) + _flut_hol.y * 0.5 * exp(-tp / 0.02)
+	var hiss: float = _flut_air.y * 0.7 * exp(-ft / 0.035) # the opening "s"
+	var out: float = (chirp * attack * minf(ft / 0.02, 1.0) + hiss) * exp(-ft * 2.6) * _flut_amp
+	if ft > 0.85:
+		_flut_t = -1.0
 	return out
