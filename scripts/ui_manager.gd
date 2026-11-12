@@ -50,6 +50,9 @@ var speed_mph: bool = false # set from Settings
 var option_engine: OptionButton # engine variants of the selected car (built in code)
 var _rpm_fill: StyleBoxFlat # own copy of the rev bar fill, recoloured per zone
 var _rpm_bands: Array = [] # yellow / red zone strips under the rev bar
+var _flip_label: Label # "car is upside down - press R" (after a second on its roof / side)
+var _flip_t: float = 0.0
+var _lights_label: Label # which lights are on
 
 func _ready() -> void:
 	panel_tuning.visible = false
@@ -75,7 +78,28 @@ func _ready() -> void:
 	big_map.name = "FullMap"
 	big_map.set("vehicle", vehicle)
 	get_parent().add_child.call_deferred(big_map)
+	var day_night := Node.new()
+	day_night.set_script(load("res://scripts/day_night.gd"))
+	day_night.name = "DayNight"
+	get_parent().add_child.call_deferred(day_night)
 	GameSettings.apply_scene_start.call_deferred()
+
+	_flip_label = Label.new()
+	_flip_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_flip_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_flip_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_flip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_flip_label.add_theme_font_size_override("font_size", 34)
+	_flip_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	_flip_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_flip_label.add_theme_constant_override("outline_size", 10)
+	_flip_label.visible = false
+	$HUD.add_child(_flip_label)
+	_lights_label = Label.new()
+	_lights_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_lights_label.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	label_turbo.get_parent().add_child(_lights_label)
+	label_turbo.get_parent().move_child(_lights_label, label_turbo.get_index())
 
 	# Mini map (bottom-left); N switches close / wide view
 	var minimap := Control.new()
@@ -114,10 +138,24 @@ func toggle_tuning_panel() -> void:
 		# Drop focus from sliders/checkboxes so arrow keys & Space go back to driving.
 		get_viewport().gui_release_focus()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if vehicle == null:
 		return
 	_update_hud()
+	# Upside down / on its side and (nearly) stopped for a second -> tell how to recover
+	var b: Basis = vehicle.global_transform.basis
+	if b.y.y < 0.3 and vehicle.current_speed_kmh < 20.0 and not vehicle.get("wall_climbing"):
+		_flip_t += delta / maxf(Engine.time_scale, 0.05)
+	else:
+		_flip_t = 0.0
+	_flip_label.visible = _flip_t > 1.0
+	if _flip_label.visible:
+		var k: String = "Y" if GameSettings.input_device == "gamepad" else _key("repair")
+		_flip_label.text = tr("Araç devrildi! Düzeltmek için %s tuşuna bas") % k
+	var hb: bool = vehicle.get("high_beam")
+	var lm: int = int(vehicle.get("light_mode"))
+	_lights_label.visible = hb or lm > 0
+	_lights_label.text = tr("🔦 UZUN FAR") if hb else (tr("💡 KISA FAR") if lm == 2 else tr("🅿️ PARK LAMBALARI"))
 
 func _update_hud() -> void:
 	# Speed
@@ -571,9 +609,9 @@ func _update_control_hints() -> void:
 				if help:
 					help.text = tr("Pedallar: Gaz / Fren / Debriyaj  |  Kulakçık / H kolu: Vites  |  %s: Garaj  |  %s: Büyük harita  |  ESC: Ayarlar") % [garage, _key("full_map")]
 			elif help:
-				help.text = tr("%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  ESC: Ayarlar") % [
+				help.text = tr("%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  %s/%s: Far / Uzun far  |  ESC: Ayarlar") % [
 					_key("throttle"), _key("brake"), _key("steer_left"), _key("steer_right"), _key("handbrake"), _key("turbo"),
-					gears, _key("toggle_transmission"), garage, _key("minimap"), _key("full_map")]
+					gears, _key("toggle_transmission"), garage, _key("minimap"), _key("full_map"), _key("lights"), _key("high_beam")]
 	btn_quick_tuning.text = tr("🛠️ GARAJ (%s)") % garage
 	btn_quick_slowmo.text = tr("⏳ AĞIR ÇEKİM (%s)") % slowmo
 	btn_quick_camera.text = tr("🎥 KAMERA (%s)") % cam

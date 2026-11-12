@@ -29,8 +29,8 @@ const EN: Dictionary = {
 		"RT/LT: Throttle/Brake  |  Left stick: Steer  |  A/B: Handbrake  |  RB/LB: Gears  |  L3: Turbo  |  Y: Recover  |  R3: Minimap  |  Select: Auto/Manual  |  D-pad ▲: Garage  |  D-pad ◀▶: Car  |  Start: Settings",
 	"Pedallar: Gaz / Fren / Debriyaj  |  Kulakçık / H kolu: Vites  |  %s: Garaj  |  %s: Büyük harita  |  ESC: Ayarlar":
 		"Pedals: Throttle / Brake / Clutch  |  Paddles / H-shifter: Gears  |  %s: Garage  |  %s: Big map  |  ESC: Settings",
-	"%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  ESC: Ayarlar":
-		"%s/%s: Throttle/Brake  |  %s/%s: Steer  |  %s: Handbrake  |  %s: Turbo  |  %s: Gears  |  %s: Auto/Manual  |  %s: Garage  |  %s: Minimap  |  %s: Big map  |  ESC: Settings",
+	"%s/%s: Gaz/Fren  |  %s/%s: Direksiyon  |  %s: El freni  |  %s: Turbo  |  %s: Vites  |  %s: Oto/Manuel  |  %s: Garaj  |  %s: Mini harita  |  %s: Büyük harita  |  %s/%s: Far / Uzun far  |  ESC: Ayarlar":
+		"%s/%s: Throttle/Brake  |  %s/%s: Steer  |  %s: Handbrake  |  %s: Turbo  |  %s: Gears  |  %s: Auto/Manual  |  %s: Garage  |  %s: Minimap  |  %s: Big map  |  %s/%s: Lights / High beam  |  ESC: Settings",
 	"🔥 TURBO AKTİF! (%1.1fs) +%1.2f BAR": "🔥 TURBO BOOST! (%1.1fs) +%1.2f BAR",
 	"⏳ SOĞUMA: %1.1fs (+%1.2f BAR)": "⏳ COOLDOWN: %1.1fs (+%1.2f BAR)",
 	"⚡ TURBO [SHIFT]: HAZIR (+%1.2f BAR)": "⚡ TURBO [SHIFT]: READY (+%1.2f BAR)",
@@ -208,6 +208,14 @@ const EN: Dictionary = {
 	"Büyük Harita": "Big Map",
 	"Farlar (Park / Kısa)": "Lights (Parking / Low Beam)",
 	"Uzun Far": "High Beam",
+	"Araç devrildi! Düzeltmek için %s tuşuna bas": "Car flipped! Press %s to put it back on its wheels",
+	"🔦 UZUN FAR": "🔦 HIGH BEAM",
+	"💡 KISA FAR": "💡 LOW BEAM",
+	"🅿️ PARK LAMBALARI": "🅿️ PARKING LIGHTS",
+	"Saat": "Time of Day",
+	"Gün / Gece Döngüsü": "Day / Night Cycle",
+	"Bir Günün Süresi": "Length of a Day",
+	"10 dakika": "10 minutes", "24 dakika": "24 minutes", "48 dakika": "48 minutes",
 	# steering wheel set
 	"🎮  DİREKSİYON SETİ": "🎮  STEERING WHEEL SET",
 	"Direksiyon Seti Kullan": "Use Steering Wheel",

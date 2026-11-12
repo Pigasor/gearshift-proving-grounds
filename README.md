@@ -6,7 +6,8 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 
 ## Özellikler
 
-- **Gerçekçi sürüş fiziği:** Raycast süspansiyon, tekerlek başına dönüş ve patinaj, lastik sürtünme çemberi, ağırlık transferi, hava direnci ve aerodinamik bastırma kuvveti; zemine göre tutuş (çim/toprakta araç kayar), havada ve çarpışmada serbest dönen gövde, duvardan sekme
+- **Gerçekçi sürüş fiziği:** Raycast süspansiyon, tekerlek başına dönüş ve patinaj, lastik sürtünme çemberi, ağırlık transferi, hava direnci ve aerodinamik bastırma kuvveti; zemine göre tutuş (çim/toprakta araç kayar), havada ve çarpışmada serbest dönen gövde, duvardan sekme; canavar kamyon dik duvarlara tırmanabilir; araç devrilince ekranda düzeltme uyarısı
+- **Gündüz / gece döngüsü:** Güneş ve ay hareket eder, gün batımı renkleri, gece sokak lambaları ve projektörler yanar; saat ve gün uzunluğu Ayarlar > Görüntü'den ayarlanır. Farlar: park lambası, kısa far, uzun far (L / K)
 - **Lastik efektleri:** Patinaj, kilitlenme ve driftte zemine göre lastik izi (asfaltta siyah, çimde ezik iz, toprakta tekerlek izi), asfaltta lastik dumanı, çim/toprak/kumda tekerleğin dönüş yönüne savrulan parçalar (izler 5 dakikada silinir); 1. viteste el freni + gaz ile burnout, TCS kapalıyken donut, fren + gazla devir tutup kalkış
 - **Motor ve şanzıman:** Yakıt kesmeli devir kesici, motor freni, rev-matching, araç hızına göre vites seçen otomatik şanzıman ve manuel mod
 - **14 araç, 22 motor seçeneği:** Spor ve süper arabalar, NASCAR stok arabası, canavar kamyon, traktör, 4x4 tüp şasili buggy (görünür amortisörler), gerçek ölçülü aile sedanları ve klasik arkadan itişli Tofash Sahin (benzinli / dizel motorlar, gerçek tork eğrileri, ısı dalgalanması, gaz ve viteste egzoz pufları, dizelde siyah duman, turbo alevi, Supra'da turbo "stututu" sesi)
@@ -22,6 +23,9 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 2. Godot'yu aç, **Import** ile bu klasördeki `project.godot` dosyasını seç ve çalıştır (F5).
 
 Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatabilirsin.
+
+Oyunu bu bilgisayara normal bir program gibi kurmak (exe + masaüstü kısayolu) ya da kurulu oyunu güncellemek için:
+`powershell -ExecutionPolicy Bypass -File tools/install_local.ps1`
 
 ## Kontroller
 

@@ -24,6 +24,10 @@ func is_open() -> bool:
 	return _root.visible
 
 func open() -> void:
+	# the clock slider starts at the current in-game hour
+	var dn: Node = get_tree().current_scene.get_node_or_null("DayNight") if get_tree().current_scene else null
+	if dn:
+		dn.sync_to_settings()
 	_build_tabs()
 	_root.visible = true
 	get_tree().paused = true
@@ -282,6 +286,9 @@ func _build_tabs() -> void:
 	_add_option(g, "Hız Birimi", "speed_mph", ["km/s", "mph"])
 	_add_check(g, "Gösterge Paneli (HUD)", "hud_visible")
 	_add_check(g, "Test Sahası Telemetrisi", "telemetry_visible")
+	_add_slider(g, "Saat", "time_of_day", 0.0, 23.0, 1.0, 1.0, ":00")
+	_add_check(g, "Gün / Gece Döngüsü", "day_cycle")
+	_add_option(g, "Bir Günün Süresi", "day_length", ["10 dakika", "24 dakika", "48 dakika"])
 
 	# GRAFİK
 	var gr := _new_tab("Grafik")

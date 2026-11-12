@@ -200,10 +200,21 @@ func _build_floor_and_perimeter() -> void:
 	var boundary: float = 1500.0
 	var wall_h: float = 4.0
 	var wall_t: float = 2.5
-	_create_static_box(Vector3(0, wall_h * 0.5, boundary), Vector3(boundary * 2.0, wall_h, wall_t), mat_concrete_wall)
-	_create_static_box(Vector3(0, wall_h * 0.5, -boundary), Vector3(boundary * 2.0, wall_h, wall_t), mat_concrete_wall)
-	_create_static_box(Vector3(boundary, wall_h * 0.5, 0), Vector3(wall_t, wall_h, boundary * 2.0), mat_concrete_wall)
-	_create_static_box(Vector3(-boundary, wall_h * 0.5, 0), Vector3(wall_t, wall_h, boundary * 2.0), mat_concrete_wall)
+	for w in [[Vector3(0, 0, boundary), Vector3(boundary * 2.0, 1, wall_t)], [Vector3(0, 0, -boundary), Vector3(boundary * 2.0, 1, wall_t)],
+			[Vector3(boundary, 0, 0), Vector3(wall_t, 1, boundary * 2.0)], [Vector3(-boundary, 0, 0), Vector3(wall_t, 1, boundary * 2.0)]]:
+		var size: Vector3 = w[1]
+		var wall := _create_static_box(w[0] + Vector3(0, wall_h * 0.5, 0), Vector3(size.x, wall_h, size.z), mat_concrete_wall)
+		wall.set_meta("no_climb", true) # the monster truck must not climb out of the map
+		# invisible barrier above it (nothing jumps or flies out either)
+		var barrier := StaticBody3D.new()
+		barrier.set_meta("no_climb", true)
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = Vector3(size.x, 400.0, size.z)
+		cs.shape = bs
+		barrier.add_child(cs)
+		barrier.position = w[0] + Vector3(0, wall_h + 200.0, 0)
+		add_child(barrier)
 
 # --- 3. MEGA HIGHWAY RING (2.6km x 2.6km With Real Road Textures) ---
 func _build_mega_highway() -> void:

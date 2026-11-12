@@ -57,6 +57,9 @@ var defaults: Dictionary = {
 	"fog": true,
 	"draw_distance": 3000.0,
 	"floodlights": true,
+	"time_of_day": 12.0, # hour the clock is set to (Settings > Görüntü)
+	"day_cycle": true, # the clock keeps running
+	"day_length": 1, # index into DayNight.DAY_MINUTES (10 / 24 / 48 min)
 	# Audio
 	"master_volume": 0.8,
 	"mute": false,
@@ -256,9 +259,10 @@ func apply_scene() -> void:
 		if cam:
 			cam.far = float(get_value("draw_distance"))
 
-	# Floodlight towers
-	for l in tree.get_nodes_in_group("floodlights"):
-		(l as Light3D).visible = bool(get_value("floodlights"))
+	# Time of day (also switches the floodlights / lamp posts on at night)
+	var dn: Node = main.get_node_or_null("DayNight")
+	if dn:
+		dn.apply_settings()
 
 	# HUD
 	var ui: Node = main.get_node_or_null("UIManager")

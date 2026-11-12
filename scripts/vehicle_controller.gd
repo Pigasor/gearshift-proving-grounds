@@ -51,6 +51,7 @@ var high_beam: bool = false # K
 var _head_mat: StandardMaterial3D
 var _tail_base: float = 1.2
 var _beams: Array[SpotLight3D] = []
+var _flares: Array[MeshInstance3D] = [] # glow on the headlamp glass, seen from in front / the side
 var wheel_inertia: float = 1.2
 var engine_inertia: float = 0.25
 
@@ -145,6 +146,7 @@ var wheel_angular_velocity: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var wheel_slip_lateral: Array[float] = [0.0, 0.0, 0.0, 0.0]
 var wheel_is_grounded: Array[bool] = [false, false, false, false]
 var wheel_contact_point: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
+var wall_climbing: bool = false # monster truck stuck to a steep surface
 var g_force_lateral: float = 0.0
 var g_force_longitudinal: float = 0.0
 var is_handbrake_active: bool = false
@@ -607,6 +609,18 @@ func _rebuild_body(b: Dictionary) -> void:
 	# headlight beams at the front corners (switched with L / K)
 	_head_mat = builder.head
 	_beams.clear()
+	_flares.clear()
+	var flare_mat := StandardMaterial3D.new()
+	flare_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flare_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	flare_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	flare_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	flare_mat.albedo_texture = FxTex.soft()
+	flare_mat.albedo_color = Color(1.0, 0.93, 0.78)
+	flare_mat.no_depth_test = false
+	var flare_q := QuadMesh.new()
+	flare_q.size = Vector2(1, 1)
+	flare_q.material = flare_mat
 	for sd in [-1.0, 1.0]:
 		var sl := SpotLight3D.new()
 		sl.position = Vector3(sd * (builder.hw - 0.35), builder.g + float(builder.s["nose"]) - 0.1, builder.zf + 0.05)
@@ -614,16 +628,25 @@ func _rebuild_body(b: Dictionary) -> void:
 		sl.light_specular = 0.2
 		visual_models_parent.add_child(sl)
 		_beams.append(sl)
+		var fl := MeshInstance3D.new()
+		fl.mesh = flare_q
+		fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		fl.position = sl.position + Vector3(0, 0, 0.12)
+		visual_models_parent.add_child(fl)
+		_flares.append(fl)
 	_update_lights()
 
 func _update_lights() -> void:
 	var on: bool = light_mode == 2 or high_beam
 	for sl in _beams:
 		sl.visible = on
-		sl.spot_range = 140.0 if high_beam else 45.0
-		sl.spot_angle = 16.0 if high_beam else 30.0
-		sl.light_energy = 9.0 if high_beam else 4.0
+		sl.spot_range = 150.0 if high_beam else 55.0
+		sl.spot_angle = 22.0 if high_beam else 34.0
+		sl.light_energy = 10.0 if high_beam else 5.0
 		sl.basis = Basis.looking_at(Vector3(0.0, -0.01 if high_beam else -0.1, 1.0))
+	for fl in _flares:
+		fl.visible = on or light_mode == 1
+		fl.scale = Vector3.ONE * (1.6 if high_beam else [0.0, 0.45, 1.0][light_mode])
 	if _head_mat:
 		_head_mat.emission_energy_multiplier = 8.0 if high_beam else [0.3, 1.4, 4.5][light_mode]
 	_tail_base = 1.2 if light_mode == 0 and not high_beam else 3.0
@@ -1546,8 +1569,45 @@ func _physics_process(delta: float) -> void:
 	_process_automatic_transmission(delta)
 	_update_drivetrain(delta)
 	_simulate_suspension_and_tires(delta)
+	_monster_wall_climb()
 	_update_wheel_visuals(delta)
 	_update_body_damping(delta)
+
+# Monster truck only: it can drive up a vertical wall. Nose into the wall with the throttle on: the
+# front tips up and the truck rolls onto the wall face. While its tyres are on a steep surface they
+# are pressed onto it (like suction) and gravity along the wall is mostly cancelled, so the engine
+# can climb it. Lift off and it peels away and falls.
+func _monster_wall_climb() -> void:
+	wall_climbing = false
+	if current_vehicle_type != VehicleType.MONSTER_TRUCK or _throttle_input < 0.15 or current_gear < 2:
+		return
+	var b: Basis = global_transform.basis
+	var g: float = mass * 9.81
+	# 1) wall right in front: tip the nose up onto it
+	var q := PhysicsRayQueryParameters3D.create(global_position + b.y * 0.3, global_position + b.y * 0.3 + b.z * 6.0)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+	if hit and hit.normal.dot(b.y) < 0.7 and hit.normal.dot(-b.z) > 0.5 and not hit.collider.has_meta("no_climb"):
+		var axis: Vector3 = b.y.cross(hit.normal).normalized() # turns the underside towards the wall
+		angular_velocity = angular_velocity.lerp(axis * 2.6, 0.25)
+		apply_central_force(Vector3.UP * g * 1.3 * _throttle_input)
+		apply_central_force(-hit.normal * g * 0.4)
+	# 2) tyres on a steep surface: stick to it and climb
+	var n := Vector3.ZERO
+	var count: int = 0
+	for i in 4:
+		if wheel_is_grounded[i]:
+			n += wheel_contact_normal[i]
+			count += 1
+	if count < 2:
+		return
+	n = n.normalized()
+	if n.y > 0.75: # flatter than ~40 deg: normal driving
+		return
+	wall_climbing = true
+	apply_central_force(-n * g * 1.3) # suction onto the face
+	var g_along: Vector3 = Vector3.DOWN - n * Vector3.DOWN.dot(n)
+	apply_central_force(-g_along * g * 0.85 * _throttle_input)
 
 # The strong rotation damping that keeps the car calm on its wheels made it fly and crash like a
 # plank (no tumbling, no nose dive, no spin off a wall). In the air and for a moment after a hit
@@ -2734,7 +2794,8 @@ func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector
 		# "ground" for the angled rays: it lifted the wheel, so two wheels could drive a truck straight
 		# up a wall. Walls are now left to the collision shapes, like in reality.
 		# (abs: some ground meshes report their face normal pointing down)
-		if absf(hit.normal.y) < 0.45: # world up: tilting the truck nose-up must not turn the wall into "floor"
+		# (the monster truck is the exception: it is meant to climb walls, see _monster_wall_climb)
+		if absf(hit.normal.y) < 0.45 and (current_vehicle_type != VehicleType.MONSTER_TRUCK or hit.collider.has_meta("no_climb")):
 			continue
 		var tt: float = (hit.position - mount).length()
 		var side: float = tt * sin(absf(a))
