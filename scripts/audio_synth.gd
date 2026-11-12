@@ -35,14 +35,20 @@ var _bov_lp2: float = 0.0
 var _bov_t: float = 0.0
 var _burble_lp: float = 0.0
 # Turbo flutter ("stu-tu-tu-tu", the 2JZ Supra's signature): on an upshift or lift-off with boost the
-# throttle shuts, the compressor surges and the trapped air chatters back through it. Two synthesised
-# versions never sounded right, so this plays a recording (sounds/supra_flutter.wav, its engine
-# rumble filtered out - our engine sound plays underneath).
+# throttle shuts, the compressor surges and the trapped air chatters back through it. Synthesised
+# from measurements of a reference flutter the user picked (see _flutter_sample): a breathy
+# 250-1000 Hz rush of air with ~11 sharp "tu" puffs a second on top, fading over 1.6 s.
 const FLUTTER_CARS: Dictionary = {"supra": 1.0}
 var _flut_t: float = -1.0
 var _flut_amp: float = 0.0
-var _flut_player: AudioStreamPlayer
-const FLUT_LEN: float = 1.6 # seconds (length of the recording)
+const FLUT_LEN: float = 1.6 # seconds
+var _flut_next: float = 0.0 # time of the next "tu" puff
+var _flut_pe: float = 0.0 # puff envelope
+var _fl: PackedFloat32Array = PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) # filter states
+# Loudness over time of the three bands (time s, level), shaped after the reference recording
+const FLUT_LO: PackedVector2Array = [Vector2(0, 0.6), Vector2(0.15, 1.0), Vector2(0.3, 0.5), Vector2(0.55, 0.95), Vector2(0.8, 0.35), Vector2(1.15, 0.42), Vector2(1.35, 0.2), Vector2(1.55, 0.12), Vector2(1.6, 0.0)]
+const FLUT_MI: PackedVector2Array = [Vector2(0, 0.5), Vector2(0.15, 0.8), Vector2(0.45, 1.0), Vector2(0.6, 0.45), Vector2(1.0, 0.22), Vector2(1.6, 0.0)]
+const FLUT_HI: PackedVector2Array = [Vector2(0, 0.45), Vector2(0.3, 1.0), Vector2(0.45, 0.92), Vector2(0.7, 0.6), Vector2(1.0, 0.45), Vector2(1.3, 0.28), Vector2(1.55, 0.15), Vector2(1.6, 0.0)]
 var _flut_gear: int = -1
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -129,9 +135,6 @@ func _ready() -> void:
 	audio_player.stream = generator
 	audio_player.play()
 	playback = audio_player.get_stream_playback()
-	_flut_player = AudioStreamPlayer.new()
-	_flut_player.stream = load("res://sounds/supra_flutter.wav")
-	add_child(_flut_player)
 
 func _physics_process(delta: float) -> void:
 	if vehicle == null or playback == null:
@@ -157,9 +160,7 @@ func _physics_process(delta: float) -> void:
 	if flut_k > 0.0 and fresh and vehicle.turbo_boost_bar > 0.3 and (upshift or lifted):
 		_flut_t = 0.0
 		_flut_amp = flut_k * clampf(vehicle.turbo_boost_bar / 1.2, 0.35, 1.0)
-		_flut_player.volume_db = linear_to_db(_flut_amp * 0.9)
-		_flut_player.pitch_scale = randf_range(0.96, 1.04) # never twice exactly the same
-		_flut_player.play()
+		_flut_next = 0.0
 	if gear_now >= 2 or gear_now == 0:
 		_flut_gear = gear_now
 	if _previous_throttle > 0.5 and current_thr < 0.15:
@@ -406,10 +407,9 @@ func generate(frames_available: int) -> PackedVector2Array:
 				_bov_amp = 0.0
 				_bov_env = 0.0
 
-		if _flut_t >= 0.0: # the flutter itself plays from _flut_player; this times the engine duck
-			_flut_t += dt
-			if _flut_t > FLUT_LEN:
-				_flut_t = -1.0
+		var flut_sample: float = 0.0
+		if _flut_t >= 0.0:
+			flut_sample = _flutter_sample(dt, noise)
 
 		# Tyre squeal: a band-limited, slightly tonal screech that fades in and out smoothly
 		# (it used to be raw white noise at 0.14 - almost as loud as the engine).
@@ -424,6 +424,49 @@ func generate(frames_available: int) -> PackedVector2Array:
 
 		# the throttle is shut while it flutters: the engine drops back and the chatter stands out
 		var duck: float = (1.0 - 0.45 * exp(-_flut_t * 2.6)) if _flut_t >= 0.0 else 1.0
-		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + skid_sample, -0.92, 0.92)
+		var mixed: float = clampf(engine_sample * duck + turbo_sample + bov_sample + flut_sample + skid_sample, -0.92, 0.92)
 		out[i] = Vector2(mixed, mixed)
 	return out
+
+# One sample of the flutter. Noise through three band filters (one-pole high/low-passes, tuned at
+# 44.1 kHz): body 250-430 Hz, middle ~0.7-1.6 kHz, air 2.5-7 kHz; each follows its loudness curve
+# and the "tu" puffs (fast rise, ~28 ms decay) chop the bright air hardest. Puffs come irregularly
+# every 35-80 ms for the first 0.3 s, then ~98 ms apart, tightening to ~82 ms - with jitter, so no
+# two flutters are the same. Gains normalise each filter to the band levels measured in the reference.
+func _flutter_sample(dt: float, noise: float) -> float:
+	_flut_t += dt
+	var t: float = _flut_t
+	if t >= _flut_next:
+		_flut_pe = 1.0
+		if t < 0.3:
+			_flut_next = t + randf_range(0.035, 0.08)
+		else:
+			_flut_next = t + (0.098 - 0.016 * minf((t - 0.3) / 0.9, 1.0)) * randf_range(0.92, 1.08)
+	else:
+		_flut_pe *= 0.99919 # exp(-dt / 0.028)
+	_fl[0] += (noise - _fl[0]) * 0.032
+	var lo_in: float = noise - _fl[0]
+	_fl[1] += (lo_in - _fl[1]) * 0.06
+	_fl[2] += (_fl[1] - _fl[2]) * 0.06
+	_fl[3] += (noise - _fl[3]) * 0.10
+	var mi_in: float = noise - _fl[3]
+	_fl[4] += (mi_in - _fl[4]) * 0.2
+	_fl[5] += (_fl[4] - _fl[5]) * 0.2
+	_fl[6] += (noise - _fl[6]) * 0.30
+	var h1: float = noise - _fl[6]
+	_fl[7] += (h1 - _fl[7]) * 0.30
+	var h2: float = h1 - _fl[7]
+	_fl[8] += (h2 - _fl[8]) * 0.5
+	_fl[9] += (_fl[8] - _fl[9]) * 0.5
+	var pe: float = _flut_pe
+	var out: float = _fl[2] * 5.94 * _curve(FLUT_LO, t) * (0.8 + 0.2 * pe) 		+ _fl[5] * 1.43 * _curve(FLUT_MI, t) * (0.6 + 0.4 * pe) 		+ _fl[9] * 0.82 * _curve(FLUT_HI, t) * (0.33 + 0.67 * pe)
+	if t > FLUT_LEN:
+		_flut_t = -1.0
+	return out * 1.08 * _flut_amp
+
+# Piecewise-linear curve through (time, value) points
+func _curve(pts: PackedVector2Array, t: float) -> float:
+	for i in range(pts.size() - 1):
+		if t <= pts[i + 1].x:
+			return lerpf(pts[i].y, pts[i + 1].y, (t - pts[i].x) / (pts[i + 1].x - pts[i].x))
+	return 0.0
