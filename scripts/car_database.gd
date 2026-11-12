@@ -45,6 +45,7 @@ const CARS: Array = [
 			"tq_from": 3000.0, "tq_to": 4800.0, "power_rpm": 6000.0, "idle": 700.0, "limiter": 6200.0, "max_rpm": 6500.0,
 			"turbo": 0.0, "gears": [-3.30, 0.0, 4.71, 3.14, 2.10, 1.67, 1.29, 1.00, 0.84, 0.67], "final": 2.62, "mass": 2000.0, "shift": 0.20, "drag": 0.53, "grip": 1.25 }] },
 	{ "id": "raptor", "name": "Forde Raptar Trophy", "class": "Off-Road", "legacy": 2,
+		"body": { "length": 4.6, "width": 2.0, "height": 1.85, "front_overhang": 0.95, "color": Color(0.95, 0.45, 0.05), "style": "trophy" },
 		"engines": [{ "label": "6.2 V8 Race - 800 HP", "cyl": 8, "fuel": "benzin", "hp": 800.0, "torque": 760.0,
 			"tq_from": 4000.0, "tq_to": 5000.0, "power_rpm": 6500.0, "idle": 950.0, "limiter": 7000.0, "max_rpm": 7300.0,
 			"turbo": 0.0, "gears": [-2.08, 0.0, 2.48, 1.48, 1.00], "final": 5.00, "mass": 2700.0, "shift": 0.30 }] },

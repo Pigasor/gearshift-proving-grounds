@@ -53,6 +53,9 @@ const STYLES: Dictionary = {
 	# Bugatti Chiron: mid-engine, very low, cabin forward, long engine cover
 	"chiron": { "hood": 0.270, "ws": 0.170, "roof": 0.10, "rw": 0.30, "nose": 0.50, "cowl": 0.72, "belt": 0.84,
 		"deck": 0.93, "taper_f": 0.15, "taper_r": 0.06, "tumble": 0.64, "spoiler": "flat" },
+	# Ford F-150 Raptor based trophy truck: tall nose, upright cab, short open bed
+	"trophy": { "hood": 0.31, "ws": 0.12, "roof": 0.17, "rw": 0.03, "nose": 1.02, "cowl": 1.22, "belt": 1.30,
+		"deck": 1.28, "taper_f": 0.04, "taper_r": 0.02, "tumble": 0.86, "spoiler": "none" },
 	# ---- Added cars, each shaped after photos of the real model ----
 	# Porsche 911 (992): short front trunk, long fastback sloping to a short tail
 	"porsche": { "hood": 0.26, "ws": 0.17, "roof": 0.12, "rw": 0.33, "nose": 0.58, "cowl": 0.80, "belt": 0.90,
@@ -266,6 +269,7 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		"challenger": _details_challenger(nose_h, deck_h)
 		"chiron": _details_chiron(nose_h, deck_h)
 		"porsche": _details_porsche(nose_h, deck_h)
+		"trophy": _details_trophy(nose_h, deck_h)
 		"m4": _details_m4(nose_h, deck_h)
 		"zed": _details_zed(nose_h, deck_h)
 		"mustang": _details_mustang(nose_h, deck_h)
@@ -347,41 +351,6 @@ func _plates(front_y: float, rear_y: float) -> void:
 	_rear(0, rear_y, Vector3(0.52, 0.11, 0.01), plate)
 
 # ------------------------------------------------------------------ per-model details
-func _details_accent(nose_h: float, deck_h: float) -> void:
-	# hexagonal lower grille + slim chrome upper grille, swept-back headlights, fog lamps
-	_hex(Vector3(0, g + 0.40, zf + 0.012), 0.95, 0.30, black)
-	_front(0, 0.40, Vector3(0.80, 0.02, 0.02), chrome)
-	_front(0, nose_h - 0.12, Vector3(0.62, 0.06, 0.03), chrome, Vector3.ZERO, 0.03)
-	var fw: float = _fw(0.6)
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.26), g + nose_h - 0.06, zf - 0.13), Vector3(0.50, 0.11, 0.28), head, Vector3(-8, sd * -28, sd * -6))
-		_box(Vector3(sd * (fw - 0.16), g + 0.36, zf - 0.005), Vector3(0.16, 0.08, 0.04), head)
-		# tail light: outer piece on the corner + inner piece on the boot lid
-		var rw: float = _rw(deck_h - 0.1)
-		_box(Vector3(sd * (rw - 0.16), g + deck_h - 0.13, zr + 0.05), Vector3(0.36, 0.15, 0.12), tail, Vector3(0, sd * 22, 0))
-		_rear(sd * (rw - 0.42), deck_h - 0.10, Vector3(0.22, 0.09, 0.03), tail)
-		_box(Vector3(sd * (taper.call(0.0, 0.7) + 0.006), g + 0.72, 0.0), Vector3(0.012, 0.025, L * 0.55), lens) # character line
-	_rear(0, deck_h - 0.10, Vector3(0.40, 0.03, 0.02), chrome)
-	_plates(0.30, deck_h - 0.28)
-
-func _details_egea(nose_h: float, deck_h: float) -> void:
-	# wide chrome-bar grille between large rectangular headlights, trapezoid lower grille
-	var fw: float = _fw(0.6)
-	for k in range(3):
-		_front(0, nose_h - 0.09 - k * 0.045, Vector3(0.78, 0.022, 0.03), chrome, Vector3.ZERO, 0.02)
-	_front(0, 0.38, Vector3(0.95, 0.20, 0.03), black)
-	_front(0, 0.47, Vector3(0.95, 0.02, 0.035), chrome)
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.09, zf - 0.04), Vector3(0.44, 0.16, 0.10), head, Vector3(-6, sd * -12, 0))
-		_box(Vector3(sd * (fw - 0.12), g + 0.33, zf - 0.005), Vector3(0.14, 0.06, 0.04), head)
-		var rw: float = _rw(deck_h - 0.1)
-		_rear(sd * (rw - 0.22), deck_h - 0.13, Vector3(0.40, 0.13, 0.05), tail)
-	_rear(0, deck_h - 0.13, Vector3(rw_span(0.36), 0.035, 0.03), chrome)
-	# chrome window surround line
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (taper.call((cowl_z + deck_z) * 0.5, float(s["belt"])) + 0.01), g + float(s["belt"]) + 0.005, (cowl_z + deck_z) * 0.5), Vector3(0.012, 0.02, cowl_z - deck_z), chrome)
-	_plates(0.30, deck_h - 0.30)
-
 func _details_sahin(nose_h: float, deck_h: float) -> void:
 	# black grille band between big rectangular headlights, amber corner indicators, thick black
 	# bumpers, wide red + amber tail-light blocks on a flat boot panel
@@ -400,109 +369,6 @@ func _details_sahin(nose_h: float, deck_h: float) -> void:
 		_rear(sd * (rw - 0.045), deck_h - 0.17, Vector3(0.08, 0.17, 0.04), amber)
 	_box(Vector3(0, g + 0.40, zf + 0.05), Vector3(0.52, 0.11, 0.01), plate) # front plate on the bumper
 	_rear(0, deck_h - 0.20, Vector3(0.52, 0.11, 0.01), plate)
-
-func _details_civic(nose_h: float, deck_h: float) -> void:
-	# thin sharp headlights joined by a thick chrome "wing" bar, big black honeycomb grille and
-	# corner intakes, boomerang (C) tail lights
-	var fw: float = _fw(0.55)
-	_front(0, nose_h - 0.09, Vector3(fw * 1.25, 0.05, 0.04), chrome, Vector3.ZERO, 0.03)
-	_front(0, 0.38, Vector3(0.80, 0.22, 0.03), black)
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.06, zf - 0.12), Vector3(0.55, 0.07, 0.26), head, Vector3(-10, sd * -24, sd * -4))
-		_box(Vector3(sd * (fw - 0.10), g + 0.34, zf - 0.03), Vector3(0.24, 0.20, 0.05), black, Vector3(0, 0, sd * 25))
-		var rw: float = _rw(deck_h - 0.1)
-		# boomerang: horizontal arm on the boot + vertical arm down the corner
-		_rear(sd * (rw - 0.30), deck_h - 0.09, Vector3(0.48, 0.06, 0.04), tail)
-		_box(Vector3(sd * (rw - 0.06), g + deck_h - 0.22, zr + 0.06), Vector3(0.10, 0.26, 0.10), tail, Vector3(0, sd * 25, 0))
-	_rear(0, 0.32, Vector3(_rw(0.3) * 1.6, 0.10, 0.04), black) # diffuser
-	for sd in [-1.0, 1.0]:
-		_pipe(Vector3(sd * hw * 0.6, g + 0.24, zr - 0.02), 0.04) # 1.5 Turbo: twin tips
-	_plates(0.28, deck_h - 0.30)
-
-func _details_megane(nose_h: float, deck_h: float) -> void:
-	# C-shaped LED daytime lights around the headlights, grille with chrome bar and diamond logo,
-	# slim horizontal tail lights joined by a chrome strip
-	var fw: float = _fw(0.6)
-	_front(0, nose_h - 0.12, Vector3(0.70, 0.13, 0.03), black, Vector3.ZERO, 0.02)
-	_front(0, nose_h - 0.08, Vector3(0.74, 0.02, 0.035), chrome, Vector3.ZERO, 0.02)
-	_front(0, nose_h - 0.12, Vector3(0.10, 0.10, 0.04), chrome, Vector3(0, 0, 45), 0.0)
-	_front(0, 0.38, Vector3(0.90, 0.18, 0.03), black)
-	for sd in [-1.0, 1.0]:
-		var hx: float = sd * (fw - 0.24)
-		_box(Vector3(hx, g + nose_h - 0.08, zf - 0.08), Vector3(0.40, 0.11, 0.16), head, Vector3(-8, sd * -16, 0))
-		# the "C": a vertical stroke under the lamp plus a hook along its lower edge
-		_box(Vector3(sd * (fw - 0.05), g + 0.42, zf - 0.03), Vector3(0.03, 0.22, 0.04), drl)
-		_box(Vector3(sd * (fw - 0.14), g + 0.32, zf - 0.01), Vector3(0.18, 0.03, 0.04), drl)
-		var rw: float = _rw(deck_h - 0.1)
-		_rear(sd * (rw - 0.28), deck_h - 0.11, Vector3(0.52, 0.07, 0.04), tail)
-	_rear(0, deck_h - 0.11, Vector3(rw_span(0.5), 0.025, 0.03), chrome)
-	_plates(0.28, deck_h - 0.30)
-
-func _details_gtr(nose_h: float, deck_h: float) -> void:
-	# big trapezoid grille, angular headlights, quad ROUND tail lights, quad exhausts, diffuser
-	var fw: float = _fw(0.55)
-	_front(0, 0.40, Vector3(0.80, 0.26, 0.03), black)
-	_front(0, 0.53, Vector3(0.70, 0.02, 0.035), chrome)
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.05, zf - 0.14), Vector3(0.50, 0.10, 0.30), head, Vector3(-12, sd * -22, 0))
-		_box(Vector3(sd * (fw - 0.12), g + 0.30, zf - 0.02), Vector3(0.22, 0.14, 0.04), black)
-		var rw: float = _rw(deck_h - 0.1)
-		for k in range(2):
-			_ring(Vector3(sd * (rw - 0.18 - k * 0.27), g + deck_h - 0.16, zr - 0.01), 0.10, tail)
-		_cyl_back(Vector3(sd * (0.35 + 0.0), g + 0.27, zr - 0.02), 0.05, chrome)
-		_cyl_back(Vector3(sd * 0.47, g + 0.27, zr - 0.02), 0.05, chrome)
-	_rear(0, 0.30, Vector3(_rw(0.3) * 1.5, 0.08, 0.05), black)
-	_plates(0.33, deck_h - 0.34)
-
-func _details_supra(nose_h: float, deck_h: float) -> void:
-	# low round nose, slim headlights, small mouth, round tail lights in a dark lens
-	var fw: float = _fw(0.5)
-	_front(0, 0.30, Vector3(0.60, 0.10, 0.03), black)
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.03, zf - 0.16), Vector3(0.46, 0.08, 0.30), head, Vector3(-14, sd * -20, 0))
-		_box(Vector3(sd * (fw - 0.12), g + 0.30, zf - 0.02), Vector3(0.16, 0.06, 0.04), amber)
-	var rw2: float = _rw(deck_h - 0.1)
-	_rear(0, deck_h - 0.17, Vector3(rw2 * 1.85, 0.20, 0.03), lens)
-	for sd in [-1.0, 1.0]:
-		for k in range(2):
-			_ring(Vector3(sd * (rw2 - 0.20 - k * 0.28), g + deck_h - 0.17, zr - 0.02), 0.085, tail)
-		_cyl_back(Vector3(sd * 0.45, g + 0.27, zr - 0.02), 0.055, chrome)
-	_plates(0.27, deck_h - 0.36)
-
-func _details_challenger(nose_h: float, deck_h: float) -> void:
-	# full-width black grille with quad round headlights in it, power-bulge hood, full-width
-	# rectangular tail-light bar
-	var fw: float = _fw(0.7)
-	_front(0, nose_h - 0.15, Vector3(fw * 1.9, 0.24, 0.03), black)
-	for sd in [-1.0, 1.0]:
-		for k in range(2):
-			_ring(Vector3(sd * (fw - 0.16 - k * 0.24), g + nose_h - 0.15, zf + 0.02), 0.085, head)
-		_box(Vector3(sd * (fw - 0.1), g + 0.36, zf - 0.005), Vector3(0.18, 0.06, 0.04), amber)
-		_cyl_back(Vector3(sd * 0.55, g + 0.26, zr - 0.02), 0.06, chrome)
-	_front(0, 0.38, Vector3(1.0, 0.12, 0.03), black)
-	_box(Vector3(0, g + float(s["cowl"]) - 0.02, (zf + cowl_z) * 0.5 - 0.15), Vector3(0.55, 0.06, L * float(s["hood"]) * 0.7), paint) # hood bulge
-	_rear(0, deck_h - 0.14, Vector3(_rw(deck_h - 0.1) * 1.9, 0.14, 0.04), tail)
-	_rear(0, deck_h - 0.14, Vector3(0.40, 0.08, 0.05), black)
-	_plates(0.30, deck_h - 0.34)
-
-func _details_chiron(nose_h: float, deck_h: float) -> void:
-	# horseshoe grille, quad-LED headlight strips, side "C" line, full-width rear light bar,
-	# huge centre exhaust & diffuser
-	var fw: float = _fw(0.45)
-	_horseshoe(Vector3(0, g + 0.36, zf + 0.012))
-	for sd in [-1.0, 1.0]:
-		for k in range(4):
-			_box(Vector3(sd * (fw - 0.16 - k * 0.07), g + nose_h - 0.04, zf - 0.15 - k * 0.02), Vector3(0.05, 0.04, 0.18), drl, Vector3(-10, 0, 0))
-		_box(Vector3(sd * (fw - 0.12), g + 0.28, zf - 0.03), Vector3(0.40, 0.14, 0.04), black)
-		# the signature C-line on the side
-		var cx: float = sd * (taper.call(cowl_z - 0.8, 0.6) + 0.01)
-		_box(Vector3(cx, g + 0.62, cowl_z - 0.55), Vector3(0.02, 0.06, 1.05), chrome)
-		_box(Vector3(cx, g + 0.42, cowl_z - 1.05), Vector3(0.02, 0.42, 0.06), chrome)
-	_rear(0, deck_h - 0.12, Vector3(_rw(deck_h) * 1.92, 0.05, 0.04), tail)
-	_rear(0, 0.34, Vector3(_rw(0.3) * 1.7, 0.18, 0.06), black)
-	_box(Vector3(0, g + 0.50, zr + 0.02), Vector3(0.80, 0.14, 0.05), black)
-	_pipe(Vector3(0, g + 0.50, zr - 0.01), 0.07) # the big centre pipe
-	_plates(0.24, 0.62)
 
 func rw_span(margin: float) -> float:
 	return maxf(_rw(0.8) * 2.0 - margin * 2.0, 0.2)
@@ -775,6 +641,9 @@ func _build_tractor(tire_r: float) -> void:
 	for sd in [-1.0, 1.0]:
 		_box(Vector3(sd * 0.485, g + 1.72, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.06, zf - 0.6 - cab_f), yellow) # hood stripe
 	_box(Vector3(0, g + 1.55, zf - 0.23), Vector3(0.85, 0.6, 0.04), black) # grille
+	_box(Vector3(0, g + 1.78, zf - 0.205), Vector3(0.22, 0.16, 0.02), yellow) # leaping-deer badge
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * 0.48, g + 1.5, (cab_f + zf) * 0.5 - 0.1), Vector3(0.02, 0.35, (zf - cab_f) * 0.55), black) # hood side vents
 	for sd in [-1.0, 1.0]:
 		_box(Vector3(sd * 0.3, g + 1.78, zf - 0.22), Vector3(0.2, 0.1, 0.05), head)
 	_box(Vector3(0, g + 0.82, zf - 0.12), Vector3(1.1, 0.45, 0.5), dark) # front weights
@@ -858,6 +727,11 @@ func _build_buggy(_tire_r: float) -> void:
 	_tube(Vector3(-0.51, top_y, hoop_z), Vector3(0.51, top_y, hoop_z), 0.04, cage)
 	_tube(Vector3(-0.51, top_y, front_z), Vector3(0.51, top_y, front_z), 0.04, cage)
 	_tube(Vector3(-0.55, g + 0.9, hoop_z), Vector3(0.55, g + 0.9, hoop_z), 0.035, cage)
+	_box(Vector3(0, top_y + 0.06, front_z), Vector3(1.0, 0.06, 0.12), cage) # roof lamp bar with four round spots
+	for k in range(4):
+		_cyl_z(Vector3(-0.36 + k * 0.24, top_y + 0.13, front_z + 0.04), 0.075, 0.08, cage)
+		_cyl_z(Vector3(-0.36 + k * 0.24, top_y + 0.13, front_z + 0.085), 0.06, 0.02, head)
+	_box(Vector3(0, g + 0.52, zf + 0.10), Vector3(0.08, 0.06, 0.12), _glow(Color(0.85, 0.08, 0.05), 0.0)) # tow eye
 	# exposed engine and the rear frame around it
 	_box(Vector3(0, g + 0.72, zra + 0.25), Vector3(0.62, 0.45, 0.55), engine)
 	_box(Vector3(0.18, g + 1.0, zra + 0.25), Vector3(0.18, 0.12, 0.4), black) # intake
@@ -942,8 +816,8 @@ func _details_m4(nose_h: float, deck_h: float) -> void:
 		_front(sd * 0.17, nose_h - 0.19, Vector3(0.25, 0.39, 0.035), black, Vector3.ZERO, -0.008)
 		for k in range(4):
 			_front(sd * 0.17, nose_h - 0.34 + k * 0.1, Vector3(0.25, 0.012, 0.04), lens, Vector3.ZERO, -0.012)
-		_box(Vector3(sd * (fw - 0.22), g + nose_h - 0.05, zf - 0.14), Vector3(0.40, 0.07, 0.26), head, Vector3(-10, sd * -22, 0))
-		_box(Vector3(sd * (fw - 0.22), g + nose_h - 0.085, zf - 0.11), Vector3(0.36, 0.02, 0.2), drl, Vector3(-10, sd * -22, 0))
+		_swept_lamp(sd, nose_h - 0.07, 0.32, 0.07, 0.40, head)
+		_front(sd * (fw - 0.20), nose_h - 0.115, Vector3(0.28, 0.02, 0.035), drl)
 		_front(sd * (fw - 0.15), 0.32, Vector3(0.26, 0.22, 0.03), black)
 		var rw: float = _rw(deck_h - 0.1)
 		_rear(sd * (rw - 0.22), deck_h - 0.11, Vector3(0.40, 0.08, 0.04), tail)
@@ -964,7 +838,7 @@ func _details_zed(nose_h: float, deck_h: float) -> void:
 	for sd in [-1.0, 1.0]:
 		for k in range(2):
 			_oval(Vector3(sd * (fw - 0.15 - k * 0.20), g + nose_h - 0.02, zf - 0.17), 0.09, 0.055, 0.05, head, Vector3(-28, 0, 0))
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.075, zf - 0.13), Vector3(0.44, 0.02, 0.24), drl, Vector3(-14, sd * -18, 0))
+		_front(sd * (fw - 0.22), nose_h - 0.10, Vector3(0.36, 0.02, 0.035), drl)
 		_pipe(Vector3(sd * 0.42, g + 0.27, zr - 0.01), 0.05)
 	var rw: float = _rw(deck_h - 0.1)
 	_rear(0, deck_h - 0.12, Vector3(rw * 1.9, 0.08, 0.03), lens)
@@ -979,7 +853,7 @@ func _details_mustang(nose_h: float, deck_h: float) -> void:
 	_front_poly(Vector3(0, g + nose_h - 0.18, zf + 0.012), [Vector2(-0.42, 0.12), Vector2(0.42, 0.12), Vector2(0.54, -0.15), Vector2(-0.54, -0.15)], black)
 	_front(0, nose_h - 0.18, Vector3(0.10, 0.06, 0.04), chrome, Vector3.ZERO, -0.02)
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.22), g + nose_h - 0.06, zf - 0.10), Vector3(0.40, 0.10, 0.18), head, Vector3(-8, sd * -14, 0))
+		_swept_lamp(sd, nose_h - 0.07, 0.34, 0.09, 0.32, head)
 		for k in range(3):
 			_front(sd * (fw - 0.10 - k * 0.07), nose_h - 0.14, Vector3(0.03, 0.12, 0.04), drl)
 		_box(Vector3(sd * 0.32, g + _hood_y(cowl_z + 0.45) + 0.005, cowl_z + 0.45), Vector3(0.18, 0.02, 0.35), black, Vector3(-3, 0, 0))
@@ -1000,7 +874,7 @@ func _details_camaro(nose_h: float, deck_h: float) -> void:
 	_front(0, nose_h - 0.10, Vector3(0.16, 0.05, 0.04), gold, Vector3.ZERO, -0.005)
 	_front(0, 0.37, Vector3(fw * 1.6, 0.26, 0.03), black)
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.20), g + nose_h - 0.09, zf - 0.08), Vector3(0.38, 0.07, 0.16), head, Vector3(-6, sd * -12, 0))
+		_swept_lamp(sd, nose_h - 0.10, 0.34, 0.07, 0.30, head)
 		_front(sd * (fw - 0.08), 0.42, Vector3(0.05, 0.16, 0.04), drl)
 		var rw: float = _rw(deck_h - 0.1)
 		for k in range(2):
@@ -1086,7 +960,8 @@ func _details_jesko(nose_h: float, deck_h: float) -> void:
 	_front(0, 0.26, Vector3(fw * 1.7, 0.16, 0.03), black)
 	_splitter()
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.20), g + nose_h + 0.02, zf - 0.25), Vector3(0.36, 0.035, 0.22), drl, Vector3(-18, sd * -12, 0))
+		_hood_strip(sd * (fw - 0.22), zf - 0.24, 0.28, 0.05, 0.02, drl)
+		_hood_strip(sd * (fw - 0.22), zf - 0.30, 0.26, 0.06, 0.015, lens)
 		_box(Vector3(sd * (fw - 0.04), g + 0.30, zf - 0.06), Vector3(0.14, 0.025, 0.12), black, Vector3(0, 0, sd * 15))
 		_box(Vector3(sd * (taper.call(roof_rear_z, 0.6) + 0.006), g + 0.62, roof_rear_z - 0.1), Vector3(0.02, 0.30, 0.55), black)
 		var rw: float = _rw(deck_h - 0.15)
@@ -1103,9 +978,9 @@ func _details_p1(nose_h: float, deck_h: float) -> void:
 	_front(0, 0.25, Vector3(fw * 1.6, 0.13, 0.03), black)
 	_splitter()
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.20), g + nose_h - 0.05, zf - 0.17), Vector3(0.32, 0.09, 0.22), lens, Vector3(-15, sd * -22, 0))
-		_box(Vector3(sd * (fw - 0.24), g + nose_h - 0.01, zf - 0.19), Vector3(0.30, 0.03, 0.18), drl, Vector3(-15, sd * -20, sd * 12))
-		_box(Vector3(sd * (fw - 0.10), g + nose_h - 0.06, zf - 0.12), Vector3(0.14, 0.03, 0.12), drl, Vector3(-15, sd * -35, sd * -25))
+		_hood_strip(sd * (fw - 0.22), zf - 0.20, 0.32, 0.26, 0.02, lens)
+		_hood_strip(sd * (fw - 0.26), zf - 0.22, 0.22, 0.04, 0.03, drl)
+		_hood_strip(sd * (fw - 0.13), zf - 0.15, 0.04, 0.14, 0.03, drl)
 		_box(Vector3(sd * (taper.call(roof_rear_z + 0.2, 0.5) + 0.006), g + 0.55, roof_rear_z + 0.1), Vector3(0.02, 0.32, 0.7), black)
 		var rw: float = _rw(deck_h - 0.1)
 		_rear(sd * (rw - 0.06), deck_h - 0.15, Vector3(0.05, 0.20, 0.04), tail)
@@ -1123,7 +998,7 @@ func _details_laferrari(nose_h: float, deck_h: float) -> void:
 	_splitter()
 	for sd in [-1.0, 1.0]:
 		_front(sd * (fw * 0.55), 0.26, Vector3(0.45, 0.20, 0.03), black)
-		_box(Vector3(sd * (fw - 0.16), g + nose_h + 0.05, zf - 0.38), Vector3(0.26, 0.04, 0.34), head, Vector3(-18, sd * -28, 0))
+		_hood_strip(sd * (fw - 0.18), zf - 0.38, 0.12, 0.36, 0.02, head)
 		_box(Vector3(sd * (taper.call(cowl_z - 0.8, 0.5) + 0.006), g + 0.48, cowl_z - 0.9), Vector3(0.02, 0.26, 0.8), black)
 		var rw: float = _rw(deck_h - 0.12)
 		for k in range(2):
@@ -1140,8 +1015,8 @@ func _details_corolla(nose_h: float, deck_h: float) -> void:
 	_front_poly(Vector3(0, g + 0.36, zf + 0.012), [Vector2(-0.36, 0.14), Vector2(0.36, 0.14), Vector2(0.62, -0.13), Vector2(-0.62, -0.13)], black)
 	_front(0, nose_h - 0.10, Vector3(0.70, 0.04, 0.03), black)
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.06, zf - 0.14), Vector3(0.50, 0.07, 0.28), head, Vector3(-10, sd * -26, 0))
-		_box(Vector3(sd * (fw - 0.25), g + nose_h - 0.095, zf - 0.11), Vector3(0.40, 0.015, 0.22), drl, Vector3(-10, sd * -26, 0))
+		_swept_lamp(sd, nose_h - 0.07, 0.34, 0.07, 0.48, head)
+		_front(sd * (fw - 0.22), nose_h - 0.115, Vector3(0.30, 0.015, 0.035), drl)
 		var rw: float = _rw(deck_h - 0.1)
 		_rear(sd * (rw - 0.25), deck_h - 0.10, Vector3(0.46, 0.07, 0.04), tail)
 	_rear(0, deck_h - 0.10, Vector3(rw_span(0.5), 0.05, 0.03), lens)
@@ -1157,7 +1032,7 @@ func _details_passat(nose_h: float, deck_h: float) -> void:
 	_oval(Vector3(0, g + nose_h - 0.11, zf + 0.03), 0.065, 0.065, 0.02, chrome)
 	_front(0, 0.36, Vector3(0.8, 0.16, 0.03), black)
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * (fw - 0.20), g + nose_h - 0.10, zf - 0.07), Vector3(0.36, 0.11, 0.14), head, Vector3(-6, sd * -14, 0))
+		_swept_lamp(sd, nose_h - 0.11, 0.34, 0.11, 0.25, head)
 		_front(sd * (fw - 0.12), 0.32, Vector3(0.2, 0.04, 0.03), chrome)
 		var rw: float = _rw(deck_h - 0.1)
 		_rear(sd * (rw - 0.24), deck_h - 0.11, Vector3(0.44, 0.10, 0.04), tail)
@@ -1309,3 +1184,225 @@ func _build_utv(_tire_r: float) -> void:
 	_box(Vector3(0, g + 1.05, zr + 0.15), Vector3(1.15, 0.24, 0.05), paint)
 	_box(Vector3(0, g + 0.72, zra + 0.2), Vector3(0.6, 0.35, 0.45), _glow(Color(0.35, 0.36, 0.38), 0.0))
 	_pipe(Vector3(-0.3, g + 0.65, zr + 0.18), 0.045)
+
+# ------------------------------------------------------------------ lamp helpers
+# A headlight that wraps round the corner of the nose: a piece on the front face plus one running
+# back along the wing, both lying on the body (rotated boxes used to stick out of the sides).
+func _swept_lamp(sd: float, y: float, w: float, h: float, side: float, mat: Material) -> void:
+	var fw: float = _fw(y)
+	_front(sd * (fw - w * 0.5 - 0.015), y, Vector3(w, h, 0.03), mat)
+	if side > 0.0:
+		var zc: float = zf - 0.07 - side * 0.5
+		_box(Vector3(sd * (taper.call(zc, y) + 0.004), g + y, zc), Vector3(0.02, h * 0.85, side), mat)
+
+# A flat piece lying on the sloping hood / nose at (x, z): lamps on a long low nose, stripes, panels
+func _hood_strip(x: float, z: float, w: float, l: float, th: float, mat: Material) -> void:
+	var y0: float = _hood_y(z + l * 0.5)
+	var y1: float = _hood_y(z - l * 0.5)
+	var ang: float = atan2(y1 - y0, l)
+	_box(Vector3(x, g + (y0 + y1) * 0.5 + th * 0.5 + 0.004, z), Vector3(w, th, l), mat, Vector3(rad_to_deg(ang), 0, 0))
+
+# ------------------------------------------------------------------ original cars, redone after photos
+func _details_accent(nose_h: float, deck_h: float) -> void:
+	# Hyundai Accent Blue (RB): hexagonal lower grille, slim chrome upper grille, long swept headlights,
+	# fog lamps, wrap-round tail lights, rising character line
+	_hex(Vector3(0, g + 0.40, zf + 0.012), 0.95, 0.30, black)
+	_front(0, 0.40, Vector3(0.80, 0.02, 0.02), chrome)
+	_front(0, nose_h - 0.12, Vector3(0.62, 0.06, 0.03), chrome, Vector3.ZERO, 0.03)
+	var fw: float = _fw(0.6)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.08, 0.30, 0.10, 0.45, head)
+		_front(sd * (fw - 0.16), 0.36, Vector3(0.14, 0.07, 0.035), head)
+		var rw: float = _rw(deck_h - 0.1)
+		_swept_rear(sd, deck_h - 0.13, 0.30, 0.13, 0.30, tail)
+		_rear(sd * (rw - 0.40), deck_h - 0.10, Vector3(0.20, 0.08, 0.03), tail)
+		_box(Vector3(sd * (taper.call(0.0, 0.7) + 0.006), g + 0.72, 0.0), Vector3(0.012, 0.025, L * 0.55), lens)
+	_rear(0, deck_h - 0.10, Vector3(0.40, 0.03, 0.02), chrome)
+	_plates(0.30, deck_h - 0.28)
+
+# Tail light wrapping round the rear corner (rear face + side piece)
+func _swept_rear(sd: float, y: float, w: float, h: float, side: float, mat: Material) -> void:
+	var rw: float = _rw(y)
+	_rear(sd * (rw - w * 0.5 - 0.015), y, Vector3(w, h, 0.03), mat)
+	if side > 0.0:
+		var zc: float = zr + 0.07 + side * 0.5
+		_box(Vector3(sd * (taper.call(zc, y) + 0.004), g + y, zc), Vector3(0.02, h * 0.85, side), mat)
+
+func _details_egea(nose_h: float, deck_h: float) -> void:
+	# Fiat Egea / Tipo sedan: wide chrome-barred grille with the FIAT badge between large headlights,
+	# trapezoid lower grille with a chrome lip, horizontal tail lights joined by a chrome bar
+	var fw: float = _fw(0.6)
+	_front(0, nose_h - 0.12, Vector3(0.80, 0.15, 0.03), black)
+	for k in range(3):
+		_front(0, nose_h - 0.09 - k * 0.045, Vector3(0.78, 0.022, 0.03), chrome, Vector3.ZERO, -0.004)
+	_front(0, nose_h - 0.12, Vector3(0.20, 0.06, 0.04), chrome, Vector3.ZERO, -0.01)
+	_front(0, 0.38, Vector3(0.95, 0.20, 0.03), black)
+	_front(0, 0.47, Vector3(0.95, 0.02, 0.035), chrome)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.10, 0.40, 0.15, 0.30, head)
+		_front(sd * (fw - 0.12), 0.33, Vector3(0.14, 0.06, 0.04), head)
+		_swept_rear(sd, deck_h - 0.13, 0.38, 0.13, 0.22, tail)
+	_rear(0, deck_h - 0.13, Vector3(rw_span(0.36), 0.035, 0.03), chrome)
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * (taper.call((cowl_z + deck_z) * 0.5, float(s["belt"])) + 0.01), g + float(s["belt"]) + 0.005, (cowl_z + deck_z) * 0.5), Vector3(0.012, 0.02, cowl_z - deck_z), chrome)
+	_plates(0.30, deck_h - 0.30)
+
+func _details_civic(nose_h: float, deck_h: float) -> void:
+	# Honda Civic (10th gen) sedan: thin sharp headlights joined by the thick chrome "wing" bar, big
+	# black honeycomb grille with corner intakes, boomerang (C) tail lights
+	var fw: float = _fw(0.55)
+	_front(0, nose_h - 0.09, Vector3(fw * 1.25, 0.05, 0.04), chrome, Vector3.ZERO, 0.03)
+	_front(0, 0.38, Vector3(0.80, 0.22, 0.03), black)
+	for k in range(4):
+		_front(0, 0.30 + k * 0.05, Vector3(0.76, 0.008, 0.035), lens, Vector3.ZERO, -0.004)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.075, 0.36, 0.07, 0.48, head)
+		_front(sd * (fw - 0.22), nose_h - 0.12, Vector3(0.26, 0.015, 0.035), drl)
+		_box(Vector3(sd * (fw - 0.10), g + 0.34, zf - 0.03), Vector3(0.24, 0.20, 0.05), black, Vector3(0, 0, sd * 25))
+		var rw: float = _rw(deck_h - 0.1)
+		_rear(sd * (rw - 0.30), deck_h - 0.09, Vector3(0.48, 0.06, 0.04), tail)
+		_swept_rear(sd, deck_h - 0.22, 0.10, 0.24, 0.18, tail)
+	_rear(0, 0.32, Vector3(_rw(0.3) * 1.6, 0.10, 0.04), black)
+	for sd in [-1.0, 1.0]:
+		_pipe(Vector3(sd * hw * 0.6, g + 0.24, zr - 0.02), 0.04)
+	_plates(0.28, deck_h - 0.30)
+
+func _details_megane(nose_h: float, deck_h: float) -> void:
+	# Renault Megane IV sedan: C-shaped LED lights around the headlights, grille with a chrome bar and
+	# the diamond, slim horizontal tail lights joined by a chrome strip
+	var fw: float = _fw(0.6)
+	_front(0, nose_h - 0.12, Vector3(0.70, 0.13, 0.03), black, Vector3.ZERO, 0.02)
+	_front(0, nose_h - 0.08, Vector3(0.74, 0.02, 0.035), chrome, Vector3.ZERO, 0.02)
+	_front(0, nose_h - 0.12, Vector3(0.10, 0.10, 0.04), chrome, Vector3(0, 0, 45), 0.0)
+	_front(0, 0.38, Vector3(0.90, 0.18, 0.03), black)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.085, 0.34, 0.10, 0.32, head)
+		_box(Vector3(sd * (fw - 0.05), g + 0.42, zf - 0.03), Vector3(0.03, 0.22, 0.04), drl)
+		_box(Vector3(sd * (fw - 0.14), g + 0.32, zf - 0.01), Vector3(0.18, 0.03, 0.04), drl)
+		_swept_rear(sd, deck_h - 0.11, 0.50, 0.07, 0.25, tail)
+	_rear(0, deck_h - 0.11, Vector3(rw_span(0.5), 0.025, 0.03), chrome)
+	_plates(0.28, deck_h - 0.30)
+
+func _details_gtr(nose_h: float, deck_h: float) -> void:
+	# Nissan GT-R R35: big inverted-trapezoid mesh grille in a chrome frame, boomerang headlights with
+	# an LED strip under them, corner intakes, front-wing vents, hood ridges, quad ROUND tail lights,
+	# quad exhausts and a diffuser
+	var fw: float = _fw(0.55)
+	_front_poly(Vector3(0, g + 0.42, zf + 0.012), [Vector2(-0.43, 0.13), Vector2(0.43, 0.13), Vector2(0.31, -0.15), Vector2(-0.31, -0.15)], chrome)
+	_front_poly(Vector3(0, g + 0.42, zf + 0.016), [Vector2(-0.39, 0.11), Vector2(0.39, 0.11), Vector2(0.28, -0.13), Vector2(-0.28, -0.13)], black)
+	for k in range(3):
+		_front(0, 0.34 + k * 0.06, Vector3(0.62 - (2 - k) * 0.08, 0.008, 0.04), lens, Vector3.ZERO, -0.01)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.07, 0.34, 0.09, 0.42, head)
+		_front(sd * (fw - 0.18), nose_h - 0.14, Vector3(0.22, 0.02, 0.035), drl)
+		_front(sd * (fw - 0.10), 0.30, Vector3(0.22, 0.16, 0.03), black)
+		var vz: float = wb * 0.5 - 0.72
+		_box(Vector3(sd * (taper.call(vz, 0.7) + 0.006), g + 0.68, vz), Vector3(0.02, 0.14, 0.30), black)
+		_hood_strip(sd * 0.30, (zf + cowl_z) * 0.5 - 0.1, 0.05, (zf - cowl_z) * 0.6, 0.025, paint)
+		var rw: float = _rw(deck_h - 0.1)
+		for k in range(2):
+			_ring(Vector3(sd * (rw - 0.18 - k * 0.27), g + deck_h - 0.16, zr - 0.01), 0.10, tail)
+		_cyl_back(Vector3(sd * 0.35, g + 0.27, zr - 0.02), 0.05, chrome)
+		_cyl_back(Vector3(sd * 0.47, g + 0.27, zr - 0.02), 0.05, chrome)
+	_rear(0, 0.30, Vector3(_rw(0.3) * 1.5, 0.08, 0.05), black)
+	_plates(0.25, deck_h - 0.34)
+
+func _details_supra(nose_h: float, deck_h: float) -> void:
+	# Toyota Supra A80: long low round nose with big oval headlight clusters (three round lamps each in a
+	# dark lens), small oval mouth with fog lamps, round tail lights in a full-width dark lens
+	var fw: float = _fw(0.5)
+	_front(0, 0.30, Vector3(0.64, 0.12, 0.03), black)
+	for sd in [-1.0, 1.0]:
+		var lz: float = zf - 0.24
+		_oval(Vector3(sd * (fw - 0.27), g + _hood_y(lz) + 0.02, lz), 0.22, 0.15, 0.03, lens, Vector3(-72, 0, 0))
+		for k in range(3):
+			var kz: float = lz + 0.06 - k * 0.06
+			_oval(Vector3(sd * (fw - 0.39 + k * 0.12), g + _hood_y(kz) + 0.04, kz), 0.045, 0.045, 0.03, head, Vector3(-72, 0, 0))
+		_front(sd * (fw - 0.12), 0.30, Vector3(0.16, 0.06, 0.04), amber)
+	var rw2: float = _rw(deck_h - 0.1)
+	_rear(0, deck_h - 0.17, Vector3(rw2 * 1.85, 0.20, 0.03), lens)
+	for sd in [-1.0, 1.0]:
+		for k in range(2):
+			_ring(Vector3(sd * (rw2 - 0.20 - k * 0.28), g + deck_h - 0.17, zr - 0.02), 0.085, tail)
+		_cyl_back(Vector3(sd * 0.45, g + 0.27, zr - 0.02), 0.055, chrome)
+	_plates(0.27, deck_h - 0.36)
+
+func _details_challenger(nose_h: float, deck_h: float) -> void:
+	# Dodge Challenger SRT Hellcat: full-width black grille with quad round headlights (the inner
+	# left one is the "air catcher" intake), hood scoop with twin heat extractors, fender scoops, front
+	# splitter, racetrack full-width tail-light ring
+	var fw: float = _fw(0.7)
+	_front(0, nose_h - 0.15, Vector3(fw * 1.9, 0.24, 0.03), black)
+	for sd in [-1.0, 1.0]:
+		for k in range(2):
+			var intake: bool = sd > 0.0 and k == 1
+			_ring(Vector3(sd * (fw - 0.16 - k * 0.24), g + nose_h - 0.15, zf + 0.02), 0.085, lens if intake else head)
+		_box(Vector3(sd * (fw - 0.1), g + 0.36, zf - 0.005), Vector3(0.18, 0.06, 0.04), amber)
+		_cyl_back(Vector3(sd * 0.55, g + 0.26, zr - 0.02), 0.06, chrome)
+		_box(Vector3(sd * (taper.call(wb * 0.5 - 0.7, 0.7) + 0.006), g + 0.70, wb * 0.5 - 0.7), Vector3(0.02, 0.12, 0.25), black)
+		_hood_strip(sd * 0.36, cowl_z + 0.55, 0.20, 0.30, 0.02, black)
+	_front(0, 0.38, Vector3(1.0, 0.12, 0.03), black)
+	_splitter()
+	_hood_strip(0, (zf + cowl_z) * 0.5 - 0.15, 0.55, L * float(s["hood"]) * 0.7, 0.06, paint)
+	_hood_strip(0, (zf + cowl_z) * 0.5 + 0.15, 0.30, 0.25, 0.08, black)
+	_rear(0, deck_h - 0.14, Vector3(_rw(deck_h - 0.1) * 1.9, 0.14, 0.04), tail)
+	_rear(0, deck_h - 0.14, Vector3(_rw(deck_h - 0.1) * 1.75, 0.08, 0.045), lens)
+	_plates(0.30, deck_h - 0.34)
+
+func _details_chiron(nose_h: float, deck_h: float) -> void:
+	# Bugatti Chiron: two-tone (dark nose and hood), horseshoe grille, quad-LED headlight strips, the big
+	# chrome C-line on the side, central roof spine and roof scoop, full-width rear light bar, huge
+	# centre exhaust & diffuser
+	var fw: float = _fw(0.45)
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.03, 0.035, 0.045)
+	dark.metallic = 0.6
+	dark.roughness = 0.25
+	_hood_strip(0, (zf + cowl_z) * 0.5, fw * 1.75, (zf - cowl_z) * 0.9, 0.012, dark)
+	_horseshoe(Vector3(0, g + 0.36, zf + 0.012))
+	for sd in [-1.0, 1.0]:
+		for k in range(4):
+			var kz: float = zf - 0.15 - k * 0.02
+			_box(Vector3(sd * (fw - 0.16 - k * 0.07), g + _hood_y(kz) - 0.01, kz), Vector3(0.05, 0.04, 0.18), drl, Vector3(-10, 0, 0))
+		_box(Vector3(sd * (fw - 0.12), g + 0.28, zf - 0.03), Vector3(0.40, 0.14, 0.04), black)
+		var cx: float = sd * (taper.call(cowl_z - 0.8, 0.6) + 0.01)
+		_box(Vector3(cx, g + 0.62, cowl_z - 0.55), Vector3(0.02, 0.06, 1.05), chrome)
+		_box(Vector3(cx, g + 0.42, cowl_z - 1.05), Vector3(0.02, 0.42, 0.06), chrome)
+		_box(Vector3(sd * (taper.call(cowl_z - 1.25, 0.5) + 0.006), g + 0.45, cowl_z - 1.25), Vector3(0.02, 0.30, 0.30), black)
+	_box(Vector3(0, g + H + 0.02, (ws_top_z + deck_z) * 0.5), Vector3(0.05, 0.05, ws_top_z - deck_z), paint)
+	_box(Vector3(0, g + H - 0.02, roof_rear_z - 0.15), Vector3(0.40, 0.10, 0.30), black)
+	_rear(0, deck_h - 0.12, Vector3(_rw(deck_h) * 1.92, 0.05, 0.04), tail)
+	_rear(0, 0.34, Vector3(_rw(0.3) * 1.7, 0.18, 0.06), black)
+	_box(Vector3(0, g + 0.50, zr + 0.02), Vector3(0.80, 0.14, 0.05), black)
+	_pipe(Vector3(0, g + 0.50, zr - 0.01), 0.07)
+	_plates(0.24, 0.62)
+
+# Ford F-150 Raptor based Baja trophy truck: black grille with the four big letters between C-clamp
+# LED headlights, tube bumper with an LED bar, huge fender flares, roof light bar, roll cage and a
+# spare wheel in the open bed
+func _details_trophy(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.2)
+	_front(0, nose_h - 0.22, Vector3(fw * 2.0 - 0.15, 0.36, 0.03), black)
+	for k in range(4):
+		_front(-0.33 + k * 0.22, nose_h - 0.22, Vector3(0.14, 0.18, 0.04), paint, Vector3.ZERO, -0.005)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.16, 0.24, 0.12, 0.25, head)
+		_front(sd * (fw - 0.06), nose_h - 0.24, Vector3(0.025, 0.22, 0.04), drl)
+		for zc in [wb * 0.5, -wb * 0.5]:
+			_box(Vector3(sd * (hw + 0.06), g + tire_rad * 2.0 + 0.12, zc), Vector3(0.22, 0.06, 1.25), black)
+			_box(Vector3(sd * (hw + 0.06), g + tire_rad * 1.5, zc + 0.66), Vector3(0.22, 0.06, 0.5), black, Vector3(60, 0, 0))
+			_box(Vector3(sd * (hw + 0.06), g + tire_rad * 1.5, zc - 0.66), Vector3(0.22, 0.06, 0.5), black, Vector3(-60, 0, 0))
+		_rear(sd * (_rw(deck_h - 0.2) - 0.06), deck_h - 0.22, Vector3(0.08, 0.26, 0.05), tail)
+	var cage := _glow(Color(0.07, 0.07, 0.08), 0.0)
+	_tube(Vector3(-0.75, g + 0.50, zf + 0.12), Vector3(0.75, g + 0.50, zf + 0.12), 0.05, cage)
+	_tube(Vector3(-0.55, g + 0.75, zf + 0.10), Vector3(0.55, g + 0.75, zf + 0.10), 0.04, cage)
+	_box(Vector3(0, g + 0.76, zf + 0.14), Vector3(0.9, 0.06, 0.04), drl)
+	_box(Vector3(0, g + H + 0.06, ws_top_z - 0.05), Vector3(1.4, 0.08, 0.10), black)
+	_box(Vector3(0, g + H + 0.06, ws_top_z - 0.005), Vector3(1.32, 0.05, 0.01), drl)
+	# open bed: floor, spare wheel lying in it, roll bars over the cab and down to the tail
+	_box(Vector3(0, g + deck_h + 0.01, (deck_z + zr) * 0.5), Vector3(hw * 1.7, 0.02, deck_z - zr - 0.1), black)
+	_cyl(Vector3(0, g + deck_h + 0.14, (deck_z + zr) * 0.5), tire_rad * 0.95, 0.26, black)
+	for sd in [-1.0, 1.0]:
+		_tube(Vector3(sd * 0.6, g + H, roof_rear_z), Vector3(sd * 0.6, g + deck_h, zr + 0.2), 0.04, cage)
+	_tube(Vector3(-0.6, g + H, roof_rear_z), Vector3(0.6, g + H, roof_rear_z), 0.04, cage)
+	_pipe(Vector3(0.6, g + 0.45, zr - 0.02), 0.06)
