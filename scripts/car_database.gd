@@ -187,7 +187,7 @@ const CARS: Array = [
 	{ "id": "porsche", "name": "Porshe 911 Turbo Es", "class": "Sport",
 		"body": { "length": 4.54, "width": 1.90, "height": 1.30, "wheelbase": 2.45, "track": 1.60,
 			"front_overhang": 0.92, "tire_r": 0.34, "mass": 1640.0, "cd_area": 0.43, "drive": "AWD",
-			"color": Color(0.74, 0.75, 0.77), "style": "supra",
+			"color": Color(0.74, 0.75, 0.77), "style": "porsche",
 			"setup": {"center_of_mass": Vector3(0.0, -0.15, -0.30), # engine behind the rear axle
 				"tire_grip_factor": 1.25, "downforce_coefficient": 0.3, "spring_stiffness": 60000.0, "damper_bump": 4500.0,
 				"damper_rebound": 6200.0, "anti_roll_stiffness": 14000.0, "brake_bias_front": 0.62, "max_steer_angle_deg": 34.0, "shift_delay_seconds": 0.10} },
@@ -199,7 +199,7 @@ const CARS: Array = [
 	{ "id": "m4", "name": "BMV Em4 Kompetisyon", "class": "Sport",
 		"body": { "length": 4.79, "width": 1.89, "height": 1.39, "wheelbase": 2.86, "track": 1.62,
 			"front_overhang": 0.90, "tire_r": 0.34, "mass": 1725.0, "cd_area": 0.44, "drive": "RWD",
-			"color": Color(0.05, 0.33, 0.28), "style": "gtr", "setup": SPORT_SETUP },
+			"color": Color(0.05, 0.33, 0.28), "style": "m4", "setup": SPORT_SETUP },
 		"engines": [
 			{ "label": "3.0 I6 Twin-Turbo - 510 HP", "cyl": 6, "fuel": "benzin", "hp": 510.0, "torque": 650.0,
 				"tq_from": 2750.0, "tq_to": 5500.0, "power_rpm": 6250.0, "idle": 750.0, "limiter": 7200.0, "max_rpm": 7400.0,
@@ -208,7 +208,7 @@ const CARS: Array = [
 	{ "id": "zed", "name": "Nisson Zed Nismo", "class": "Sport",
 		"body": { "length": 4.38, "width": 1.85, "height": 1.31, "wheelbase": 2.55, "track": 1.58,
 			"front_overhang": 0.88, "tire_r": 0.33, "mass": 1610.0, "cd_area": 0.42, "drive": "RWD",
-			"color": Color(0.95, 0.78, 0.10), "style": "supra", "setup": SPORT_SETUP },
+			"color": Color(0.95, 0.78, 0.10), "style": "zed", "setup": SPORT_SETUP },
 		"engines": [
 			{ "label": "3.0 V6 Twin-Turbo - 420 HP", "cyl": 6, "fuel": "benzin", "hp": 420.0, "torque": 520.0,
 				"tq_from": 2000.0, "tq_to": 5200.0, "power_rpm": 6400.0, "idle": 750.0, "limiter": 7000.0, "max_rpm": 7300.0,
@@ -218,7 +218,7 @@ const CARS: Array = [
 	{ "id": "mustang", "name": "Forde Mustank GT", "class": "Muscle",
 		"body": { "length": 4.81, "width": 1.92, "height": 1.38, "wheelbase": 2.72, "track": 1.60,
 			"front_overhang": 0.98, "tire_r": 0.34, "mass": 1750.0, "cd_area": 0.47, "drive": "RWD",
-			"color": Color(0.08, 0.20, 0.55), "style": "challenger",
+			"color": Color(0.08, 0.20, 0.55), "style": "mustang",
 			"setup": {"tire_grip_factor": 1.15, "downforce_coefficient": 0.1, "spring_stiffness": 48000.0, "damper_bump": 3800.0, "damper_rebound": 5200.0,
 				"anti_roll_stiffness": 11000.0, "brake_bias_front": 0.62, "shift_delay_seconds": 0.18} },
 		"engines": [
@@ -229,7 +229,7 @@ const CARS: Array = [
 	{ "id": "camaro", "name": "Chevrolay Kamaro ZL1", "class": "Muscle",
 		"body": { "length": 4.78, "width": 1.90, "height": 1.35, "wheelbase": 2.81, "track": 1.60,
 			"front_overhang": 0.95, "tire_r": 0.34, "mass": 1795.0, "cd_area": 0.45, "drive": "RWD",
-			"color": Color(0.85, 0.30, 0.04), "style": "challenger",
+			"color": Color(0.85, 0.30, 0.04), "style": "camaro",
 			"setup": {"tire_grip_factor": 1.25, "downforce_coefficient": 0.15, "spring_stiffness": 52000.0, "damper_bump": 4000.0, "damper_rebound": 5500.0,
 				"anti_roll_stiffness": 12000.0, "brake_bias_front": 0.62, "shift_delay_seconds": 0.16} },
 		"engines": [
@@ -240,7 +240,7 @@ const CARS: Array = [
 	{ "id": "transam", "name": "Pontiak Trans Em 1977", "class": "Muscle", "classic": true,
 		"body": { "length": 4.99, "width": 1.87, "height": 1.28, "wheelbase": 2.75, "track": 1.55,
 			"front_overhang": 1.05, "tire_r": 0.34, "mass": 1660.0, "cd_area": 0.55, "drive": "RWD",
-			"color": Color(0.04, 0.04, 0.05), "style": "challenger", "rim": Color(0.85, 0.66, 0.22),
+			"color": Color(0.04, 0.04, 0.05), "style": "transam", "rim": Color(0.85, 0.66, 0.22),
 			"setup": {"tire_grip_factor": 0.95, "max_steer_angle_deg": 35.0} },
 		"engines": [
 			{ "label": "6.6 V8 - 200 HP", "cyl": 8, "fuel": "benzin", "hp": 200.0, "torque": 441.0,
@@ -251,7 +251,7 @@ const CARS: Array = [
 	{ "id": "wrangler", "name": "Jip Rangler Rubikon", "class": "Off-Road",
 		"body": { "length": 4.33, "width": 1.89, "height": 1.85, "wheelbase": 2.46, "track": 1.60,
 			"front_overhang": 0.70, "tire_r": 0.40, "mass": 2050.0, "cd_area": 0.75, "drive": "AWD",
-			"color": Color(0.20, 0.33, 0.15), "style": "egea", "ground_clearance": 0.40, "setup": OFFROAD_SETUP },
+			"color": Color(0.20, 0.33, 0.15), "style": "wrangler", "ground_clearance": 0.40, "setup": OFFROAD_SETUP },
 		"engines": [
 			{ "label": "3.6 V6 Pentastar - 285 HP", "cyl": 6, "fuel": "benzin", "hp": 285.0, "torque": 353.0,
 				"tq_from": 4800.0, "tq_to": 4800.0, "power_rpm": 6400.0, "idle": 700.0, "limiter": 6500.0, "max_rpm": 6700.0,
@@ -260,7 +260,7 @@ const CARS: Array = [
 	{ "id": "landcruiser", "name": "Toyoda Land Kruzer 70", "class": "Off-Road",
 		"body": { "length": 5.20, "width": 1.87, "height": 1.94, "wheelbase": 2.98, "track": 1.55,
 			"front_overhang": 0.85, "tire_r": 0.40, "mass": 2350.0, "cd_area": 0.85, "drive": "AWD",
-			"color": Color(0.95, 0.95, 0.92), "style": "egea", "ground_clearance": 0.38, "setup": OFFROAD_SETUP },
+			"color": Color(0.95, 0.95, 0.92), "style": "landcruiser", "ground_clearance": 0.38, "setup": OFFROAD_SETUP },
 		"engines": [
 			{ "label": "4.5 V8 Diesel - 205 HP", "cyl": 8, "fuel": "dizel", "hp": 205.0, "torque": 430.0,
 				"tq_from": 1200.0, "tq_to": 3200.0, "power_rpm": 3400.0, "idle": 700.0, "limiter": 3800.0, "max_rpm": 4000.0,
@@ -269,7 +269,7 @@ const CARS: Array = [
 	{ "id": "rzr", "name": "Polaros Razer Turbo", "class": "Off-Road",
 		"body": { "length": 3.30, "width": 1.85, "height": 1.60, "wheelbase": 2.45, "track": 1.62,
 			"front_overhang": 0.45, "tire_r": 0.40, "mass": 780.0, "cd_area": 0.80, "drive": "AWD",
-			"color": Color(0.85, 0.10, 0.10), "style": "buggy", "coilovers": true, "ground_clearance": 0.42,
+			"color": Color(0.85, 0.10, 0.10), "style": "utv", "coilovers": true, "ground_clearance": 0.42,
 			"setup": {"offroad_tires": true, "suspension_rest_length": 0.36, "suspension_travel": 0.34, "spring_stiffness": 23000.0,
 				"damper_bump": 1900.0, "damper_rebound": 2700.0, "anti_roll_stiffness": 4000.0, "camera_scale": 1.0,
 				"max_steer_angle_deg": 36.0, "brake_bias_front": 0.6, "shift_delay_seconds": 0.12, "tire_grip_factor": 1.05} },
@@ -282,7 +282,7 @@ const CARS: Array = [
 	{ "id": "jesko", "name": "Kenigseg Yesko", "class": "Hyper",
 		"body": { "length": 4.61, "width": 2.03, "height": 1.21, "wheelbase": 2.70, "track": 1.70,
 			"front_overhang": 0.95, "tire_r": 0.35, "mass": 1420.0, "cd_area": 0.55, "drive": "RWD",
-			"color": Color(0.95, 0.95, 0.97), "style": "chiron", "setup": HYPER_SETUP },
+			"color": Color(0.95, 0.95, 0.97), "style": "jesko", "setup": HYPER_SETUP },
 		"engines": [
 			{ "label": "5.0 V8 Twin-Turbo - 1600 HP", "cyl": 8, "fuel": "benzin", "hp": 1600.0, "torque": 1500.0,
 				"tq_from": 3500.0, "tq_to": 6500.0, "power_rpm": 7800.0, "idle": 850.0, "limiter": 8500.0, "max_rpm": 8800.0,
@@ -291,7 +291,7 @@ const CARS: Array = [
 	{ "id": "p1", "name": "MakLaren Pe1", "class": "Hyper",
 		"body": { "length": 4.59, "width": 1.95, "height": 1.19, "wheelbase": 2.67, "track": 1.65,
 			"front_overhang": 0.98, "tire_r": 0.34, "mass": 1490.0, "cd_area": 0.52, "drive": "RWD",
-			"color": Color(1.0, 0.50, 0.0), "style": "chiron", "setup": HYPER_SETUP },
+			"color": Color(1.0, 0.50, 0.0), "style": "p1", "setup": HYPER_SETUP },
 		"engines": [
 			{ "label": "3.8 V8 Twin-Turbo Hybrid - 916 HP", "cyl": 8, "fuel": "benzin", "hp": 916.0, "torque": 900.0,
 				"tq_from": 3000.0, "tq_to": 7000.0, "power_rpm": 7300.0, "idle": 850.0, "limiter": 8000.0, "max_rpm": 8300.0,
@@ -300,22 +300,22 @@ const CARS: Array = [
 	{ "id": "laferrari", "name": "Ferraro LaFerrara", "class": "Hyper",
 		"body": { "length": 4.70, "width": 1.99, "height": 1.12, "wheelbase": 2.65, "track": 1.70,
 			"front_overhang": 1.00, "tire_r": 0.35, "mass": 1585.0, "cd_area": 0.50, "drive": "RWD",
-			"color": Color(0.80, 0.02, 0.03), "style": "chiron", "setup": HYPER_SETUP },
+			"color": Color(0.80, 0.02, 0.03), "style": "laferrari", "setup": HYPER_SETUP },
 		"engines": [
 			{ "label": "6.3 V12 Hybrid - 963 HP", "cyl": 12, "fuel": "benzin", "hp": 963.0, "torque": 900.0,
 				"tq_from": 5000.0, "tq_to": 6750.0, "power_rpm": 9000.0, "idle": 1000.0, "limiter": 9250.0, "max_rpm": 9500.0,
 				"turbo": 0.0, "gears": [-3.0, 0.0, 3.08, 2.19, 1.63, 1.29, 1.03, 0.84, 0.69], "final": 4.44, "vmax": 350.0, "trans": "dct", "sound": "w16" },
 		] },
 	# --- Monster trucks: Goliath's chassis (wall climbing, long-travel suspension) in their own paint ---
-	{ "id": "gravedigger", "name": "Grev Digger", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.10, 0.16, 0.10), "bang": "goliath",
+	{ "id": "gravedigger", "name": "Grev Digger", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.06, 0.07, 0.06), "monster": "gravedigger", "bang": "goliath",
 		"engines": [{ "label": "9.4 V8 Supercharged - 1500 HP", "cyl": 8, "fuel": "benzin", "hp": 1500.0, "torque": 1950.0,
 			"tq_from": 4000.0, "tq_to": 5500.0, "power_rpm": 6500.0, "idle": 1100.0, "limiter": 7000.0, "max_rpm": 7300.0,
 			"turbo": 0.0, "gears": [-2.20, 0.0, 2.20, 1.45, 1.00], "final": 16.85, "mass": 5400.0, "shift": 0.35, "vmax": 130.0, "sound": "v8_big" }] },
-	{ "id": "maxd", "name": "Maks-Dee", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.62, 0.66, 0.74), "bang": "goliath",
+	{ "id": "maxd", "name": "Maks-Dee", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.70, 0.72, 0.76), "monster": "maxd", "bang": "goliath",
 		"engines": [{ "label": "9.0 V8 Supercharged - 1600 HP", "cyl": 8, "fuel": "benzin", "hp": 1600.0, "torque": 2000.0,
 			"tq_from": 4200.0, "tq_to": 5700.0, "power_rpm": 6700.0, "idle": 1100.0, "limiter": 7200.0, "max_rpm": 7500.0,
 			"turbo": 0.0, "gears": [-2.20, 0.0, 2.20, 1.45, 1.00], "final": 16.85, "mass": 5300.0, "shift": 0.35, "vmax": 135.0, "sound": "v8_big" }] },
-	{ "id": "eltoro", "name": "El Torro Loko", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.80, 0.08, 0.06), "bang": "goliath",
+	{ "id": "eltoro", "name": "El Torro Loko", "class": "Monster", "legacy": 5, "classic": true, "paint": Color(0.05, 0.05, 0.06), "monster": "eltoro", "bang": "goliath",
 		"engines": [{ "label": "9.0 V8 Supercharged - 1450 HP", "cyl": 8, "fuel": "benzin", "hp": 1450.0, "torque": 1850.0,
 			"tq_from": 3800.0, "tq_to": 5400.0, "power_rpm": 6400.0, "idle": 1100.0, "limiter": 6900.0, "max_rpm": 7200.0,
 			"turbo": 0.0, "gears": [-2.20, 0.0, 2.20, 1.45, 1.00], "final": 16.85, "mass": 5500.0, "shift": 0.35, "vmax": 128.0, "sound": "v8_big" }] },
@@ -323,7 +323,7 @@ const CARS: Array = [
 	{ "id": "corolla", "name": "Toyoda Korolla Sedan", "class": "Sedan",
 		"body": { "length": 4.63, "width": 1.78, "height": 1.46, "wheelbase": 2.70, "track": 1.53,
 			"front_overhang": 0.92, "tire_r": 0.31, "mass": 1270.0, "cd_area": 0.40,
-			"color": Color(0.70, 0.72, 0.75), "style": "civic" },
+			"color": Color(0.70, 0.72, 0.75), "style": "corolla" },
 		"engines": [
 			{ "label": "1.6 Valvematic Petrol - 132 HP", "cyl": 4, "fuel": "benzin", "hp": 132.0, "torque": 160.0,
 				"tq_from": 5200.0, "tq_to": 5200.0, "power_rpm": 6400.0, "idle": 750.0, "limiter": 6600.0, "max_rpm": 6900.0,
@@ -335,7 +335,7 @@ const CARS: Array = [
 	{ "id": "passat", "name": "Volksvagen Pasat Sedan", "class": "Sedan",
 		"body": { "length": 4.78, "width": 1.83, "height": 1.48, "wheelbase": 2.79, "track": 1.58,
 			"front_overhang": 0.93, "tire_r": 0.32, "mass": 1450.0, "cd_area": 0.42,
-			"color": Color(0.10, 0.15, 0.30), "style": "megane" },
+			"color": Color(0.10, 0.15, 0.30), "style": "passat" },
 		"engines": [
 			{ "label": "1.5 TSI Petrol - 150 HP", "cyl": 4, "fuel": "benzin", "hp": 150.0, "torque": 250.0,
 				"tq_from": 1500.0, "tq_to": 3500.0, "power_rpm": 5000.0, "idle": 750.0, "limiter": 6200.0, "max_rpm": 6500.0,
@@ -347,7 +347,7 @@ const CARS: Array = [
 	{ "id": "logan", "name": "Dacya Logann", "class": "Sedan",
 		"body": { "length": 4.40, "width": 1.73, "height": 1.52, "wheelbase": 2.63, "track": 1.49,
 			"front_overhang": 0.82, "tire_r": 0.30, "mass": 1000.0, "cd_area": 0.44,
-			"color": Color(0.75, 0.40, 0.15), "style": "accent" },
+			"color": Color(0.75, 0.40, 0.15), "style": "logan" },
 		"engines": [
 			{ "label": "1.0 SCe Petrol - 75 HP", "cyl": 3, "fuel": "benzin", "hp": 75.0, "torque": 95.0,
 				"tq_from": 3500.0, "tq_to": 3500.0, "power_rpm": 6300.0, "idle": 800.0, "limiter": 6500.0, "max_rpm": 6800.0,
@@ -360,7 +360,7 @@ const CARS: Array = [
 	{ "id": "dogan", "name": "Tofash Dogan SLX", "class": "Classic", "classic": true,
 		"body": { "length": 4.24, "width": 1.65, "height": 1.39, "wheelbase": 2.45, "track": 1.37,
 			"front_overhang": 0.82, "tire_r": 0.30, "mass": 1000.0, "cd_area": 0.52, "drive": "RWD",
-			"color": Color(0.20, 0.35, 0.60), "style": "sahin" },
+			"color": Color(0.20, 0.35, 0.60), "style": "dogan" },
 		"engines": [
 			{ "label": "1.6 i.e. Petrol - 86 HP", "cyl": 4, "fuel": "benzin", "hp": 86.0, "torque": 128.0,
 				"tq_from": 3000.0, "tq_to": 3600.0, "power_rpm": 5800.0, "idle": 850.0, "limiter": 6200.0, "max_rpm": 6500.0,
@@ -369,7 +369,7 @@ const CARS: Array = [
 	{ "id": "murat131", "name": "Murat 131 Mirafiyori", "class": "Classic", "classic": true,
 		"body": { "length": 4.26, "width": 1.65, "height": 1.38, "wheelbase": 2.49, "track": 1.37,
 			"front_overhang": 0.80, "tire_r": 0.30, "mass": 1010.0, "cd_area": 0.53, "drive": "RWD",
-			"color": Color(0.90, 0.87, 0.78), "style": "sahin" },
+			"color": Color(0.90, 0.87, 0.78), "style": "murat131" },
 		"engines": [
 			{ "label": "1.6 Petrol - 96 HP", "cyl": 4, "fuel": "benzin", "hp": 96.0, "torque": 128.0,
 				"tq_from": 3800.0, "tq_to": 3800.0, "power_rpm": 6000.0, "idle": 850.0, "limiter": 6300.0, "max_rpm": 6600.0,
@@ -378,7 +378,7 @@ const CARS: Array = [
 	{ "id": "toros", "name": "Renolt 12 Toros", "class": "Classic", "classic": true,
 		"body": { "length": 4.40, "width": 1.64, "height": 1.43, "wheelbase": 2.44, "track": 1.31,
 			"front_overhang": 0.85, "tire_r": 0.30, "mass": 900.0, "cd_area": 0.55, "drive": "FWD",
-			"color": Color(0.82, 0.72, 0.30), "style": "sahin" },
+			"color": Color(0.82, 0.72, 0.30), "style": "toros" },
 		"engines": [
 			{ "label": "1.4 Petrol - 66 HP", "cyl": 4, "fuel": "benzin", "hp": 66.0, "torque": 105.0,
 				"tq_from": 3000.0, "tq_to": 3000.0, "power_rpm": 5500.0, "idle": 850.0, "limiter": 5900.0, "max_rpm": 6200.0,
@@ -388,7 +388,7 @@ const CARS: Array = [
 	{ "id": "mustangcup", "name": "Forde Mustank Dark Hors Cup", "class": "Stock Car",
 		"body": { "length": 5.04, "width": 2.03, "height": 1.29, "wheelbase": 2.80, "track": 1.75,
 			"front_overhang": 1.05, "tire_r": 0.34, "mass": 1542.0, "cd_area": 0.48, "drive": "RWD",
-			"color": Color(0.05, 0.25, 0.65), "style": "cup", "setup": CUP_SETUP },
+			"color": Color(0.05, 0.25, 0.65), "style": "cup", "face": "ford", "number": "57", "setup": CUP_SETUP },
 		"engines": [
 			{ "label": "5.86 V8 Cup - 670 HP", "cyl": 8, "fuel": "benzin", "hp": 670.0, "torque": 585.0,
 				"tq_from": 6500.0, "tq_to": 7500.0, "power_rpm": 8800.0, "idle": 1300.0, "limiter": 9500.0, "max_rpm": 9800.0,
@@ -397,7 +397,7 @@ const CARS: Array = [
 	{ "id": "camrycup", "name": "Toyoda Kamri XSE Cup", "class": "Stock Car",
 		"body": { "length": 5.04, "width": 2.03, "height": 1.29, "wheelbase": 2.80, "track": 1.75,
 			"front_overhang": 1.05, "tire_r": 0.34, "mass": 1542.0, "cd_area": 0.48, "drive": "RWD",
-			"color": Color(0.85, 0.08, 0.08), "style": "cup", "setup": CUP_SETUP },
+			"color": Color(0.85, 0.08, 0.08), "style": "cup", "face": "toyota", "number": "86", "setup": CUP_SETUP },
 		"engines": [
 			{ "label": "5.86 V8 Cup - 670 HP", "cyl": 8, "fuel": "benzin", "hp": 670.0, "torque": 585.0,
 				"tq_from": 6500.0, "tq_to": 7500.0, "power_rpm": 8800.0, "idle": 1300.0, "limiter": 9500.0, "max_rpm": 9800.0,
@@ -406,7 +406,7 @@ const CARS: Array = [
 	{ "id": "montecarlo", "name": "Chevrolay Monte Karlo 1987 Stok", "class": "Stock Car", "classic": true,
 		"body": { "length": 5.10, "width": 1.83, "height": 1.30, "wheelbase": 2.79, "track": 1.55,
 			"front_overhang": 1.08, "tire_r": 0.34, "mass": 1590.0, "cd_area": 0.52, "drive": "RWD",
-			"color": Color(0.95, 0.95, 0.95), "style": "cup",
+			"color": Color(0.95, 0.95, 0.95), "style": "montecarlo", "number": "33",
 			"setup": {"downforce_coefficient": 0.4, "tire_grip_factor": 1.2, "suspension_rest_length": 0.18, "suspension_travel": 0.10,
 				"spring_stiffness": 60000.0, "damper_bump": 4000.0, "damper_rebound": 5500.0, "anti_roll_stiffness": 15000.0,
 				"brake_bias_front": 0.60, "engine_inertia": 0.14, "max_steer_angle_deg": 30.0} },

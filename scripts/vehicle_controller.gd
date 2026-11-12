@@ -59,6 +59,7 @@ var engine_inertia: float = 0.25
 @export var current_vehicle_type: int = VehicleType.GT_SPORT
 var is_monster: bool = false # monster-truck chassis (Goliath and its siblings): wall climbing, wide wheels
 var legacy_paint: Color = Color(0, 0, 0, 0) # paint for a hand-built legacy body (alpha 0 = its own colour)
+var legacy_variant: String = "" # monster truck body extras: "gravedigger", "maxd", "eltoro" (see _monster_extras)
 var current_engine_index: int = 0
 var record_key: int = 0 # lap records: car index, or car*100+engine for non-default engines
 var engine_cylinders: int = 6
@@ -433,6 +434,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 			roll.position = Vector3.ZERO
 	_place_exhausts([Vector3(-0.55, -0.05, -2.4)], false) # legacy trophy truck; bodies / monster override
 	legacy_paint = c.get("paint", Color(0, 0, 0, 0))
+	legacy_variant = str(c.get("monster", ""))
 	if c.has("legacy"):
 		apply_vehicle_preset(int(c["legacy"]))
 		_apply_engine(en)
@@ -1549,6 +1551,106 @@ func _build_monster_truck_mesh() -> void:
 	tl_m.size = Vector3(0.3, 0.2, 0.06)
 	_create_part(tl_m, red_tail, Vector3(-1.05, 1.0, -2.47))
 	_create_part(tl_m, red_tail, Vector3(1.05, 1.0, -2.47))
+	_monster_extras(paint, black, chrome)
+
+func _glow_mat(c: Color, e: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.emission_enabled = e > 0.0
+	m.emission = c
+	m.emission_energy_multiplier = e
+	return m
+
+# Cylinder from a to b (horns)
+func _rod_part(a: Vector3, b: Vector3, r0: float, r1: float, mat: Material) -> void:
+	var cm := CylinderMesh.new()
+	cm.bottom_radius = r0
+	cm.top_radius = r1
+	cm.height = (b - a).length()
+	cm.radial_segments = 10
+	var mi := _create_part(cm, mat, (a + b) * 0.5)
+	var y: Vector3 = (b - a).normalized()
+	var x: Vector3 = y.cross(Vector3.FORWARD if absf(y.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
+	mi.basis = Basis(x, y, x.cross(y))
+
+# The famous monster trucks share Goliath's chassis; these add what makes each one recognisable
+# (shaped after photos of the real trucks).
+func _monster_extras(paint: StandardMaterial3D, black: StandardMaterial3D, chrome: StandardMaterial3D) -> void:
+	match legacy_variant:
+		"gravedigger":
+			# '50s panel van: the bed closed in up to the roof, green slime drips and purple
+			# tombstones down the sides
+			var van := BoxMesh.new()
+			van.size = Vector3(2.2, 0.84, 1.75)
+			_create_part(van, paint, Vector3(0, 1.38, -1.55))
+			var vroof := BoxMesh.new()
+			vroof.size = Vector3(2.2, 0.1, 3.25)
+			_create_part(vroof, paint, Vector3(0, 1.8, -0.9))
+			var green := _glow_mat(Color(0.30, 0.95, 0.15), 0.5)
+			var purple := _glow_mat(Color(0.45, 0.15, 0.62), 0.2)
+			for sd in [-1.0, 1.0]:
+				for k in range(9):
+					var h: float = 0.14 + 0.24 * absf(sin(k * 1.7))
+					var drip := BoxMesh.new()
+					drip.size = Vector3(0.02, h, 0.26)
+					_create_part(drip, green, Vector3(sd * 1.26, 0.95 - h * 0.5, -2.1 + k * 0.5))
+				for k in range(3):
+					var stone := BoxMesh.new()
+					stone.size = Vector3(0.02, 0.30, 0.2)
+					_create_part(stone, purple, Vector3(sd * 1.11, 1.30, -2.0 + k * 0.42))
+				var win := BoxMesh.new()
+				win.size = Vector3(0.02, 0.22, 0.45)
+				_create_part(win, black, Vector3(sd * 1.11, 1.55, -1.05))
+		"maxd":
+			# silver body bristling with chrome spikes, a snarling face on the front
+			var spike := CylinderMesh.new()
+			spike.top_radius = 0.0
+			spike.bottom_radius = 0.06
+			spike.height = 0.32
+			spike.radial_segments = 8
+			for sd in [-1.0, 1.0]:
+				for k in range(11):
+					_create_part(spike, chrome, Vector3(sd * 1.22, 1.06, -2.2 + k * 0.44), Vector3(0, 0, sd * -35))
+				for k in range(4):
+					_create_part(spike, chrome, Vector3(sd * 1.05, 1.92, -0.85 + k * 0.42), Vector3(0, 0, sd * -30))
+			var white := _glow_mat(Color(0.95, 0.95, 0.92), 0.0)
+			var red := _glow_mat(Color(1.0, 0.1, 0.05), 3.0)
+			for sd in [-1.0, 1.0]:
+				var eye := BoxMesh.new()
+				eye.size = Vector3(0.42, 0.18, 0.05)
+				_create_part(eye, white, Vector3(sd * 0.45, 1.12, 2.36), Vector3(-10, 0, sd * -12))
+				var pupil := BoxMesh.new()
+				pupil.size = Vector3(0.12, 0.12, 0.05)
+				_create_part(pupil, red, Vector3(sd * 0.40, 1.12, 2.39), Vector3(-10, 0, 0))
+			var tooth := CylinderMesh.new()
+			tooth.top_radius = 0.0
+			tooth.bottom_radius = 0.07
+			tooth.height = 0.2
+			tooth.radial_segments = 6
+			for k in range(8):
+				_create_part(tooth, white, Vector3(-0.63 + k * 0.18, 0.88, 2.52), Vector3(180, 0, 0))
+		"eltoro":
+			# black bull: big purple horns off the cab, glowing red eyes, chrome nose ring, teal flames
+			var purple := _glow_mat(Color(0.55, 0.15, 0.85), 0.3)
+			var red := _glow_mat(Color(1.0, 0.08, 0.05), 3.0)
+			var teal := _glow_mat(Color(0.1, 0.85, 0.85), 0.4)
+			for sd in [-1.0, 1.0]:
+				var root := Vector3(sd * 0.95, 1.85, 0.55)
+				var mid := root + Vector3(sd * 0.55, 0.25, 0.15)
+				var tip := mid + Vector3(sd * 0.1, 0.55, 0.35)
+				_rod_part(root, mid, 0.14, 0.10, purple)
+				_rod_part(mid, tip, 0.10, 0.02, purple)
+				var eye := BoxMesh.new()
+				eye.size = Vector3(0.30, 0.12, 0.05)
+				_create_part(eye, red, Vector3(sd * 0.48, 1.12, 2.36), Vector3(-10, 0, sd * 15))
+				for k in range(3):
+					var flame := BoxMesh.new()
+					flame.size = Vector3(0.02, 0.12, 0.9 - k * 0.2)
+					_create_part(flame, teal, Vector3(sd * 1.26, 0.62 + k * 0.13, 1.1 - k * 0.25))
+			var ring := TorusMesh.new()
+			ring.inner_radius = 0.10
+			ring.outer_radius = 0.14
+			_create_part(ring, chrome, Vector3(0, 0.62, 2.56), Vector3(90, 0, 0))
 
 func toggle_slow_mo() -> void:
 	if Engine.time_scale < 0.9:
