@@ -2475,6 +2475,13 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		var ray_length: float = suspension_rest_length + suspension_travel + tire_radius
 
 		var result: Dictionary = _wheel_contact(space_state, mount_pos, up_vec, forward_vec, right_vec, ray_length, r_tyre)
+		# The ray reaches further than the tyre: a wheel hanging at full droop (body lifted after a crash,
+		# over a crest, unloaded on a steep road) still "found" the ground and counted as grounded. Its
+		# spring gave nothing, but the damper pushed on every rock of the body - phantom forces that made
+		# the car bounce, the wheels pump up and down, and could even prop a crashed car on one corner.
+		# The tyre only touches once the suspension is no longer fully extended.
+		if result and suspension_rest_length - float(result.hub_dist) <= 0.0:
+			result = {}
 
 		if result:
 			wheel_is_grounded[i] = true
@@ -2899,6 +2906,7 @@ func repair_vehicle() -> void:
 # their edges; now the tyre rolls up onto them like a real wheel.
 # Returns {} or {position, hub_dist (mount -> hub along -up), normal (contact -> hub), collider}.
 const WHEEL_RAY_ANGLES: Array[float] = [0.0, 0.40, -0.40, 0.78, -0.78] # radians
+const STEP_MIN: float = 0.04 # m an angled ray must beat the straight-down one by (see _wheel_contact)
 func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector3, fwd: Vector3, right: Vector3, length: float, r: float) -> Dictionary:
 	var best: Dictionary = {}
 	var best_s: float = INF
@@ -2922,6 +2930,13 @@ func _wheel_contact(space: PhysicsDirectSpaceState3D, mount: Vector3, up: Vector
 			continue # passes beside the tyre circle
 		# hub distance at which the circle first touches this point
 		var s: float = tt * cos(a) - sqrt(r * r - side * side)
+		# An angled ray only takes over from the straight-down one at a real step (kerb, log, rock edge:
+		# it touches 4+ cm earlier). On flat or gently curved ground with the body pitched or rolled
+		# (after a crash, over a crest) the rays used to win by millimetres and swap from frame to
+		# frame: the contact normal tilted, the wheels pumped up and down and a crashed car could
+		# even stay propped on one corner.
+		if a != 0.0 and not best.is_empty() and s > best_s - STEP_MIN:
+			continue
 		if s < best_s:
 			best_s = s
 			best = {"position": hit.position, "hub_dist": s, "collider": hit.collider}
