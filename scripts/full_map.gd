@@ -8,7 +8,8 @@ extends CanvasLayer
 
 var vehicle: Node3D
 
-const WORLD_SPAN: float = 3000.0 # metres shown across at the widest zoom
+const WORLD_SPAN: float = 6000.0 # metres shown across at the widest zoom (the whole map)
+const WORLD_CENTER := Vector2(1500, 1500)
 const AREAS: Array = [
 	["APRON / PADDOCK", Vector2(225, -620)],
 	["HANGARLAR", Vector2(235, -1100)],
@@ -23,6 +24,11 @@ const AREAS: Array = [
 	["NASCAR OVALİ", Vector2(620, 930)],
 	["DAĞ", Vector2(-800, -880)],
 	["SÜSPANSİYON YOLU", Vector2(-75, -110)],
+	["F1 PİSTİ", Vector2(2950, 60)],
+	["LE MANS PİSTİ", Vector2(0, 2900)],
+	["SÜPER OVAL", Vector2(3000, 3000)],
+	["KÖY", Vector2(1560, 2350)],
+	["RÜZGAR TEPESİ", Vector2(4050, 1900)],
 ]
 
 var _root: Control
@@ -82,7 +88,7 @@ func open() -> void:
 	if vehicle == null:
 		return
 	_span = WORLD_SPAN
-	_center = Vector2(0, 0)
+	_center = WORLD_CENTER
 	_vp = SubViewport.new()
 	_vp.size = Vector2i(1400, 1400)
 	_vp.positional_shadow_atlas_size = 0
@@ -149,7 +155,7 @@ func _update_camera() -> void:
 	_span = clampf(_span, 150.0, WORLD_SPAN)
 	var half: float = WORLD_SPAN * 0.5
 	var lim: float = half - _span * 0.5
-	_center = Vector2(clampf(_center.x, -lim - 200.0, lim + 200.0), clampf(_center.y, -lim - 200.0, lim + 200.0))
+	_center = Vector2(clampf(_center.x, WORLD_CENTER.x - lim - 200.0, WORLD_CENTER.x + lim + 200.0), clampf(_center.y, WORLD_CENTER.y - lim - 200.0, WORLD_CENTER.y + lim + 200.0))
 	_cam.size = _span
 	# north (-Z) up: screen right = +X, screen up = -Z, camera looks straight down
 	_cam.global_transform = Transform3D(Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0)), Vector3(_center.x, 900.0, _center.y))
@@ -186,7 +192,7 @@ func _on_map_input(event: InputEvent) -> void:
 		_update_camera()
 
 func _teleport_to(w: Vector2) -> void:
-	if absf(w.x) > 1480.0 or absf(w.y) > 1480.0:
+	if w.x < MapBuilder.WORLD_MIN.x + 20.0 or w.x > MapBuilder.WORLD_MAX.x - 20.0 or w.y < MapBuilder.WORLD_MIN.y + 20.0 or w.y > MapBuilder.WORLD_MAX.y - 20.0:
 		return # outside the boundary walls
 	var fwd: Vector3 = vehicle.global_transform.basis.z
 	var yaw: float = rad_to_deg(atan2(fwd.x, fwd.z))

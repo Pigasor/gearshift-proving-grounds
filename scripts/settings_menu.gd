@@ -245,6 +245,10 @@ func _build_tabs() -> void:
 		["🏜️  Off-road Alanı", Vector3(480, 0, 60), 0.0],
 		["⛰️  Tepe Parkı", Vector3(-800, 0, -380), 0.0],
 		["🔧  Süspansiyon Test Yolu", Vector3(-75, 0, -235), 0.0],
+		["🏎️  F1 Pisti (start çizgisi)", Vector3(2440, 0, 300), 90.0],
+		["🏆  Le Mans Pisti (start çizgisi)", Vector3(-1100, 0, 2990), 180.0],
+		["🏁  Süper Oval", Vector3(3000, 0, 3318), 90.0],
+		["🏡  Köy Yolu", Vector3(1480, 0, 2450), 0.0],
 	]
 	for p in places:
 		_label(loc, p[0])

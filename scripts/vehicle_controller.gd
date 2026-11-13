@@ -2784,7 +2784,7 @@ func find_open_spot(target: Vector3, yaw: float) -> Vector3:
 		for k in range(steps):
 			var a: float = TAU * float(k) / float(steps)
 			var p := Vector3(target.x + cos(a) * radius, 0.0, target.z + sin(a) * radius)
-			if absf(p.x) > 1470.0 or absf(p.z) > 1470.0:
+			if p.x < MapBuilder.WORLD_MIN.x + 30.0 or p.x > MapBuilder.WORLD_MAX.x - 30.0 or p.z < MapBuilder.WORLD_MIN.y + 30.0 or p.z > MapBuilder.WORLD_MAX.y - 30.0:
 				continue
 			var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 150.0, p + Vector3.DOWN * 30.0)
 			q.exclude = [get_rid()]
@@ -2839,8 +2839,7 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
 		_prev_raw_compression[i] = 0.0
-	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
-	if timer:
+	for timer in get_tree().get_nodes_in_group("lap_timer"):
 		timer.cancel()
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:

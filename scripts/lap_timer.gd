@@ -7,6 +7,9 @@ const SAVE_PATH := "user://records.cfg"
 
 var gate_count: int = 10
 var track_length_m: float = 0.0
+var track_name: String = "YARIŞ PİSTİ" # shown above the times (each circuit has its own timer)
+var section: String = "laps" # records.cfg section for this circuit
+var last_used_ms: int = 0 # when the car last passed one of its gates (the HUD shows that circuit)
 
 var running: bool = false
 var current_time: float = 0.0
@@ -22,9 +25,9 @@ var _car: Node = null
 func _ready() -> void:
 	add_to_group("lap_timer")
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) == OK and cfg.has_section("laps"):
-		for k in cfg.get_section_keys("laps"):
-			best_laps[int(k)] = float(cfg.get_value("laps", k))
+	if cfg.load(SAVE_PATH) == OK and cfg.has_section(section):
+		for k in cfg.get_section_keys(section):
+			best_laps[int(k)] = float(cfg.get_value(section, k))
 
 func _physics_process(delta: float) -> void:
 	if invalid_message_timer > 0.0:
@@ -40,6 +43,7 @@ func on_gate(body: Node, gate: int) -> void:
 	if not (body is RigidBody3D) or body.get("current_vehicle_type") == null:
 		return
 	_car = body
+	last_used_ms = Time.get_ticks_msec()
 	if gate == 0:
 		if running and _next_gate == gate_count:
 			_finish_lap()
@@ -62,7 +66,7 @@ func _finish_lap() -> void:
 		best_laps[_car_type] = last_lap
 		var cfg := ConfigFile.new()
 		cfg.load(SAVE_PATH)
-		cfg.set_value("laps", str(_car_type), last_lap)
+		cfg.set_value(section, str(_car_type), last_lap)
 		cfg.save(SAVE_PATH)
 
 func cancel() -> void:

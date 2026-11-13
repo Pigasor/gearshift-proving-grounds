@@ -50,7 +50,7 @@ func _ready() -> void:
 	mmi.multimesh = _mm
 	mmi.layers = 2 # render layer 2: the map cameras leave it out
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mmi.custom_aabb = AABB(Vector3(-1600, -50, -1600), Vector3(3200, 500, 3200)) # marks are all over the map
+	mmi.custom_aabb = AABB(Vector3(MapBuilder.WORLD_MIN.x - 100.0, -50, MapBuilder.WORLD_MIN.y - 100.0), Vector3(MapBuilder.WORLD_MAX.x - MapBuilder.WORLD_MIN.x + 200.0, 500, MapBuilder.WORLD_MAX.y - MapBuilder.WORLD_MIN.y + 200.0)) # marks are all over the map
 	add_child(mmi)
 	for i in 4:
 		_smoke.append(_make_smoke())

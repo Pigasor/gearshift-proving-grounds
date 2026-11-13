@@ -1,6 +1,11 @@
 class_name MapBuilder
 extends Node3D
 
+# The map is 2 x 2 tiles of 3 km: the original proving ground is the north-west tile, the other
+# three (F1 circuit, Le Mans circuit, superspeedway, countryside) are built by WorldExpansion.
+const WORLD_MIN := Vector2(-1500, -1500)
+const WORLD_MAX := Vector2(4500, 4500)
+
 func _ready() -> void:
 	_load_textured_materials()
 	_build_floor_and_perimeter()
@@ -15,6 +20,7 @@ func _ready() -> void:
 	_build_hill_park()
 	_build_mountain()
 	_build_environment_props()
+	WorldExpansion.new().build(self)
 
 # --- Textured Materials ---
 var mat_grass: StandardMaterial3D
@@ -193,15 +199,16 @@ func _create_marking(pos: Vector3, size: Vector3, mat: Material) -> void:
 
 # --- 1. REALISTIC NATURAL GRASS TERRAIN & PERIMETER ---
 func _build_floor_and_perimeter() -> void:
-	# Main meadow grass terrain (3200m x 3200m) with triplanar mapping
-	_create_static_box(Vector3(0, -1.0, 0), Vector3(3200, 2.0, 3200), mat_grass)
+	# Meadow grass under the whole map (+100 m past the walls) with triplanar mapping
+	var c := (WORLD_MIN + WORLD_MAX) * 0.5
+	var span: Vector2 = WORLD_MAX - WORLD_MIN
+	_create_static_box(Vector3(c.x, -1.0, c.y), Vector3(span.x + 200.0, 2.0, span.y + 200.0), mat_grass)
 
-	# Concrete boundary walls (1500m out in all 4 directions)
-	var boundary: float = 1500.0
+	# Concrete boundary walls round the map
 	var wall_h: float = 4.0
 	var wall_t: float = 2.5
-	for w in [[Vector3(0, 0, boundary), Vector3(boundary * 2.0, 1, wall_t)], [Vector3(0, 0, -boundary), Vector3(boundary * 2.0, 1, wall_t)],
-			[Vector3(boundary, 0, 0), Vector3(wall_t, 1, boundary * 2.0)], [Vector3(-boundary, 0, 0), Vector3(wall_t, 1, boundary * 2.0)]]:
+	for w in [[Vector3(c.x, 0, WORLD_MAX.y), Vector3(span.x, 1, wall_t)], [Vector3(c.x, 0, WORLD_MIN.y), Vector3(span.x, 1, wall_t)],
+			[Vector3(WORLD_MAX.x, 0, c.y), Vector3(wall_t, 1, span.y)], [Vector3(WORLD_MIN.x, 0, c.y), Vector3(wall_t, 1, span.y)]]:
 		var size: Vector3 = w[1]
 		var wall := _create_static_box(w[0] + Vector3(0, wall_h * 0.5, 0), Vector3(size.x, wall_h, size.z), mat_concrete_wall)
 		wall.set_meta("no_climb", true) # the monster truck must not climb out of the map
@@ -215,6 +222,8 @@ func _build_floor_and_perimeter() -> void:
 		barrier.add_child(cs)
 		barrier.position = w[0] + Vector3(0, wall_h + 200.0, 0)
 		add_child(barrier)
+
+const RING_EXIT_X: float = 900.0 # the road to the superspeedway leaves the south straight here
 
 # --- 3. MEGA HIGHWAY RING (2.6km x 2.6km With Real Road Textures) ---
 func _build_mega_highway() -> void:
@@ -309,7 +318,9 @@ func _build_mega_highway() -> void:
 
 	# Concrete guardrails along the outer edge of the north & south straights
 	var straight_len: float = (d - corner_r) * 2.0
-	_create_static_box(Vector3(0, 0.8, d + 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
+	# (the south one has a gap where the road to the south-east tiles leaves the ring)
+	for seg in [Vector2(-straight_len * 0.5, RING_EXIT_X - 40.0), Vector2(RING_EXIT_X + 40.0, straight_len * 0.5)]:
+		_create_static_box(Vector3((seg.x + seg.y) * 0.5, 0.8, d + 19.5), Vector3(seg.y - seg.x, 1.4, 0.8), mat_concrete_wall)
 	_create_static_box(Vector3(0, 0.8, -d - 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
 
 # Street lamp: pole, an arm reaching over the road and a glowing head; its warm light is in the
@@ -425,17 +436,22 @@ const CIRCUIT_POINTS: Array[Vector2] = [
 ]
 
 func _build_grand_prix_circuit() -> void:
+	build_circuit(CIRCUIT_POINTS, CIRCUIT_START, CIRCUIT_WIDTH, "YARIŞ PİSTİ", "laps", 10)
+
+# A closed circuit through `ctrl` (Catmull-Rom), `width` wide, with kerbs, lamps, a start gantry at
+# `start` and a lap timer (records saved under `section`). Returns the centre-line samples.
+func build_circuit(ctrl: Array[Vector2], start: Vector3, width: float, title: String, section: String, gate_count: int) -> Array[Vector2]:
 	var y: float = 0.04 # track surface just above the grass (was 0.08: the edge lines looked raised)
-	var half: float = CIRCUIT_WIDTH * 0.5
+	var half: float = width * 0.5
 	# 1) Closed Catmull-Rom spline through the control points
 	var pts: Array[Vector2] = []
-	var n_cp: int = CIRCUIT_POINTS.size()
+	var n_cp: int = ctrl.size()
 	var steps: int = 14
 	for i in range(n_cp):
-		var p0: Vector2 = CIRCUIT_POINTS[(i - 1 + n_cp) % n_cp]
-		var p1: Vector2 = CIRCUIT_POINTS[i]
-		var p2: Vector2 = CIRCUIT_POINTS[(i + 1) % n_cp]
-		var p3: Vector2 = CIRCUIT_POINTS[(i + 2) % n_cp]
+		var p0: Vector2 = ctrl[(i - 1 + n_cp) % n_cp]
+		var p1: Vector2 = ctrl[i]
+		var p2: Vector2 = ctrl[(i + 1) % n_cp]
+		var p3: Vector2 = ctrl[(i + 2) % n_cp]
 		for s in range(steps):
 			var t: float = float(s) / float(steps)
 			var t2: float = t * t
@@ -444,7 +460,7 @@ func _build_grand_prix_circuit() -> void:
 	# Rotate the list so it starts at the sample nearest the start line
 	var best_i: int = 0
 	for i in range(pts.size()):
-		if pts[i].distance_to(Vector2(CIRCUIT_START.x, CIRCUIT_START.z)) < pts[best_i].distance_to(Vector2(CIRCUIT_START.x, CIRCUIT_START.z)):
+		if pts[i].distance_to(Vector2(start.x, start.z)) < pts[best_i].distance_to(Vector2(start.x, start.z)):
 			best_i = i
 	pts = pts.slice(best_i) + pts.slice(0, best_i)
 	pts.append(pts[0]) # close the loop
@@ -534,23 +550,32 @@ func _build_grand_prix_circuit() -> void:
 	if kerb_faces.size() > 0:
 		_add_collision_body(kerb_faces, "kerb")
 
-	# 5) Start/finish line & gantry
-	_create_marking(CIRCUIT_START + Vector3(0, y + 0.012, 0), Vector3(CIRCUIT_WIDTH, 0.01, 1.2), mat_road_white)
-	_create_static_box(CIRCUIT_START + Vector3(-(half + 3.0), 3.5, 0), Vector3(0.8, 7.0, 0.8), mat_concrete_wall)
-	_create_static_box(CIRCUIT_START + Vector3(half + 3.0, 3.5, 0), Vector3(0.8, 7.0, 0.8), mat_concrete_wall)
-	_create_static_box(CIRCUIT_START + Vector3(0, 7.2, 0), Vector3(CIRCUIT_WIDTH + 7.0, 1.0, 1.0), mat_kerb_striped)
+	# 5) Start/finish line & gantry, square to the track
+	var yaw: float = atan2(tangents[0].x, tangents[0].y)
+	var rot := Basis(Vector3.UP, yaw)
+	var line := MeshInstance3D.new()
+	var lm := BoxMesh.new()
+	lm.size = Vector3(width, 0.01, 1.2)
+	lm.material = mat_road_white
+	line.mesh = lm
+	line.transform = Transform3D(rot, start + Vector3(0, y + 0.012, 0))
+	add_child(line)
+	for sd in [-1.0, 1.0]:
+		_create_static_box(start + rot * Vector3(sd * (half + 3.0), 3.5, 0), Vector3(0.8, 7.0, 0.8), mat_concrete_wall, Vector3(0, rad_to_deg(yaw), 0))
+	_create_static_box(start + Vector3(0, 7.2, 0), Vector3(width + 7.0, 1.0, 1.0), mat_kerb_striped, Vector3(0, rad_to_deg(yaw), 0))
 
 	# 6) Timing gates (gate 0 = start/finish) for the lap timer
 	var timer := Node.new()
 	timer.set_script(load("res://scripts/lap_timer.gd"))
 	timer.name = "LapTimer"
+	timer.set("track_name", title)
+	timer.set("section", section)
 	add_child(timer)
-	var gate_count: int = 10
 	for g in range(gate_count):
 		var idx: int = int(float(g) / float(gate_count) * float(count - 1))
 		var area := Area3D.new()
 		var shape := BoxShape3D.new()
-		shape.size = Vector3(CIRCUIT_WIDTH + 24.0, 10.0, 4.0)
+		shape.size = Vector3(width + 24.0, 10.0, 4.0)
 		var col := CollisionShape3D.new()
 		col.shape = shape
 		area.add_child(col)
@@ -560,6 +585,7 @@ func _build_grand_prix_circuit() -> void:
 		add_child(area)
 	timer.set("gate_count", gate_count)
 	timer.set("track_length_m", dist[count - 1])
+	return pts
 
 # --- 6. DRIFT ARENA & GYMKHANA (East Sector) ---
 func _build_drift_arena() -> void:
@@ -851,18 +877,23 @@ const OVAL_COLS: int = 8
 
 # Height of the racing surface at u (0 inside edge .. 1 outside edge) for a bank angle: the slope
 # eases in from 0 over the inner 35% (smoothstep), then stays at the bank angle.
-func _oval_h(u: float, bank: float) -> float:
+func _oval_h(u: float, bank: float, width: float = OVAL_WIDTH) -> float:
 	var a: float = 0.35
 	var x: float = clampf(u / a, 0.0, 1.0)
 	var area: float = a * (x * x * x - x * x * x * x * 0.5) + maxf(u - a, 0.0)
-	return OVAL_WIDTH * tan(bank) * area
+	return width * tan(bank) * area
 
 func _build_nascar_oval() -> void:
+	build_oval(OVAL_CENTER, OVAL_STRAIGHT, OVAL_RADIUS, OVAL_WIDTH, 10.0, 3.0, "GEARSHIFT SPEEDWAY", 300.0, 10)
+
+# Banked oval: two straights joined by half-circle turns, the banking easing in and out, outer
+# wall, earth bank behind it, grandstands along both straights and floodlight masts.
+func build_oval(center: Vector2, straight: float, radius: float, width: float, turn_bank_deg: float, straight_bank_deg: float, sign_text: String, stand_len: float, rows: int) -> void:
 	var base_y: float = 0.04
-	var turn_bank: float = deg_to_rad(10.0) # outer edge ~2.6 m above the apron
-	var straight_bank: float = deg_to_rad(3.0) # ~0.8 m
-	var ce := OVAL_CENTER + Vector2(OVAL_STRAIGHT * 0.5, 0.0) # east turn centre
-	var cw := OVAL_CENTER - Vector2(OVAL_STRAIGHT * 0.5, 0.0) # west turn centre
+	var turn_bank: float = deg_to_rad(turn_bank_deg)
+	var straight_bank: float = deg_to_rad(straight_bank_deg)
+	var ce := center + Vector2(straight * 0.5, 0.0) # east turn centre
+	var cw := center - Vector2(straight * 0.5, 0.0) # west turn centre
 	# centre-line samples: [position xz, outward normal xz, bank]
 	var samples: Array = []
 	for half in [[ce, -90.0, 90.0, Vector2(0, 1)], [cw, 90.0, 270.0, Vector2(0, -1)]]:
@@ -874,13 +905,14 @@ func _build_nascar_oval() -> void:
 			var n := Vector2(cos(a), sin(a))
 			# bank rolls in over the first and last 20% of the turn (no sudden twist)
 			var k: float = smoothstep(0.0, 0.2, t) * smoothstep(1.0, 0.8, t)
-			samples.append([c + n * OVAL_RADIUS, n, lerpf(straight_bank, turn_bank, k)])
+			samples.append([c + n * radius, n, lerpf(straight_bank, turn_bank, k)])
 		# straight to the other turn
 		var sn: Vector2 = half[3]
-		var p0: Vector2 = c + sn * OVAL_RADIUS
-		var p1: Vector2 = (cw if c == ce else ce) + sn * OVAL_RADIUS
-		for s in range(1, 24):
-			samples.append([p0.lerp(p1, float(s) / 24.0), sn, straight_bank])
+		var p0: Vector2 = c + sn * radius
+		var p1: Vector2 = (cw if c == ce else ce) + sn * radius
+		var st_steps: int = maxi(24, int(straight / 15.0))
+		for s in range(1, st_steps):
+			samples.append([p0.lerp(p1, float(s) / float(st_steps)), sn, straight_bank])
 	samples.append(samples[0])
 
 	var road_in: Array[Vector3] = []
@@ -901,15 +933,15 @@ func _build_nascar_oval() -> void:
 		if i > 0:
 			acc += p.distance_to(samples[i - 1][0])
 		dist.append(acc)
-		var pin: Vector2 = p - n * OVAL_WIDTH * 0.5
-		var pout: Vector2 = p + n * OVAL_WIDTH * 0.5
-		var out_y: float = base_y + _oval_h(1.0, samples[i][2])
+		var pin: Vector2 = p - n * width * 0.5
+		var pout: Vector2 = p + n * width * 0.5
+		var out_y: float = base_y + _oval_h(1.0, samples[i][2], width)
 		var vin := Vector3(pin.x, base_y, pin.y)
 		var vout := Vector3(pout.x, out_y, pout.y)
 		for c in range(OVAL_COLS + 1):
 			var u: float = float(c) / OVAL_COLS
 			var q: Vector2 = pin.lerp(pout, u)
-			cols[c].append(Vector3(q.x, base_y + _oval_h(u, samples[i][2]), q.y))
+			cols[c].append(Vector3(q.x, base_y + _oval_h(u, samples[i][2], width), q.y))
 		road_in.append(vin)
 		road_out.append(vout)
 		var ap: Vector2 = pin - n * 9.0
@@ -918,8 +950,8 @@ func _build_nascar_oval() -> void:
 		var bo: Vector2 = pout + n * (4.0 + out_y * 1.6) # earth bank behind the raised outer wall
 		bank_out.append(Vector3(bo.x, -0.05, bo.y))
 		# white line along the inside edge of the racing surface
-		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * (0.008 + _oval_h(0.03, samples[i][2])))
-		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * (0.008 + _oval_h(0.05, samples[i][2])))
+		line_a.append(vin.lerp(vout, 0.03) + Vector3.UP * (0.008 + _oval_h(0.03, samples[i][2], width)))
+		line_b.append(vin.lerp(vout, 0.05) + Vector3.UP * (0.008 + _oval_h(0.05, samples[i][2], width)))
 
 	# plain racing asphalt (the highway texture has lane lines), the apron a different shade
 	var mat_oval: StandardMaterial3D = mat_track.duplicate() as StandardMaterial3D
@@ -944,42 +976,44 @@ func _build_nascar_oval() -> void:
 	_add_strip(line_a, line_b, dist, 0.0, 1.0, 0.1, mat_road_white, unused)
 
 	# start / finish line across the south straight
-	var sx: float = OVAL_CENTER.x
-	var zin: float = OVAL_CENTER.y + OVAL_RADIUS - OVAL_WIDTH * 0.5
+	var sx: float = center.x
+	var zin: float = center.y + radius - width * 0.5
 	var sl: Array[Vector3] = []
 	var sr: Array[Vector3] = []
 	var sd: Array[float] = []
 	for c in range(OVAL_COLS + 1): # follows the curved banking across the track
 		var u: float = float(c) / OVAL_COLS
-		var y: float = base_y + 0.02 + _oval_h(u, straight_bank)
-		sl.append(Vector3(sx + 0.6, y, zin + u * OVAL_WIDTH))
-		sr.append(Vector3(sx - 0.6, y, zin + u * OVAL_WIDTH))
-		sd.append(u * OVAL_WIDTH)
+		var y: float = base_y + 0.02 + _oval_h(u, straight_bank, width)
+		sl.append(Vector3(sx + 0.6, y, zin + u * width))
+		sr.append(Vector3(sx - 0.6, y, zin + u * width))
+		sd.append(u * width)
 	_add_strip(sl, sr, sd, 0.0, 1.0, 1.0, mat_road_white, unused)
-	_build_oval_stands()
+	_build_oval_stands(center, radius, width, stand_len, rows, sign_text)
 	# stadium floodlight masts: behind both turns and in the infield
-	for m in [Vector2(OVAL_STRAIGHT * 0.5 + OVAL_RADIUS + 40.0, 0.0), Vector2(-(OVAL_STRAIGHT * 0.5 + OVAL_RADIUS + 40.0), 0.0),
-			Vector2(110.0, 0.0), Vector2(-110.0, 0.0)]:
-		var mp := Vector3(OVAL_CENTER.x + m.x, 0.0, OVAL_CENTER.y + m.y)
+	var behind: float = straight * 0.5 + radius + width * 0.5 + 6.0 + _oval_h(1.0, turn_bank, width) * 1.6 + 14.0
+	var masts: Array[Vector2] = [Vector2(behind, 0.0), Vector2(-behind, 0.0)]
+	var n_in: int = 2 if straight < 600.0 else 4
+	for k in range(n_in):
+		masts.append(Vector2(lerpf(-0.3, 0.3, float(k) / float(n_in - 1)) * straight, 0.0))
+	for m in masts:
+		var mp := Vector3(center.x + m.x, 0.0, center.y + m.y)
 		_create_static_box(mp + Vector3(0, 14.0, 0), Vector3(0.8, 28.0, 0.8), mat_concrete_wall)
 		_create_static_box(mp + Vector3(0, 28.3, 0), Vector3(4.0, 1.2, 1.0), mat_metal_blue)
 		var fl := OmniLight3D.new()
 		fl.position = mp + Vector3(0, 27.0, 0)
 		fl.light_color = Color(1.0, 0.96, 0.9)
 		fl.light_energy = 9.0
-		fl.omni_range = 190.0
+		fl.omni_range = 190.0 if straight < 600.0 else 300.0
 		fl.add_to_group("floodlights")
 		add_child(fl)
 
 # Grandstands along both straights of the oval, packed with fans (one MultiMesh for bodies and one
 # for heads: thousands of people for the cost of two draw calls)
-func _build_oval_stands() -> void:
-	var rows: int = 10
+func _build_oval_stands(center: Vector2, radius: float, width: float, length: float, rows: int, sign_text: String) -> void:
 	var depth: float = 2.6
 	var rise: float = 1.4
-	var length: float = 300.0
 	var seat: float = 0.9
-	var x0: float = OVAL_CENTER.x - length * 0.5
+	var x0: float = center.x - length * 0.5
 	var bodies: Array[Transform3D] = []
 	var body_cols: Array[Color] = []
 	var heads: Array[Transform3D] = []
@@ -990,13 +1024,13 @@ func _build_oval_stands() -> void:
 		Color(0.1, 0.1, 0.12), Color(0.1, 0.6, 0.25), Color(0.95, 0.45, 0.05), Color(0.55, 0.2, 0.7)]
 	var skins: Array = [Color(0.96, 0.8, 0.66), Color(0.85, 0.64, 0.48), Color(0.6, 0.42, 0.3), Color(0.38, 0.26, 0.18)]
 	# south stand (cars pass on the start / finish straight) faces -Z, north stand faces +Z
-	for side in [[OVAL_CENTER.y + OVAL_RADIUS + OVAL_WIDTH * 0.5 + 13.0, 1.0], [OVAL_CENTER.y - OVAL_RADIUS - OVAL_WIDTH * 0.5 - 13.0, -1.0]]:
+	for side in [[center.y + radius + width * 0.5 + 13.0, 1.0], [center.y - radius - width * 0.5 - 13.0, -1.0]]:
 		var zf: float = side[0]
 		var s: float = side[1]
 		for k in range(rows):
 			var top: float = 1.5 + k * rise
 			var zc: float = zf + s * (k + 0.5) * depth
-			_create_static_box(Vector3(OVAL_CENTER.x, top * 0.5, zc), Vector3(length, top, depth), mat_concrete_wall)
+			_create_static_box(Vector3(center.x, top * 0.5, zc), Vector3(length, top, depth), mat_concrete_wall)
 			var n: int = int(length / seat)
 			for j in range(n):
 				if rng.randf() < 0.18:
@@ -1010,17 +1044,17 @@ func _build_oval_stands() -> void:
 				head_cols.append(skins[rng.randi() % skins.size()])
 		# roof over the upper rows and a big sign on the main stand
 		var roof_y: float = 1.5 + rows * rise + 4.0
-		_create_static_box(Vector3(OVAL_CENTER.x, roof_y, zf + s * rows * depth * 0.6), Vector3(length + 4.0, 0.4, rows * depth * 0.75), mat_metal_blue)
+		_create_static_box(Vector3(center.x, roof_y, zf + s * rows * depth * 0.6), Vector3(length + 4.0, 0.4, rows * depth * 0.75), mat_metal_blue)
 		for px in range(-3, 4):
-			_create_static_box(Vector3(OVAL_CENTER.x + px * 49.0, roof_y * 0.5, zf + s * (rows * depth + 0.3)), Vector3(0.6, roof_y, 0.6), mat_concrete_wall)
+			_create_static_box(Vector3(center.x + px * length / 6.1, roof_y * 0.5, zf + s * (rows * depth + 0.3)), Vector3(0.6, roof_y, 0.6), mat_concrete_wall)
 		if s > 0.0:
 			var sign := Label3D.new()
-			sign.text = "GEARSHIFT SPEEDWAY"
+			sign.text = sign_text
 			sign.font_size = 260
 			sign.pixel_size = 0.05
 			sign.modulate = Color(1.0, 0.85, 0.1)
 			sign.outline_size = 30
-			sign.position = Vector3(OVAL_CENTER.x, roof_y + 4.5, zf + s * rows * depth * 0.6 - 4.0)
+			sign.position = Vector3(center.x, roof_y + 4.5, zf + s * rows * depth * 0.6 - 4.0)
 			sign.rotation_degrees = Vector3(0, 180, 0) # faces the track (-Z)
 			add_child(sign)
 	_add_crowd(bodies, body_cols)

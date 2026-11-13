@@ -122,14 +122,17 @@ func _update_stats_display() -> void:
 		tr("Maks Hız   : %3.0f km/s") % top_speed_record,
 	]
 
-	# Race circuit lap times
-	var timer: Node = get_tree().get_first_node_in_group("lap_timer")
+	# Lap times of the circuit being driven (the one with a lap running, else the last one used)
+	var timer: Node = null
+	for t in get_tree().get_nodes_in_group("lap_timer"):
+		if timer == null or (t.running and not timer.running) or (t.running == timer.running and t.last_used_ms > timer.last_used_ms):
+			timer = t
 	if timer:
 		var lt = timer.get_script()
 		var car_type: int = int(vehicle.get("record_key"))
 		var cur: String = lt.fmt(timer.current_time) if timer.running else "--:--.--"
 		lines.append("")
-		lines.append(tr("[ YARIŞ PİSTİ ]"))
+		lines.append("[ %s ]" % tr(timer.track_name))
 		lines.append(tr("Tur        : %s") % cur)
 		lines.append(tr("Son Tur    : %s%s") % [lt.fmt(timer.last_lap), tr("  ★ REKOR!") if timer.last_lap_was_record and timer.last_lap > 0.0 else ""])
 		lines.append(tr("En İyi Tur : %s") % lt.fmt(timer.best_for(car_type)))
