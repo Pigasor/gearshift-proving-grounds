@@ -75,12 +75,12 @@ func _load_tex(path: String) -> Texture2D:
 	return null
 
 func _load_textured_materials() -> void:
-	var tex_grass: Texture2D = _load_tex("res://textures/grass_albedo.png")
-	var tex_asphalt: Texture2D = _load_tex("res://textures/asphalt_albedo.png")
-	var tex_road: Texture2D = _load_tex("res://textures/road_asphalt.png")
-	var tex_curb: Texture2D = _load_tex("res://textures/curb_striped.png")
-	var tex_concrete: Texture2D = _load_tex("res://textures/concrete_wall.png")
-	var tex_dirt: Texture2D = _load_tex("res://textures/dirt_albedo.png")
+	var tex_grass: Texture2D = _load_tex("res://assets/textures/grass_albedo.png")
+	var tex_asphalt: Texture2D = _load_tex("res://assets/textures/asphalt_albedo.png")
+	var tex_road: Texture2D = _load_tex("res://assets/textures/road_asphalt.png")
+	var tex_curb: Texture2D = _load_tex("res://assets/textures/curb_striped.png")
+	var tex_concrete: Texture2D = _load_tex("res://assets/textures/concrete_wall.png")
+	var tex_dirt: Texture2D = _load_tex("res://assets/textures/dirt_albedo.png")
 
 	# 1. Natural Grass Landscape (Triplanar mapping prevents any UV stretching)
 	mat_grass = StandardMaterial3D.new()

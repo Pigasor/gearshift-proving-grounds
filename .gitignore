@@ -2,9 +2,11 @@
 .godot/
 
 # Godot engine binaries & downloads (not part of the game; too large for GitHub)
+engine/
 Godot_v*.exe
 *.zip
-bin/
+# the game exe in the project folder (hard link to the engine, made by tools/install_local.ps1)
+/GearShift Proving Grounds.exe
 
 # Exported builds
 export/

@@ -62,8 +62,8 @@ func _materials() -> void:
 	mat_dark = StandardMaterial3D.new()
 	mat_dark.albedo_color = Color(0.12, 0.13, 0.15)
 	mat_dark.roughness = 0.6
-	if ResourceLoader.exists("res://fonts/game_font.tres"):
-		_font = load("res://fonts/game_font.tres")
+	if ResourceLoader.exists("res://assets/fonts/game_font.tres"):
+		_font = load("res://assets/fonts/game_font.tres")
 
 func _emissive(c: Color, e: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

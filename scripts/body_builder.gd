@@ -636,8 +636,8 @@ func _details_cup(nose_h: float, deck_h: float, face: String = "chevy") -> void:
 func _number(text: String, pos: Vector3, rot_deg: Vector3, size_px: int) -> void:
 	var l := Label3D.new()
 	l.text = text
-	if ResourceLoader.exists("res://fonts/game_font.tres"):
-		l.font = load("res://fonts/game_font.tres")
+	if ResourceLoader.exists("res://assets/fonts/game_font.tres"):
+		l.font = load("res://assets/fonts/game_font.tres")
 	l.font_size = size_px
 	l.pixel_size = 0.004
 	l.modulate = Color(1, 1, 1)

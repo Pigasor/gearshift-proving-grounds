@@ -12,8 +12,8 @@ config/name="GearShift Proving Grounds"
 config/description="Vehicle Physics Sandbox & Mechanical Tuning Proving Grounds"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
-config/icon="res://icon.svg"
-config/windows_native_icon="res://icon.ico"
+config/icon="res://assets/icon.svg"
+config/windows_native_icon="res://assets/icon.ico"
 
 [autoload]
 
@@ -28,7 +28,7 @@ window/stretch/aspect="expand"
 
 [gui]
 
-theme/custom_font="res://fonts/game_font.tres"
+theme/custom_font="res://assets/fonts/game_font.tres"
 
 [input]
 

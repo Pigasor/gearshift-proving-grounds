@@ -3,12 +3,12 @@
 importer="font_data_dynamic"
 type="FontFile"
 uid="uid://ntb153ps354d"
-path="res://.godot/imported/ChakraPetch-SemiBold.ttf-f9606a104978c6dc6f8e95fa6c3ccf3a.fontdata"
+path="res://.godot/imported/ChakraPetch-SemiBold.ttf-87a6da42122dc6ad3132f6ee6c79d8d9.fontdata"
 
 [deps]
 
-source_file="res://fonts/ChakraPetch-SemiBold.ttf"
-dest_files=["res://.godot/imported/ChakraPetch-SemiBold.ttf-f9606a104978c6dc6f8e95fa6c3ccf3a.fontdata"]
+source_file="res://assets/fonts/ChakraPetch-SemiBold.ttf"
+dest_files=["res://.godot/imported/ChakraPetch-SemiBold.ttf-87a6da42122dc6ad3132f6ee6c79d8d9.fontdata"]
 
 [params]
 

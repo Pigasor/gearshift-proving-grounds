@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c64pqcdea5f37"
-path="res://.godot/imported/concrete_wall.png-b65091657419521a807626ce352d4bcd.ctex"
+uid="uid://j03wetjxhu24"
+path="res://.godot/imported/road_asphalt.png-6b028ef0a6ca7356f64bfcf7a78af692.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://textures/concrete_wall.png"
-dest_files=["res://.godot/imported/concrete_wall.png-b65091657419521a807626ce352d4bcd.ctex"]
+source_file="res://assets/textures/road_asphalt.png"
+dest_files=["res://.godot/imported/road_asphalt.png-6b028ef0a6ca7356f64bfcf7a78af692.ctex"]
 
 [params]
 

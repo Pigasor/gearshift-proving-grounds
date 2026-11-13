@@ -23,7 +23,9 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 1. [Godot 4.3](https://godotengine.org/download/archive/4.3-stable/) indir.
 2. Godot'yu aç, **Import** ile bu klasördeki `project.godot` dosyasını seç ve çalıştır (F5).
 
-Windows'ta Godot exe'sini proje klasörüne koyarsan `play.bat` ile de başlatabilirsin.
+Proje klasöründeki `GearShift Proving Grounds.exe` oyunu doğrudan kaynak koddan açar (`tools/install_local.ps1` oluşturur; Godot motoru `engine/` klasöründe).
+
+Klasörler: `scenes/`, `scripts/` (kod), `assets/` (fontlar, dokular, ikon), `engine/` (Godot 4.3, git'e girmez), `tools/` (kurulum betiği), `builds/` (dışa aktarılan oyun, git'e girmez).
 
 Oyunu bu bilgisayara normal bir program gibi kurmak (exe + masaüstü kısayolu) ya da kurulu oyunu güncellemek için:
 `powershell -ExecutionPolicy Bypass -File tools/install_local.ps1`

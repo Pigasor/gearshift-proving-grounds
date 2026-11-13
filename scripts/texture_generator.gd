@@ -39,7 +39,7 @@ func _generate_asphalt() -> void:
 			var base := clampf(0.16 + n * 0.06 + stone * 0.04 + grain, 0.12, 0.26)
 			# Slight cool mineral tint
 			img.set_pixel(x, y, Color(base * 0.98, base, base * 1.02, 1.0))
-	img.save_png("res://textures/asphalt_albedo.png")
+	img.save_png("res://assets/textures/asphalt_albedo.png")
 	print("Saved 1024x1024 asphalt_albedo.png")
 
 func _generate_natural_grass() -> void:
@@ -68,7 +68,7 @@ func _generate_natural_grass() -> void:
 			var red := green * 0.76  # Earthy soil undertone
 			var blue := green * 0.42 # Desaturated natural field foliage
 			img.set_pixel(x, y, Color(red, green, blue, 1.0))
-	img.save_png("res://textures/grass_albedo.png")
+	img.save_png("res://assets/textures/grass_albedo.png")
 	print("Saved 1024x1024 natural grass_albedo.png")
 
 func _generate_curbs() -> void:
@@ -87,7 +87,7 @@ func _generate_curbs() -> void:
 			# Subtle texture wear on kerb
 			var wear := (randf() - 0.5) * 0.05
 			img.set_pixel(x, y, Color(clampf(col.r + wear, 0, 1), clampf(col.g + wear, 0, 1), clampf(col.b + wear, 0, 1), 1.0))
-	img.save_png("res://textures/curb_striped.png")
+	img.save_png("res://assets/textures/curb_striped.png")
 	print("Saved 512x512 curb_striped.png")
 
 func _generate_concrete() -> void:
@@ -105,7 +105,7 @@ func _generate_concrete() -> void:
 			if x % 256 < 3 or y % 512 < 3:
 				val *= 0.68
 			img.set_pixel(x, y, Color(val, val * 0.98, val * 0.96, 1.0))
-	img.save_png("res://textures/concrete_wall.png")
+	img.save_png("res://assets/textures/concrete_wall.png")
 	print("Saved 1024x1024 concrete_wall.png")
 
 func _generate_road_lines() -> void:
@@ -126,7 +126,7 @@ func _generate_road_lines() -> void:
 				if (x >= 134 and x <= 140) or (x >= 372 and x <= 378):
 					col = Color(0.90, 0.91, 0.93, 1.0)
 			img.set_pixel(x, y, col)
-	img.save_png("res://textures/road_asphalt.png")
+	img.save_png("res://assets/textures/road_asphalt.png")
 	print("Saved 512x512 road_asphalt.png")
 
 func _generate_dirt() -> void:
@@ -142,5 +142,5 @@ func _generate_dirt() -> void:
 			var n := 0.2 + n_img.get_pixel(x, y).r * 0.6
 			var brown := clampf(0.36 + n * 0.18 + (randf() - 0.5) * 0.04, 0.24, 0.55)
 			img.set_pixel(x, y, Color(brown, brown * 0.78, brown * 0.54, 1.0))
-	img.save_png("res://textures/dirt_albedo.png")
+	img.save_png("res://assets/textures/dirt_albedo.png")
 	print("Saved 1024x1024 dirt_albedo.png")

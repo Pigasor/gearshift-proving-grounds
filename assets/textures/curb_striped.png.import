@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://j03wetjxhu24"
-path="res://.godot/imported/road_asphalt.png-9163a138757a9491ef9a66447d1051b3.ctex"
+uid="uid://dvxuavr8kgjg7"
+path="res://.godot/imported/curb_striped.png-ce9005f4bebc005309344776998099e0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://textures/road_asphalt.png"
-dest_files=["res://.godot/imported/road_asphalt.png-9163a138757a9491ef9a66447d1051b3.ctex"]
+source_file="res://assets/textures/curb_striped.png"
+dest_files=["res://.godot/imported/curb_striped.png-ce9005f4bebc005309344776998099e0.ctex"]
 
 [params]
 
