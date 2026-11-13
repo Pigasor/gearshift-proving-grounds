@@ -117,40 +117,52 @@ const STYLES: Dictionary = {
 	# ---- Third batch ----
 	# Porsche Taycan: very low nose between raised front wings, long cab-forward fastback
 	"taycan": { "hood": 0.25, "ws": 0.19, "roof": 0.15, "rw": 0.24, "nose": 0.62, "cowl": 0.84, "belt": 0.92,
-		"deck": 0.93, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.63, "spoiler": "none" },
+		"deck": 0.93, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.63, "spoiler": "none",
+		"cowl_f": 0.27, "deck_f": 0.82, "profile": [[0, 0.6], [0.03, 0.67], [0.1, 0.74], [0.2, 0.81], [0.27, 0.87], [0.36, 1.16], [0.44, 1.35], [0.5, 1.38], [0.6, 1.34], [0.7, 1.2], [0.8, 1.02], [0.84, 0.97], [0.93, 0.95], [0.98, 0.93], [1, 0.86]] },
 	# Tesla Model S: smooth grille-less nose, long liftback roof
-	"models": { "hood": 0.24, "ws": 0.20, "roof": 0.16, "rw": 0.24, "nose": 0.66, "cowl": 0.86, "belt": 0.96,
-		"deck": 0.98, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.66, "spoiler": "lip" },
+	"models": { "hood": 0.24, "ws": 0.20, "roof": 0.16, "rw": 0.24, "nose": 0.66, "cowl": 0.86, "belt": 0.95,
+		"deck": 0.98, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.66, "spoiler": "lip",
+		"cowl_f": 0.28, "deck_f": 0.86, "profile": [[0, 0.58], [0.03, 0.67], [0.12, 0.77], [0.22, 0.85], [0.28, 0.9], [0.37, 1.2], [0.46, 1.4], [0.53, 1.43], [0.63, 1.4], [0.74, 1.24], [0.86, 1.02], [0.93, 1.0], [0.98, 0.97], [1, 0.9]] },
 	# Tesla Model 3: short hood, big glass arc, short high boot
 	"model3": { "hood": 0.23, "ws": 0.21, "roof": 0.17, "rw": 0.20, "nose": 0.62, "cowl": 0.84, "belt": 0.96,
-		"deck": 0.99, "taper_f": 0.16, "taper_r": 0.09, "tumble": 0.66, "spoiler": "lip" },
+		"deck": 0.99, "taper_f": 0.16, "taper_r": 0.09, "tumble": 0.66, "spoiler": "lip",
+		"cowl_f": 0.27, "deck_f": 0.8, "profile": [[0, 0.56], [0.03, 0.66], [0.14, 0.77], [0.24, 0.86], [0.27, 0.88], [0.37, 1.22], [0.46, 1.41], [0.53, 1.44], [0.62, 1.41], [0.71, 1.25], [0.8, 1.04], [0.88, 1.02], [0.97, 1.0], [1, 0.92]] },
 	# TOGG T10X: tall C-SUV, short hood, long roof, steep tailgate
 	"togg": { "hood": 0.24, "ws": 0.15, "roof": 0.44, "rw": 0.10, "nose": 0.92, "cowl": 1.08, "belt": 1.14,
-		"deck": 1.12, "taper_f": 0.08, "taper_r": 0.05, "tumble": 0.78, "spoiler": "lip" },
+		"deck": 1.12, "taper_f": 0.08, "taper_r": 0.05, "tumble": 0.78, "spoiler": "lip",
+		"cowl_f": 0.25, "deck_f": 0.93, "profile": [[0, 0.86], [0.03, 0.97], [0.12, 1.04], [0.22, 1.09], [0.25, 1.11], [0.33, 1.42], [0.41, 1.63], [0.47, 1.68], [0.7, 1.67], [0.82, 1.62], [0.88, 1.52], [0.93, 1.24], [0.97, 1.18], [1, 1.08]] },
 	# Pagani Huayra: drooping nose, teardrop canopy, long rounded tail
 	"huayra": { "hood": 0.27, "ws": 0.17, "roof": 0.10, "rw": 0.30, "nose": 0.52, "cowl": 0.74, "belt": 0.84,
-		"deck": 0.92, "taper_f": 0.18, "taper_r": 0.09, "tumble": 0.60, "spoiler": "none" },
+		"deck": 0.92, "taper_f": 0.18, "taper_r": 0.09, "tumble": 0.60, "spoiler": "none",
+		"cowl_f": 0.3, "deck_f": 0.68, "profile": [[0, 0.4], [0.04, 0.5], [0.12, 0.61], [0.22, 0.71], [0.3, 0.78], [0.38, 0.98], [0.46, 1.14], [0.52, 1.17], [0.58, 1.15], [0.64, 1.08], [0.68, 1.02], [0.8, 0.97], [0.92, 0.95], [0.98, 0.92], [1, 0.84]] },
 	# Fiat 126 (Serce): tiny two-box, stubby front boot, tall round roof, engine in the tail
 	"serce": { "hood": 0.17, "ws": 0.14, "roof": 0.38, "rw": 0.10, "nose": 0.70, "cowl": 0.80, "belt": 0.86,
-		"deck": 0.84, "taper_f": 0.09, "taper_r": 0.08, "tumble": 0.80, "spoiler": "none" },
+		"deck": 0.84, "taper_f": 0.09, "taper_r": 0.08, "tumble": 0.80, "spoiler": "none",
+		"cowl_f": 0.21, "deck_f": 0.8, "profile": [[0, 0.58], [0.03, 0.68], [0.1, 0.74], [0.18, 0.77], [0.21, 0.8], [0.29, 1.12], [0.36, 1.3], [0.42, 1.33], [0.64, 1.32], [0.7, 1.24], [0.78, 0.98], [0.81, 0.92], [0.92, 0.87], [0.98, 0.85], [1, 0.79]] },
 	# Tofas Kartal: the Sahin with a long estate roof and an upright tailgate
-	"kartal": { "hood": 0.25, "ws": 0.13, "roof": 0.52, "rw": 0.04, "nose": 0.72, "cowl": 0.85, "belt": 0.91,
-		"deck": 0.92, "taper_f": 0.03, "taper_r": 0.02, "tumble": 0.82, "spoiler": "none" },
+	"kartal": { "hood": 0.25, "ws": 0.13, "roof": 0.52, "rw": 0.04, "nose": 0.72, "cowl": 0.85, "belt": 0.92,
+		"deck": 0.92, "taper_f": 0.03, "taper_r": 0.02, "tumble": 0.82, "spoiler": "none",
+		"cowl_f": 0.27, "deck_f": 0.985, "profile": [[0, 0.7], [0.03, 0.78], [0.14, 0.82], [0.25, 0.85], [0.27, 0.86], [0.34, 1.22], [0.39, 1.38], [0.44, 1.42], [0.92, 1.41], [0.95, 1.34], [0.985, 0.96], [1, 0.92]] },
 	# Chevrolet Bel Air '57: long flat hood, pillarless hardtop, long deck ending in tail fins
-	"belair": { "hood": 0.29, "ws": 0.15, "roof": 0.26, "rw": 0.10, "nose": 0.82, "cowl": 0.96, "belt": 1.00,
-		"deck": 0.98, "taper_f": 0.04, "taper_r": 0.02, "tumble": 0.80, "spoiler": "none" },
+	"belair": { "hood": 0.29, "ws": 0.15, "roof": 0.26, "rw": 0.10, "nose": 0.82, "cowl": 0.96, "belt": 1.0,
+		"deck": 0.98, "taper_f": 0.04, "taper_r": 0.02, "tumble": 0.80, "spoiler": "none",
+		"cowl_f": 0.31, "deck_f": 0.7, "profile": [[0, 0.84], [0.03, 0.92], [0.15, 0.96], [0.28, 0.98], [0.31, 1.0], [0.37, 1.32], [0.41, 1.48], [0.46, 1.52], [0.61, 1.5], [0.65, 1.36], [0.7, 1.04], [0.8, 1.01], [0.92, 1.0], [0.98, 1.02], [1, 0.95]] },
 	# Dodge Charger '69: "coke bottle", very long hood, short roof, tunnelled back glass, long deck
 	"charger69": { "hood": 0.34, "ws": 0.14, "roof": 0.15, "rw": 0.15, "nose": 0.76, "cowl": 0.92, "belt": 0.97,
-		"deck": 0.97, "taper_f": 0.03, "taper_r": 0.03, "tumble": 0.74, "spoiler": "none" },
+		"deck": 0.97, "taper_f": 0.03, "taper_r": 0.03, "tumble": 0.74, "spoiler": "none",
+		"cowl_f": 0.36, "deck_f": 0.68, "profile": [[0, 0.76], [0.03, 0.85], [0.18, 0.9], [0.33, 0.93], [0.36, 0.95], [0.42, 1.2], [0.47, 1.33], [0.51, 1.35], [0.6, 1.33], [0.64, 1.22], [0.68, 1.0], [0.8, 0.99], [0.95, 0.98], [1, 0.93]] },
 	# Shelby GT500 '67: long hood, fastback sloping into a ducktail
-	"gt500": { "hood": 0.33, "ws": 0.15, "roof": 0.12, "rw": 0.23, "nose": 0.74, "cowl": 0.90, "belt": 0.95,
-		"deck": 0.96, "taper_f": 0.06, "taper_r": 0.04, "tumble": 0.72, "spoiler": "duck" },
+	"gt500": { "hood": 0.33, "ws": 0.15, "roof": 0.12, "rw": 0.23, "nose": 0.74, "cowl": 0.90, "belt": 0.94,
+		"deck": 0.96, "taper_f": 0.06, "taper_r": 0.04, "tumble": 0.72, "spoiler": "duck",
+		"cowl_f": 0.36, "deck_f": 0.86, "profile": [[0, 0.7], [0.03, 0.81], [0.18, 0.86], [0.33, 0.89], [0.36, 0.9], [0.43, 1.17], [0.49, 1.29], [0.53, 1.31], [0.58, 1.29], [0.7, 1.16], [0.86, 0.98], [0.94, 0.99], [0.98, 1.01], [1, 0.95]] },
 	# Mercedes-Benz S 600 (W140): big formal three-box saloon, tall glasshouse
-	"s600": { "hood": 0.27, "ws": 0.16, "roof": 0.27, "rw": 0.13, "nose": 0.74, "cowl": 0.92, "belt": 1.00,
-		"deck": 1.02, "taper_f": 0.05, "taper_r": 0.05, "tumble": 0.78, "spoiler": "none" },
+	"s600": { "hood": 0.27, "ws": 0.16, "roof": 0.27, "rw": 0.13, "nose": 0.74, "cowl": 0.92, "belt": 1.0,
+		"deck": 1.02, "taper_f": 0.05, "taper_r": 0.05, "tumble": 0.78, "spoiler": "none",
+		"cowl_f": 0.29, "deck_f": 0.79, "profile": [[0, 0.72], [0.03, 0.84], [0.15, 0.9], [0.26, 0.94], [0.29, 0.95], [0.36, 1.26], [0.42, 1.45], [0.47, 1.49], [0.66, 1.47], [0.71, 1.36], [0.79, 1.05], [0.88, 1.06], [0.97, 1.04], [1, 0.97]] },
 	# Range Rover Sport (L494): tall clamshell hood, sloping roof, floating black roof
-	"rrsport": { "hood": 0.24, "ws": 0.13, "roof": 0.47, "rw": 0.10, "nose": 0.98, "cowl": 1.12, "belt": 1.20,
-		"deck": 1.18, "taper_f": 0.07, "taper_r": 0.05, "tumble": 0.80, "spoiler": "lip" },
+	"rrsport": { "hood": 0.24, "ws": 0.13, "roof": 0.47, "rw": 0.10, "nose": 0.98, "cowl": 1.12, "belt": 1.2,
+		"deck": 1.18, "taper_f": 0.07, "taper_r": 0.05, "tumble": 0.80, "spoiler": "lip",
+		"cowl_f": 0.25, "deck_f": 0.955, "profile": [[0, 0.96], [0.03, 1.08], [0.14, 1.14], [0.23, 1.17], [0.25, 1.18], [0.32, 1.5], [0.39, 1.74], [0.45, 1.8], [0.75, 1.77], [0.86, 1.71], [0.91, 1.58], [0.955, 1.28], [0.98, 1.22], [1, 1.14]] },
 }
 
 var paint: StandardMaterial3D
@@ -181,6 +193,18 @@ var deck_z: float
 var taper: Callable
 var tire_rad: float = 0.3
 var car_number: String = "24" # race number on stock cars
+var _prof: PackedVector2Array = PackedVector2Array() # traced top silhouette (z, height), front to back
+
+# Height of the traced silhouette at z
+func _prof_h(z: float) -> float:
+	if _prof.is_empty():
+		return 0.0
+	if z >= _prof[0].x:
+		return _prof[0].y
+	for k in range(_prof.size() - 1):
+		if z >= _prof[k + 1].x:
+			return lerpf(_prof[k].y, _prof[k + 1].y, (_prof[k].x - z) / maxf(_prof[k].x - _prof[k + 1].x, 0.001))
+	return _prof[_prof.size() - 1].y
 var tractor_kind: String = "jd" # tractor brand details (see _build_tractor)
 var trim_col: Color = Color(0.98, 0.82, 0.08) # tractor stripe / badge / trim colour
 var front_r_vis: float = 0.7 # tractor front wheel radius (visual)
@@ -224,6 +248,27 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 	var cowl_h: float = float(s["cowl"])
 	var belt_h: float = float(s["belt"])
 	var deck_h: float = float(s["deck"])
+	# A style traced from side photos gives the whole top silhouette ("profile": [fraction of the
+	# length from the front, height], front bumper to rear bumper) and where the glass starts / ends
+	_prof = PackedVector2Array()
+	if s.has("profile"):
+		for q in s["profile"]:
+			_prof.append(Vector2(zf - L * float(q[0]), float(q[1])))
+		cowl_z = zf - L * float(s["cowl_f"])
+		deck_z = zf - L * float(s["deck_f"])
+		var top: float = 0.0
+		for q in _prof:
+			top = maxf(top, q.y)
+		var first: bool = true
+		for q in _prof: # the roof: from the first to the last point near the top
+			if q.y >= top - 0.06:
+				if first:
+					ws_top_z = q.x
+					first = false
+				roof_rear_z = q.x
+		nose_h = _prof_h(zf - 0.05)
+		cowl_h = _prof_h(cowl_z)
+		deck_h = _prof_h(zr + 0.08)
 	var tf: float = float(s["taper_f"])
 	var trr: float = float(s["taper_r"])
 
@@ -233,14 +278,25 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 	lower.append(Vector2(zf - 0.10, 0.20))
 	lower.append(Vector2(zf - 0.01, 0.32))
 	lower.append(Vector2(zf + 0.01, 0.48))
-	lower.append(Vector2(zf - 0.05, nose_h - 0.03))
-	lower.append(Vector2(zf - 0.28, nose_h + 0.05))
-	lower.append(Vector2(lerpf(zf, cowl_z, 0.6), lerpf(nose_h + 0.05, cowl_h, 0.75)))
-	lower.append(Vector2(cowl_z, cowl_h))
-	lower.append(Vector2(deck_z, belt_h))
-	lower.append(Vector2(deck_z - 0.12, deck_h))
-	lower.append(Vector2(zr + 0.07, deck_h + (0.03 if str(s["spoiler"]) == "duck" else -0.01)))
-	lower.append(Vector2(zr, deck_h - 0.12))
+	if _prof.is_empty():
+		lower.append(Vector2(zf - 0.05, nose_h - 0.03))
+		lower.append(Vector2(zf - 0.28, nose_h + 0.05))
+		lower.append(Vector2(lerpf(zf, cowl_z, 0.6), lerpf(nose_h + 0.05, cowl_h, 0.75)))
+		lower.append(Vector2(cowl_z, cowl_h))
+		lower.append(Vector2(deck_z, belt_h))
+		lower.append(Vector2(deck_z - 0.12, deck_h))
+		lower.append(Vector2(zr + 0.07, deck_h + (0.03 if str(s["spoiler"]) == "duck" else -0.01)))
+		lower.append(Vector2(zr, deck_h - 0.12))
+	else:
+		# traced silhouette: hood / nose, the beltline under the glass, then boot / tail
+		for q in _prof:
+			if q.x > cowl_z + 0.01:
+				lower.append(Vector2(minf(q.x, zf - 0.02), q.y))
+		lower.append(Vector2(cowl_z, cowl_h))
+		lower.append(Vector2(deck_z, belt_h))
+		for q in _prof:
+			if q.x < deck_z - 0.01:
+				lower.append(Vector2(maxf(q.x, zr + 0.02), q.y))
 	lower.append(Vector2(zr - 0.01, 0.48))
 	lower.append(Vector2(zr + 0.05, 0.24))
 	# Keep the upper outline clear of the wheel arches (a low nose / short hood could dip into
@@ -277,10 +333,22 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		Vector2(roof_rear_z, H - 0.06),
 		Vector2(deck_z + 0.02, belt_h),
 	])
+	var glass_edges: Array = [0, 5]
+	if not _prof.is_empty():
+		# windscreen = edges up to the roof's front end, rear window = edges after its back end
+		gh = PackedVector2Array([Vector2(cowl_z - 0.02, cowl_h)])
+		for q in _prof:
+			if q.x < cowl_z - 0.03 and q.x > deck_z + 0.03:
+				gh.append(q)
+		gh.append(Vector2(deck_z + 0.02, belt_h))
+		glass_edges = []
+		for k in range(gh.size() - 1):
+			if gh[k + 1].x >= ws_top_z - 0.01 or gh[k].x <= roof_rear_z + 0.01:
+				glass_edges.append(k)
 	var gh_taper := func(z: float, y: float) -> float:
 		var k: float = clampf((y - cowl_h) / maxf(H - cowl_h, 0.1), 0.0, 1.0)
 		return taper.call(z, belt_h) * lerpf(0.95, tumble, k)
-	_extrude(gh, gh_taper, paint, glass, [0, 5])
+	_extrude(gh, gh_taper, paint, glass, glass_edges)
 	var win_polys: Array = Geometry2D.offset_polygon(gh, -0.06)
 	for side in [-1.0, 1.0]:
 		for poly in win_polys:
@@ -849,6 +917,8 @@ func _cyl_z(pos: Vector3, r: float, h: float, mat: Material) -> void:
 # ------------------------------------------------------------------ added cars (after photos)
 # Height of the hood's top surface at z (follows the lower body outline from the nose to the cowl)
 func _hood_y(z: float) -> float:
+	if not _prof.is_empty():
+		return _prof_h(z)
 	var nose_h: float = float(s["nose"])
 	var cowl_h: float = float(s["cowl"])
 	var pts: Array = [Vector2(zf - 0.28, nose_h + 0.05), Vector2(lerpf(zf, cowl_z, 0.6), lerpf(nose_h + 0.05, cowl_h, 0.75)), Vector2(cowl_z, cowl_h)]
@@ -1551,23 +1621,23 @@ func _details_model3(nose_h: float, deck_h: float) -> void:
 # black wheel-arch cladding, roof rails, full-width tail-light bar
 func _details_togg(nose_h: float, deck_h: float) -> void:
 	var fw: float = _fw(nose_h - 0.2)
-	_hex(Vector3(0, g + nose_h - 0.30, zf + 0.012), 0.86, 0.40, black)
-	for r in range(4):
-		for c in range(5):
-			var x: float = -0.28 + c * 0.14 + (0.07 if r % 2 == 1 else 0.0)
-			if absf(x) < 0.34:
-				_front(x, nose_h - 0.42 + r * 0.08, Vector3(0.04, 0.04, 0.035), chrome, Vector3(0, 0, 45), -0.004)
-	_front(0, nose_h - 0.06, Vector3(fw * 1.9, 0.02, 0.035), drl)
+	_front(0, nose_h - 0.30, Vector3(1.15, 0.42, 0.03), black) # grille
+	for k in range(13):
+		_front(-0.54 + k * 0.09, nose_h - 0.30, Vector3(0.025, 0.40, 0.04), chrome, Vector3.ZERO, -0.005)
+	_front(0, nose_h - 0.07, Vector3(fw * 1.9, 0.025, 0.035), drl) # light bar
 	for sd in [-1.0, 1.0]:
-		_swept_lamp(sd, nose_h - 0.10, 0.30, 0.07, 0.35, head)
+		_swept_lamp(sd, nose_h - 0.10, 0.28, 0.06, 0.35, head)
+		_front(sd * (fw - 0.12), 0.40, Vector3(0.22, 0.20, 0.03), black) # corner intakes
 		for zc in [wb * 0.5, -wb * 0.5]:
 			_box(Vector3(sd * (hw + 0.01), g + tire_rad * 2.0 + 0.05, zc), Vector3(0.05, 0.06, tire_rad * 2.4), black)
+		_box(Vector3(sd * (taper.call(0.0, 0.42) + 0.01), g + 0.42, 0.0), Vector3(0.03, 0.14, wb - 0.9), black) # sill cladding
 		_box(Vector3(sd * hw * 0.78, g + H + 0.025, (ws_top_z + roof_rear_z) * 0.5), Vector3(0.04, 0.04, ws_top_z - roof_rear_z), black)
-		_rear(sd * (_rw(deck_h) - 0.12), deck_h - 0.12, Vector3(0.22, 0.10, 0.04), tail)
-	_rear(0, deck_h - 0.10, Vector3(_rw(deck_h) * 1.9, 0.025, 0.035), tail)
+		_rear(sd * (_rw(deck_h) - 0.14), deck_h - 0.10, Vector3(0.26, 0.08, 0.04), tail)
+	_rear(0, deck_h - 0.08, Vector3(_rw(deck_h) * 1.9, 0.025, 0.035), tail)
+	_box(Vector3(0, g + H - 0.02, roof_rear_z - 0.05), Vector3(hw * 1.5, 0.05, 0.3), paint) # roof spoiler
 	_front(0, 0.36, Vector3(fw * 1.7, 0.16, 0.04), black)
 	_rear(0, 0.38, Vector3(_rw(0.4) * 1.9, 0.18, 0.05), black)
-	_plates(0.48, deck_h - 0.34)
+	_plates(0.50, deck_h - 0.34)
 
 # Pagani Huayra: twin stacked oval headlights per side on the nose, carbon centre with a red
 # stripe, four active flaps, quad pipes in a centre circle, round tail lamps
@@ -1686,7 +1756,7 @@ func _details_gt500(nose_h: float, deck_h: float) -> void:
 		_box(Vector3(sd * 0.14, g + deck_h + 0.03, zr + 0.25), Vector3(0.20, 0.012, 0.45), white)
 		var vz: float = -wb * 0.5 + 0.55
 		_box(Vector3(sd * (taper.call(vz, 0.75) + 0.02), g + 0.75, vz), Vector3(0.05, 0.12, 0.25), black)
-		_box(Vector3(sd * (taper.call(0.0, 0.40) + 0.006), g + 0.38, 0.0), Vector3(0.012, 0.035, wb * 0.75), white)
+		_box(Vector3(sd * (taper.call(0.0, 0.40) + 0.006), g + 0.38, 0.0), Vector3(0.012, 0.035, wb - 2.0 * tire_rad - 0.3), white)
 		_pipe(Vector3(sd * 0.42, g + 0.28, zr - 0.02), 0.045)
 	_hood_strip(0, cowl_z + 0.55, 0.36, 0.40, 0.07, paint)
 	_hood_strip(0, cowl_z + 0.74, 0.32, 0.02, 0.06, black)
@@ -1710,8 +1780,8 @@ func _details_s600(nose_h: float, deck_h: float) -> void:
 	for sd in [-1.0, 1.0]:
 		_front(sd * (fw - 0.30), nose_h - 0.12, Vector3(0.36, 0.15, 0.04), head)
 		_swept_lamp(sd, nose_h - 0.12, 0.10, 0.15, 0.20, amber)
-		_box(Vector3(sd * (taper.call(0.0, 0.45) + 0.006), g + 0.45, 0.0), Vector3(0.02, 0.18, L * 0.7), grey)
-		_box(Vector3(sd * (taper.call(0.0, 0.52) + 0.02), g + 0.52, 0.0), Vector3(0.02, 0.03, L * 0.7), black)
+		_box(Vector3(sd * (taper.call(0.0, 0.45) + 0.006), g + 0.45, 0.0), Vector3(0.02, 0.18, wb - 2.0 * tire_rad - 0.3), grey)
+		_box(Vector3(sd * (taper.call(0.0, 0.52) + 0.02), g + 0.52, 0.0), Vector3(0.02, 0.03, wb - 2.0 * tire_rad - 0.3), black)
 		var rw: float = _rw(deck_h - 0.15)
 		_swept_rear(sd, deck_h - 0.16, 0.48, 0.18, 0.22, tail)
 		for k in range(5):
