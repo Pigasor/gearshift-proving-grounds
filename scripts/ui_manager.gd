@@ -243,7 +243,8 @@ func _update_hud() -> void:
 	label_handbrake.visible = vehicle.is_handbrake_active
 	label_slowmo.visible = (Engine.time_scale < 0.9)
 
-const CAR_GROUPS: Array = [["Sedan", "Sedan"], ["Classic", "Classic"], ["Sport", "Sport"], ["Muscle", "Muscle"],
+const CAR_GROUPS: Array = [["Sedan", "Sedan"], ["Classic", "Classic"], ["US Classic", "US Classic"], ["Sport", "Sport"], ["Muscle", "Muscle"],
+	["Electric", "Electric"], ["Luxury", "Luxury"],
 	["Stock Car", "NASCAR"], ["Hyper", "Hypercar"], ["Off-Road", "Off-Road"], ["Monster", "Monster Truck"], ["Tractor", "Tractor"]]
 
 func _setup_options() -> void:

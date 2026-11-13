@@ -114,6 +114,43 @@ const STYLES: Dictionary = {
 	# Chevrolet Monte Carlo SS Aerocoupe '87 stock car: long hood, formal roof, big bubble back glass
 	"montecarlo": { "hood": 0.36, "ws": 0.16, "roof": 0.14, "rw": 0.21, "nose": 0.66, "cowl": 0.88, "belt": 0.95,
 		"deck": 0.97, "taper_f": 0.05, "taper_r": 0.04, "tumble": 0.72, "spoiler": "lip" },
+	# ---- Third batch ----
+	# Porsche Taycan: very low nose between raised front wings, long cab-forward fastback
+	"taycan": { "hood": 0.25, "ws": 0.19, "roof": 0.15, "rw": 0.24, "nose": 0.62, "cowl": 0.84, "belt": 0.92,
+		"deck": 0.93, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.63, "spoiler": "none" },
+	# Tesla Model S: smooth grille-less nose, long liftback roof
+	"models": { "hood": 0.24, "ws": 0.20, "roof": 0.16, "rw": 0.24, "nose": 0.66, "cowl": 0.86, "belt": 0.96,
+		"deck": 0.98, "taper_f": 0.15, "taper_r": 0.08, "tumble": 0.66, "spoiler": "lip" },
+	# Tesla Model 3: short hood, big glass arc, short high boot
+	"model3": { "hood": 0.23, "ws": 0.21, "roof": 0.17, "rw": 0.20, "nose": 0.62, "cowl": 0.84, "belt": 0.96,
+		"deck": 0.99, "taper_f": 0.16, "taper_r": 0.09, "tumble": 0.66, "spoiler": "lip" },
+	# TOGG T10X: tall C-SUV, short hood, long roof, steep tailgate
+	"togg": { "hood": 0.24, "ws": 0.15, "roof": 0.44, "rw": 0.10, "nose": 0.92, "cowl": 1.08, "belt": 1.14,
+		"deck": 1.12, "taper_f": 0.08, "taper_r": 0.05, "tumble": 0.78, "spoiler": "lip" },
+	# Pagani Huayra: drooping nose, teardrop canopy, long rounded tail
+	"huayra": { "hood": 0.27, "ws": 0.17, "roof": 0.10, "rw": 0.30, "nose": 0.52, "cowl": 0.74, "belt": 0.84,
+		"deck": 0.92, "taper_f": 0.18, "taper_r": 0.09, "tumble": 0.60, "spoiler": "none" },
+	# Fiat 126 (Serce): tiny two-box, stubby front boot, tall round roof, engine in the tail
+	"serce": { "hood": 0.17, "ws": 0.14, "roof": 0.38, "rw": 0.10, "nose": 0.70, "cowl": 0.80, "belt": 0.86,
+		"deck": 0.84, "taper_f": 0.09, "taper_r": 0.08, "tumble": 0.80, "spoiler": "none" },
+	# Tofas Kartal: the Sahin with a long estate roof and an upright tailgate
+	"kartal": { "hood": 0.25, "ws": 0.13, "roof": 0.52, "rw": 0.04, "nose": 0.72, "cowl": 0.85, "belt": 0.91,
+		"deck": 0.92, "taper_f": 0.03, "taper_r": 0.02, "tumble": 0.82, "spoiler": "none" },
+	# Chevrolet Bel Air '57: long flat hood, pillarless hardtop, long deck ending in tail fins
+	"belair": { "hood": 0.29, "ws": 0.15, "roof": 0.26, "rw": 0.10, "nose": 0.82, "cowl": 0.96, "belt": 1.00,
+		"deck": 0.98, "taper_f": 0.04, "taper_r": 0.02, "tumble": 0.80, "spoiler": "none" },
+	# Dodge Charger '69: "coke bottle", very long hood, short roof, tunnelled back glass, long deck
+	"charger69": { "hood": 0.34, "ws": 0.14, "roof": 0.15, "rw": 0.15, "nose": 0.76, "cowl": 0.92, "belt": 0.97,
+		"deck": 0.97, "taper_f": 0.03, "taper_r": 0.03, "tumble": 0.74, "spoiler": "none" },
+	# Shelby GT500 '67: long hood, fastback sloping into a ducktail
+	"gt500": { "hood": 0.33, "ws": 0.15, "roof": 0.12, "rw": 0.23, "nose": 0.74, "cowl": 0.90, "belt": 0.95,
+		"deck": 0.96, "taper_f": 0.06, "taper_r": 0.04, "tumble": 0.72, "spoiler": "duck" },
+	# Mercedes-Benz S 600 (W140): big formal three-box saloon, tall glasshouse
+	"s600": { "hood": 0.27, "ws": 0.16, "roof": 0.27, "rw": 0.13, "nose": 0.74, "cowl": 0.92, "belt": 1.00,
+		"deck": 1.02, "taper_f": 0.05, "taper_r": 0.05, "tumble": 0.78, "spoiler": "none" },
+	# Range Rover Sport (L494): tall clamshell hood, sloping roof, floating black roof
+	"rrsport": { "hood": 0.24, "ws": 0.13, "roof": 0.47, "rw": 0.10, "nose": 0.98, "cowl": 1.12, "belt": 1.20,
+		"deck": 1.18, "taper_f": 0.07, "taper_r": 0.05, "tumble": 0.80, "spoiler": "lip" },
 }
 
 var paint: StandardMaterial3D
@@ -243,7 +280,7 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		for poly in win_polys:
 			_side_panel(poly, gh_taper, side, 0.006, glass)
 		# B-pillar (black)
-		var b_z: float = lerpf(ws_top_z, roof_rear_z, 0.95 if str(b.get("style")) in ["chiron", "jesko", "p1", "laferrari"] else 0.5)
+		var b_z: float = lerpf(ws_top_z, roof_rear_z, 0.95 if str(b.get("style")) in ["chiron", "jesko", "p1", "laferrari", "huayra"] else 0.5)
 		var b_y: float = (belt_h + H) * 0.5
 		_box(Vector3(side * (gh_taper.call(b_z, b_y) + 0.009), g + b_y, b_z), Vector3(0.02, H - belt_h - 0.08, 0.10), black)
 
@@ -287,7 +324,19 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		"murat131": _details_murat131(nose_h, deck_h)
 		"toros": _details_toros(nose_h, deck_h)
 		"montecarlo": _details_montecarlo(nose_h, deck_h)
-	if exhausts.is_empty(): # models without their own tips: one pipe under the left of the bumper
+		"taycan": _details_taycan(nose_h, deck_h)
+		"models": _details_models(nose_h, deck_h)
+		"model3": _details_model3(nose_h, deck_h)
+		"togg": _details_togg(nose_h, deck_h)
+		"huayra": _details_huayra(nose_h, deck_h)
+		"serce": _details_serce(nose_h, deck_h)
+		"kartal": _details_kartal(nose_h, deck_h)
+		"belair": _details_belair(nose_h, deck_h)
+		"charger69": _details_charger69(nose_h, deck_h)
+		"gt500": _details_gt500(nose_h, deck_h)
+		"s600": _details_s600(nose_h, deck_h)
+		"rrsport": _details_rrsport(nose_h, deck_h)
+	if exhausts.is_empty() and not b.get("ev", false): # models without their own tips (EVs have none): one pipe under the left of the bumper
 		_pipe(Vector3(-hw * 0.55, g + 0.26, zr - 0.02), 0.032)
 	_spoiler(str(s["spoiler"]), deck_h)
 	return _brake_mats
@@ -1406,3 +1455,257 @@ func _details_trophy(nose_h: float, deck_h: float) -> void:
 		_tube(Vector3(sd * 0.6, g + H, roof_rear_z), Vector3(sd * 0.6, g + deck_h, zr + 0.2), 0.04, cage)
 	_tube(Vector3(-0.6, g + H, roof_rear_z), Vector3(0.6, g + H, roof_rear_z), 0.04, cage)
 	_pipe(Vector3(0.6, g + 0.45, zr - 0.02), 0.06)
+
+# ------------------------------------------------------------------ third batch (after photos)
+# Porsche Taycan: no grille, slim headlights on the raised wings with the four-point LED
+# signature, big vertical air curtains, full-width rear light bar, black diffuser (no pipes)
+func _details_taycan(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(0.5)
+	for sd in [-1.0, 1.0]:
+		var lz: float = zf - 0.22
+		_hood_strip(sd * (fw - 0.24), lz, 0.30, 0.22, 0.03, lens)
+		for k in range(4):
+			_hood_strip(sd * (fw - 0.24) + (0.05 if k % 2 == 0 else -0.05), lz + (0.04 if k < 2 else -0.04), 0.06, 0.03, 0.04, drl)
+		_front(sd * (fw - 0.10), 0.36, Vector3(0.10, 0.24, 0.03), black)
+	_front(0, 0.30, Vector3(fw * 1.2, 0.08, 0.03), black)
+	var rw: float = _rw(deck_h - 0.1)
+	_rear(0, deck_h - 0.10, Vector3(rw * 1.94, 0.05, 0.035), tail)
+	_rear(0, deck_h - 0.16, Vector3(rw * 1.6, 0.05, 0.03), lens)
+	_rear(0, 0.30, Vector3(_rw(0.3) * 1.6, 0.12, 0.05), black)
+	_roof_cap(glass)
+	_plates(0.42, deck_h - 0.32)
+
+# Tesla Model S Plaid: smooth nose cone with the T badge, slim swept headlights, small lower
+# intake, glass roof, black trim, swept tail lights
+func _details_models(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(0.6)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.06, 0.30, 0.07, 0.42, head)
+		_front(sd * (fw - 0.10), 0.34, Vector3(0.14, 0.12, 0.03), black)
+		_swept_rear(sd, deck_h - 0.10, 0.36, 0.08, 0.30, tail)
+	_front(0, nose_h - 0.06, Vector3(0.08, 0.06, 0.035), chrome)
+	_front(0, 0.33, Vector3(0.62, 0.10, 0.03), black)
+	_roof_cap(glass)
+	_rear(0, 0.30, Vector3(_rw(0.3) * 1.4, 0.08, 0.04), black)
+	_plates(0.40, deck_h - 0.30)
+
+# Tesla Model 3 (Highland): smooth low nose, very slim headlights, black glass roof, C-shaped
+# tail lights, no grille
+func _details_model3(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(0.55)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.05, 0.30, 0.045, 0.45, head)
+		_front(sd * (fw - 0.08), 0.32, Vector3(0.10, 0.06, 0.03), black)
+		var rw: float = _rw(deck_h - 0.1)
+		_rear(sd * (rw - 0.20), deck_h - 0.09, Vector3(0.34, 0.035, 0.04), tail)
+		_rear(sd * (rw - 0.05), deck_h - 0.13, Vector3(0.04, 0.10, 0.04), tail)
+	_front(0, nose_h - 0.05, Vector3(0.07, 0.05, 0.035), chrome)
+	_front(0, 0.30, Vector3(0.56, 0.06, 0.03), black)
+	_roof_cap(glass)
+	_plates(0.38, deck_h - 0.28)
+
+# TOGG T10X: tall hexagonal grille with the tulip pattern, a light bar joining the slim headlights,
+# black wheel-arch cladding, roof rails, full-width tail-light bar
+func _details_togg(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.2)
+	_hex(Vector3(0, g + nose_h - 0.30, zf + 0.012), 0.86, 0.40, black)
+	for r in range(4):
+		for c in range(5):
+			var x: float = -0.28 + c * 0.14 + (0.07 if r % 2 == 1 else 0.0)
+			if absf(x) < 0.34:
+				_front(x, nose_h - 0.42 + r * 0.08, Vector3(0.04, 0.04, 0.035), chrome, Vector3(0, 0, 45), -0.004)
+	_front(0, nose_h - 0.06, Vector3(fw * 1.9, 0.02, 0.035), drl)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.10, 0.30, 0.07, 0.35, head)
+		for zc in [wb * 0.5, -wb * 0.5]:
+			_box(Vector3(sd * (hw + 0.01), g + tire_rad * 2.0 + 0.05, zc), Vector3(0.05, 0.06, tire_rad * 2.4), black)
+		_box(Vector3(sd * hw * 0.78, g + H + 0.025, (ws_top_z + roof_rear_z) * 0.5), Vector3(0.04, 0.04, ws_top_z - roof_rear_z), black)
+		_rear(sd * (_rw(deck_h) - 0.12), deck_h - 0.12, Vector3(0.22, 0.10, 0.04), tail)
+	_rear(0, deck_h - 0.10, Vector3(_rw(deck_h) * 1.9, 0.025, 0.035), tail)
+	_front(0, 0.36, Vector3(fw * 1.7, 0.16, 0.04), black)
+	_rear(0, 0.38, Vector3(_rw(0.4) * 1.9, 0.18, 0.05), black)
+	_plates(0.48, deck_h - 0.34)
+
+# Pagani Huayra: twin stacked oval headlights per side on the nose, carbon centre with a red
+# stripe, four active flaps, quad pipes in a centre circle, round tail lamps
+func _details_huayra(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(0.45)
+	var carbon := _glow(Color(0.06, 0.06, 0.07), 0.0)
+	var red := _glow(Color(0.85, 0.05, 0.05), 0.2)
+	_hood_strip(0, (zf + cowl_z) * 0.5, 0.5, (zf - cowl_z) * 0.85, 0.01, carbon)
+	_hood_strip(0.08, (zf + cowl_z) * 0.5, 0.06, (zf - cowl_z) * 0.85, 0.02, red)
+	for sd in [-1.0, 1.0]:
+		for k in range(2):
+			var lz: float = zf - 0.18 - k * 0.16
+			_oval(Vector3(sd * (fw - 0.22), g + _hood_y(lz) + 0.02, lz), 0.07, 0.09, 0.04, head, Vector3(-60, 0, 0))
+		_front(sd * (fw - 0.16), 0.30, Vector3(0.36, 0.16, 0.03), black)
+		_box(Vector3(sd * 0.75, g + deck_h + 0.02, zr + 0.35), Vector3(0.35, 0.02, 0.25), paint, Vector3(-12, 0, 0))
+		_hood_strip(sd * 0.55, zf - 0.55, 0.30, 0.22, 0.02, paint)
+		_ring(Vector3(sd * (_rw(deck_h) - 0.22), g + deck_h - 0.14, zr - 0.01), 0.07, tail)
+	_rear(0, 0.42, Vector3(0.42, 0.30, 0.04), black)
+	for k in range(4):
+		var a: float = PI * 0.25 + k * PI * 0.5
+		_pipe(Vector3(cos(a) * 0.08, g + 0.44 + sin(a) * 0.08, zr - 0.02), 0.04)
+	_rear(0, 0.26, Vector3(_rw(0.3) * 1.6, 0.10, 0.06), black)
+	_plates(0.22, 0.62)
+
+# Fiat 126 (Serce): plain smooth front with a chrome bar and badge, square headlights, thin chrome
+# bumpers, louvred engine lid at the back, small tail lights, pipe under the tail
+func _details_serce(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.12)
+	for sd in [-1.0, 1.0]:
+		_front(sd * (fw - 0.14), nose_h - 0.14, Vector3(0.17, 0.12, 0.04), head)
+		_front(sd * (fw - 0.06), 0.44, Vector3(0.07, 0.04, 0.04), amber)
+		_rear(sd * (_rw(deck_h - 0.15) - 0.09), deck_h - 0.16, Vector3(0.14, 0.10, 0.04), tail)
+	_front(0, nose_h - 0.10, Vector3(0.36, 0.02, 0.035), chrome)
+	_front(0, nose_h - 0.14, Vector3(0.06, 0.04, 0.04), chrome)
+	_front(0, 0.36, Vector3(fw * 2.0 + 0.04, 0.04, 0.06), chrome)
+	_rear(0, 0.36, Vector3(_rw(0.4) * 2.0 + 0.04, 0.04, 0.06), chrome)
+	for k in range(6):
+		_rear(0, deck_h - 0.24 - k * 0.035, Vector3(0.50, 0.012, 0.035), black)
+	_pipe(Vector3(-0.30, g + 0.26, zr - 0.01), 0.025)
+	_box(Vector3(0, g + 0.31, zf + 0.03), Vector3(0.40, 0.09, 0.01), plate)
+	_rear(0, 0.48, Vector3(0.40, 0.09, 0.01), plate)
+
+# Tofas Kartal: the Sahin face and bumpers, roof rails, tall tail lights beside the tailgate
+func _details_kartal(nose_h: float, deck_h: float) -> void:
+	_details_sahin(nose_h, deck_h)
+	for sd in [-1.0, 1.0]:
+		_box(Vector3(sd * hw * 0.80, g + H + 0.025, (ws_top_z + roof_rear_z) * 0.5 - 0.1), Vector3(0.035, 0.035, ws_top_z - roof_rear_z - 0.2), black)
+
+# Chevrolet Bel Air '57: full-width chrome grille and bumper with "Dagmar" bullets, hooded round
+# headlights, twin hood spears, white roof, chrome side spear with a gold-anodised panel,
+# chrome-edged tail fins with round lamps
+func _details_belair(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.15)
+	var white := _glow(Color(0.94, 0.94, 0.90), 0.0)
+	var gold := _glow(Color(0.80, 0.68, 0.40), 0.1)
+	_front(0, nose_h - 0.20, Vector3(fw * 2.0 - 0.10, 0.20, 0.03), black)
+	for k in range(4):
+		_front(0, nose_h - 0.28 + k * 0.05, Vector3(fw * 2.0 - 0.14, 0.015, 0.035), chrome, Vector3.ZERO, -0.003)
+	_front(0, 0.40, Vector3(fw * 2.0 + 0.10, 0.12, 0.10), chrome)
+	for sd in [-1.0, 1.0]:
+		_oval(Vector3(sd * (fw - 0.14), g + nose_h - 0.08, zf + 0.01), 0.10, 0.10, 0.06, chrome)
+		_oval(Vector3(sd * (fw - 0.14), g + nose_h - 0.08, zf + 0.03), 0.08, 0.08, 0.04, head)
+		_cyl_z(Vector3(sd * 0.40, g + 0.40, zf + 0.10), 0.06, 0.12, chrome)
+		_hood_strip(sd * 0.22, (zf + cowl_z) * 0.5 + 0.2, 0.03, 0.45, 0.02, chrome)
+		var sx: float = sd * (taper.call(-0.6, 0.7) + 0.008)
+		_box(Vector3(sx, g + 0.70, -0.4), Vector3(0.02, 0.025, wb * 0.9), chrome)
+		_box(Vector3(sd * (taper.call(-wb * 0.5 - 0.35, 0.8) + 0.008), g + 0.80, -wb * 0.5 - 0.35), Vector3(0.015, 0.10, 0.9), gold)
+		var fx: float = sd * (_rw(deck_h) - 0.06)
+		_box(Vector3(fx, g + deck_h + 0.05, zr + 0.45), Vector3(0.10, 0.10, 0.9), paint, Vector3(-6, 0, 0))
+		_box(Vector3(fx, g + deck_h + 0.105, zr + 0.45), Vector3(0.11, 0.015, 0.9), chrome, Vector3(-6, 0, 0))
+		_ring(Vector3(fx, g + deck_h - 0.02, zr - 0.01), 0.06, tail)
+	_roof_cap(white)
+	_rear(0, 0.42, Vector3(_rw(0.4) * 2.0 + 0.08, 0.14, 0.10), chrome)
+	_box(Vector3(0, g + 0.38, zf + 0.10), Vector3(0.52, 0.11, 0.01), plate)
+	_rear(0, deck_h - 0.20, Vector3(0.52, 0.11, 0.01), plate)
+
+# Dodge Charger R/T '69: full-width black grille split in the middle with hidden headlights, thin
+# chrome bumpers, twin hood bulges, black vinyl roof, white stripe round the tail, split rectangular
+# tail lights on a black panel
+func _details_charger69(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.12)
+	var white := _glow(Color(0.9, 0.9, 0.88), 0.0)
+	_front(0, nose_h - 0.14, Vector3(fw * 2.0, 0.25, 0.025), chrome, Vector3.ZERO, 0.004)
+	_front(0, nose_h - 0.14, Vector3(fw * 2.0 - 0.04, 0.22, 0.03), black)
+	_front(0, nose_h - 0.14, Vector3(0.05, 0.22, 0.04), chrome, Vector3.ZERO, -0.003)
+	for k in range(6):
+		_front(0, nose_h - 0.22 + k * 0.03, Vector3(fw * 2.0 - 0.12, 0.006, 0.035), lens, Vector3.ZERO, -0.003)
+	_front(0, 0.42, Vector3(fw * 2.0 + 0.06, 0.07, 0.08), chrome)
+	_rear(0, 0.42, Vector3(_rw(0.4) * 2.0 + 0.06, 0.07, 0.08), chrome)
+	var rw: float = _rw(deck_h - 0.12)
+	_rear(0, deck_h - 0.13, Vector3(rw * 1.95, 0.16, 0.03), black)
+	for sd in [-1.0, 1.0]:
+		_hood_strip(sd * 0.30, (zf + cowl_z) * 0.5, 0.22, (zf - cowl_z) * 0.6, 0.025, paint)
+		_hood_strip(sd * 0.30, (zf + cowl_z) * 0.5 - 0.25, 0.14, 0.12, 0.03, black)
+		_rear(sd * (rw - 0.22), deck_h - 0.13, Vector3(0.34, 0.09, 0.04), tail)
+		_rear(sd * (rw - 0.60), deck_h - 0.13, Vector3(0.30, 0.09, 0.04), tail)
+		_pipe(Vector3(sd * 0.45, g + 0.30, zr - 0.02), 0.045)
+		_box(Vector3(sd * (_rw(deck_h - 0.05) + 0.004), g + deck_h - 0.05, zr + 0.45), Vector3(0.02, 0.06, 0.9), white)
+	_roof_cap(black)
+	_box(Vector3(0, g + deck_h + 0.006, zr + 0.25), Vector3(rw * 1.7, 0.012, 0.06), white)
+	_box(Vector3(0, g + 0.38, zf + 0.08), Vector3(0.52, 0.11, 0.01), plate)
+	_rear(0, 0.56, Vector3(0.52, 0.11, 0.01), plate)
+
+# Shelby GT500 '67: wide black mesh mouth with the two high beams in the middle, round headlights
+# at the corners, hood scoop, white Le Mans stripes over hood, roof and deck, side scoops,
+# full-width tail lights, ducktail
+func _details_gt500(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.12)
+	var white := _glow(Color(0.94, 0.94, 0.92), 0.0)
+	_front(0, nose_h - 0.16, Vector3(fw * 2.0 - 0.06, 0.24, 0.03), black)
+	for sd in [-1.0, 1.0]:
+		_oval(Vector3(sd * (fw - 0.14), g + nose_h - 0.15, zf + 0.025), 0.085, 0.085, 0.04, head)
+		_oval(Vector3(sd * 0.12, g + nose_h - 0.15, zf + 0.025), 0.07, 0.07, 0.04, head)
+		_hood_strip(sd * 0.14, (zf + cowl_z) * 0.5, 0.20, zf - cowl_z, 0.012, white)
+		_box(Vector3(sd * 0.14, g + H + 0.006, (ws_top_z + roof_rear_z) * 0.5), Vector3(0.20, 0.012, ws_top_z - roof_rear_z + 0.25), white)
+		_box(Vector3(sd * 0.14, g + deck_h + 0.03, zr + 0.25), Vector3(0.20, 0.012, 0.45), white)
+		var vz: float = -wb * 0.5 + 0.55
+		_box(Vector3(sd * (taper.call(vz, 0.75) + 0.02), g + 0.75, vz), Vector3(0.05, 0.12, 0.25), black)
+		_box(Vector3(sd * (taper.call(0.0, 0.40) + 0.006), g + 0.38, 0.0), Vector3(0.012, 0.035, wb * 0.75), white)
+		_pipe(Vector3(sd * 0.42, g + 0.28, zr - 0.02), 0.045)
+	_hood_strip(0, cowl_z + 0.55, 0.36, 0.40, 0.07, paint)
+	_hood_strip(0, cowl_z + 0.74, 0.32, 0.02, 0.06, black)
+	_front(0, 0.42, Vector3(fw * 2.0 + 0.04, 0.05, 0.07), chrome)
+	_rear(0, deck_h - 0.12, Vector3(_rw(deck_h - 0.1) * 1.9, 0.12, 0.035), tail)
+	_rear(0, 0.42, Vector3(_rw(0.4) * 2.0 + 0.04, 0.05, 0.07), chrome)
+	_box(Vector3(0, g + 0.30, zf + 0.03), Vector3(0.52, 0.11, 0.01), plate)
+	_rear(0, deck_h - 0.30, Vector3(0.52, 0.11, 0.01), plate)
+
+# Mercedes-Benz S 600 (W140): upright chrome grille with the star on top, wide rectangular
+# headlights with the indicators outboard, grey lower cladding with a rubbing strip, big ribbed
+# tail lights, chrome strip on the boot, twin pipes
+func _details_s600(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.12)
+	var grey := _glow(Color(0.22, 0.23, 0.25), 0.0)
+	_front(0, nose_h - 0.13, Vector3(0.44, 0.24, 0.05), chrome, Vector3.ZERO, -0.01)
+	_front(0, nose_h - 0.14, Vector3(0.38, 0.19, 0.06), black, Vector3.ZERO, -0.012)
+	for k in range(5):
+		_front(-0.16 + k * 0.08, nose_h - 0.14, Vector3(0.015, 0.19, 0.065), chrome, Vector3.ZERO, -0.013)
+	_cyl(Vector3(0, g + nose_h + 0.03, zf - 0.04), 0.04, 0.05, chrome)
+	for sd in [-1.0, 1.0]:
+		_front(sd * (fw - 0.30), nose_h - 0.12, Vector3(0.36, 0.15, 0.04), head)
+		_swept_lamp(sd, nose_h - 0.12, 0.10, 0.15, 0.20, amber)
+		_box(Vector3(sd * (taper.call(0.0, 0.45) + 0.006), g + 0.45, 0.0), Vector3(0.02, 0.18, L * 0.7), grey)
+		_box(Vector3(sd * (taper.call(0.0, 0.52) + 0.02), g + 0.52, 0.0), Vector3(0.02, 0.03, L * 0.7), black)
+		var rw: float = _rw(deck_h - 0.15)
+		_swept_rear(sd, deck_h - 0.16, 0.48, 0.18, 0.22, tail)
+		for k in range(5):
+			_rear(sd * (rw - 0.255), deck_h - 0.24 + k * 0.04, Vector3(0.48, 0.008, 0.04), lens)
+		_pipe(Vector3(sd * 0.52, g + 0.26, zr - 0.01), 0.045)
+	_front(0, 0.40, Vector3(fw * 2.0 + 0.04, 0.20, 0.06), grey)
+	_rear(0, 0.40, Vector3(_rw(0.4) * 2.0 + 0.04, 0.20, 0.06), grey)
+	_rear(0, deck_h - 0.05, Vector3(0.70, 0.02, 0.03), chrome)
+	_box(Vector3(0, g + 0.34, zf + 0.04), Vector3(0.52, 0.11, 0.01), plate)
+	_rear(0, deck_h - 0.30, Vector3(0.52, 0.11, 0.01), plate)
+
+# Range Rover Sport (L494): wide black mesh grille between slim headlights with an LED blade, front
+# door side vents, floating black roof, slim tail lights, quad pipes, black lower trim
+func _details_rrsport(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(nose_h - 0.15)
+	_front(0, nose_h - 0.13, Vector3(fw * 2.0 - 0.80, 0.15, 0.03), black)
+	for r in range(3):
+		for c in range(8):
+			_front(-0.28 + c * 0.08, nose_h - 0.18 + r * 0.05, Vector3(0.04, 0.025, 0.035), lens, Vector3(0, 0, 45), -0.003)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.12, 0.36, 0.09, 0.45, lens)
+		_front(sd * (fw - 0.22), nose_h - 0.09, Vector3(0.32, 0.02, 0.035), drl)
+		_front(sd * (fw - 0.16), 0.45, Vector3(0.26, 0.18, 0.03), black)
+		var vz: float = wb * 0.5 - 0.55
+		_box(Vector3(sd * (taper.call(vz, 0.85) + 0.006), g + 0.85, vz), Vector3(0.02, 0.06, 0.32), black)
+		_box(Vector3(sd * (taper.call(vz, 0.85) + 0.012), g + 0.85, vz), Vector3(0.02, 0.012, 0.30), chrome)
+		_swept_rear(sd, deck_h - 0.08, 0.36, 0.07, 0.40, tail)
+		for k in range(2):
+			_pipe(Vector3(sd * (0.48 + k * 0.12), g + 0.40, zr - 0.02), 0.045)
+		_box(Vector3(sd * (hw - 0.01), g + 0.36, 0.0), Vector3(0.04, 0.10, wb - 0.9), black)
+	_roof_cap(black)
+	_front(0, 0.40, Vector3(fw * 1.2, 0.12, 0.04), black)
+	_rear(0, 0.42, Vector3(_rw(0.4) * 1.9, 0.16, 0.05), black)
+	_plates(0.58, deck_h - 0.32)
+
+# Panel lying on the flat part of the roof (glass roof, vinyl top, two-tone paint)
+func _roof_cap(mat: Material) -> void:
+	var zc: float = (ws_top_z + roof_rear_z) * 0.5
+	var w: float = taper.call(zc, float(s["belt"])) * float(s["tumble"]) * 2.0 - 0.08
+	_box(Vector3(0, g + H + 0.004, zc), Vector3(w, 0.012, maxf(ws_top_z - roof_rear_z - 0.05, 0.2)), mat)

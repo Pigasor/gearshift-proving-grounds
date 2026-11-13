@@ -47,6 +47,8 @@ const FLUT_LEN: float = 1.1 # seconds
 # 9 "tu" phase, 10 wobble phase, 11-13 bright air filter
 var _fv: PackedFloat32Array = PackedFloat32Array([0, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 var _flut_gear: int = -1
+var _ev: bool = false # electric car: motor whine instead of combustion
+var _ev_ph: Vector3 = Vector3.ZERO
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
 var _bang_t: float = -1.0 # seconds since the bang; < 0 = silent
@@ -111,6 +113,8 @@ const PROFILES: Dictionary = {
 	"w16":     {"cyl": 16, "tau": 0.9, "irr": 0.06, "r1": 110.0, "q1": 1.8, "g1": 1.0, "r2": 330.0, "q2": 2.0, "g2": 0.45, "lp": 2900.0, "rasp": 0.15, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.62, "drive": 1.8},
 	"i6_jz":   {"cyl": 6, "tau": 1.0, "irr": 0.05, "r1": 150.0, "q1": 2.4, "g1": 0.9, "r2": 600.0, "q2": 2.6, "g2": 0.65, "lp": 3800.0, "rasp": 0.40, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.52, "drive": 2.3},
 	"v8_big":  {"cyl": 8, "tau": 1.8, "irr": 0.38, "r1": 65.0, "q1": 1.8, "g1": 1.4, "r2": 220.0, "q2": 2.0, "g2": 0.60, "lp": 1900.0, "rasp": 0.35, "intake": 0.25, "knock": 0.0, "whine": 0.10, "gain": 0.58, "drive": 2.8},
+	# tiny air-cooled 2-cylinder (Fiat 126 "Serce"): uneven, buzzy
+	"i2_small": {"cyl": 2, "tau": 1.6, "irr": 0.14, "r1": 120.0, "q1": 1.8, "g1": 0.9, "r2": 420.0, "q2": 2.2, "g2": 0.5, "lp": 1300.0, "rasp": 0.40, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.45, "drive": 2.0},
 	"i4":      {"cyl": 4, "tau": 1.2, "irr": 0.06, "r1": 160.0, "q1": 2.0, "g1": 0.8, "r2": 480.0, "q2": 2.4, "g2": 0.45, "lp": 1500.0, "rasp": 0.25, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.50, "drive": 1.8},
 	"i4_turbo": {"cyl": 4, "tau": 1.1, "irr": 0.06, "r1": 170.0, "q1": 2.0, "g1": 0.8, "r2": 520.0, "q2": 2.4, "g2": 0.50, "lp": 1800.0, "rasp": 0.30, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.50, "drive": 1.9},
 	"i4_diesel": {"cyl": 4, "tau": 1.6, "irr": 0.08, "r1": 120.0, "q1": 1.8, "g1": 0.9, "r2": 380.0, "q2": 2.0, "g2": 0.40, "lp": 1300.0, "rasp": 0.30, "intake": 0.20, "knock": 0.55, "whine": 0.0, "gain": 0.52, "drive": 1.7},
@@ -208,6 +212,7 @@ func trigger_bang() -> void:
 
 # Pick the profile for the current car/engine and prepare its filters
 func _update_profile() -> void:
+	_ev = str(vehicle.get("engine_fuel")) == "elektrik"
 	var v_type: int = int(vehicle.get("current_vehicle_type")) if vehicle.get("current_vehicle_type") != null else 0
 	var key: String
 	var own: String = str(vehicle.get("engine_sound")) if vehicle.get("engine_sound") != null else ""
@@ -280,7 +285,7 @@ func generate(frames_available: int) -> PackedVector2Array:
 	var target_load: float = _smoothed_throttle
 	# On the limiter (or held right at it, e.g. top speed in top gear) it always sounds like the
 	# limiter bouncing - no switching between "limiter" and "max revs" sounds.
-	var limiter: bool = vehicle.is_limiter_active or bool(vehicle.get("limiter_zone"))
+	var limiter: bool = (vehicle.is_limiter_active or bool(vehicle.get("limiter_zone"))) and not _ev
 
 	# Tire Skid
 	var max_slip: float = 0.0
@@ -342,9 +347,11 @@ func generate(frames_available: int) -> PackedVector2Array:
 		_dc_x = _mlp2
 		_dc_y = hp
 		var engine_sample: float = tanh(hp * drive * (0.8 + 0.5 * load)) * gain * 0.42
+		if _ev:
+			engine_sample = _ev_sample(dt, load, noise)
 
 		# Deceleration Overrun Burble: low, muffled rumble (low-passed noise, not a bright hiss)
-		if _overrun_timer > 0.0 and load < 0.2:
+		if _overrun_timer > 0.0 and load < 0.2 and not _ev:
 			_burble_lp += (noise - _burble_lp) * 0.06
 			engine_sample += _burble_lp * (_overrun_timer / 0.65) * 0.10 * pulse
 
@@ -469,3 +476,14 @@ func _flutter_sample(dt: float, noise: float) -> float:
 	if t > FLUT_LEN:
 		_flut_t = -1.0
 	return ((voiced + breath * 2.0) * wob + v[13] * chop) * env * 0.9 * _flut_amp
+
+# Electric motor: a whine at 6x and a gear-mesh tone at 15x the motor speed, a faint inverter
+# tone under load and a breath of air noise - no combustion at all.
+func _ev_sample(dt: float, load: float, noise: float) -> float:
+	var f: float = _rpm_s / 60.0
+	_ev_ph.x = fmod(_ev_ph.x + f * 6.0 * TAU * dt, TAU)
+	_ev_ph.y = fmod(_ev_ph.y + f * 15.0 * TAU * dt, TAU)
+	_ev_ph.z = fmod(_ev_ph.z + 7800.0 * TAU * dt, TAU)
+	var k_spd: float = clampf(_rpm_s / 2000.0, 0.0, 1.0)
+	var amp: float = (0.035 + 0.09 * load) * k_spd
+	return (sin(_ev_ph.x) * 0.6 + sin(_ev_ph.y) * 0.25 + sin(_ev_ph.z) * 0.04 * load) * amp + noise * 0.004 * k_spd

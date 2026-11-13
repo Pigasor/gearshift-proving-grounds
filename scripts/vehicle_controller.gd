@@ -64,6 +64,7 @@ var current_engine_index: int = 0
 var record_key: int = 0 # lap records: car index, or car*100+engine for non-default engines
 var engine_cylinders: int = 6
 var engine_fuel: String = "benzin"
+var is_electric: bool = false # electric motor: no clutch, no idle, full torque from 0 rpm, no exhaust
 
 # Realistic engines (CarDatabase): a real torque curve instead of the legacy hp formula
 const LEGACY_GEARS: Array[float] = [-3.4, 0.0, 3.62, 2.18, 1.54, 1.21, 1.00, 0.81]
@@ -471,6 +472,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	engine_sound = str(en.get("sound", ""))
 	engine_cylinders = int(en.get("cyl", 4))
 	engine_fuel = str(en.get("fuel", "benzin"))
+	is_electric = engine_fuel == "elektrik"
 	_update_wheel_colliders()
 	spawn_count += 1
 	# the new car appears where the old one was, standing still
@@ -521,7 +523,7 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var b: Dictionary = c["body"]
 	_apply_engine(en)
 	mass = float(b["mass"]) + float(en.get("mass_add", 0.0))
-	drivetrain_mode = str(b.get("drive", "FWD"))
+	drivetrain_mode = str(en.get("drive", b.get("drive", "FWD"))) # an engine option may change it (e.g. dual motor AWD)
 	downforce_coefficient = 0.05
 	drag_coefficient = float(b["cd_area"])
 	tire_radius = float(b["tire_r"])
@@ -2047,7 +2049,7 @@ func shift_up() -> void:
 	if current_gear < gear_ratios.size() - 1 and not _is_shifting:
 		# hard upshift on a petrol car (each car has its own bang, see AudioSynth.BANGS): the ignition cut lights unburnt fuel in the exhaust
 		var red_zone: bool = is_limiter_active or current_rpm >= limiter_rpm - 250.0 # same red zone as the rev bar
-		if engine_fuel != "dizel" and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67: # petrol only: diesels don't backfire
+		if engine_fuel == "benzin" and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67: # petrol only: diesels don't backfire
 			backfire_count += 1
 			for e in exhaust_smokes:
 				e.backfire()
@@ -2175,16 +2177,21 @@ func _update_drivetrain(delta: float) -> void:
 			current_rpm = move_toward(current_rpm, target_free_rpm, (5000.0 + 10000.0 * effective_throttle) * delta)
 		else:
 			current_rpm = move_toward(current_rpm, idle_rpm, (1500.0 + current_rpm * 0.5) * delta)
+	elif is_electric:
+		# electric motor: geared straight to the wheels, nothing slips
+		current_rpm = maxf(transmission_rpm, idle_rpm)
+		_clutch_slipping = false
+		_clutch_torque = 0.0
 	else:
 		_update_clutch(delta, transmission_rpm)
-	if current_gear == 1 or _is_shifting and _target_gear == 1:
+	if (current_gear == 1 or _is_shifting and _target_gear == 1) and not is_electric:
 		_clutch_slipping = true # next gear starts from a slipping clutch / converter
 		_auto_clutch = 0.0
 
 	# The flywheel and crank can't lose revs instantly: when spinning tyres hook up (or the clutch
 	# bites) the revs fall over a few tenths of a second (~6000 rpm/s), not in one frame.
 	# (gear changes have their own rev-matching above)
-	if not _is_shifting:
+	if not _is_shifting and not is_electric:
 		current_rpm = maxf(current_rpm, rpm_before - RPM_DROP_RATE * delta)
 	# Rolling down a hill can drive the engine past the limiter (no fuel, engine braking only).
 	current_rpm = clampf(current_rpm, idle_rpm * 0.5, max_rpm * 1.12)
@@ -2317,7 +2324,7 @@ func _update_clutch(delta: float, w_rpm: float) -> void:
 
 # Torque the engine makes at this rpm with the pedal fully down (current boost included)
 func _full_load_torque(rpm: float) -> float:
-	if rpm < idle_rpm * 0.45:
+	if rpm < idle_rpm * 0.45 and not is_electric:
 		return 0.0 # about to stall: no useful torque
 	var rpm_norm: float = (rpm - idle_rpm) / (max_rpm - idle_rpm)
 	var torque_curve: float = sin(clampf(rpm_norm, 0.0, 1.0) * PI * 0.88 + 0.25)
@@ -2333,7 +2340,7 @@ func _full_load_torque(rpm: float) -> float:
 	if turbo_boost_active:
 		boost_multiplier *= 1.45 # Massive +45% extra torque kick when Shift turbo is active!
 	# Below idle the engine labours: torque falls away towards stalling
-	if rpm < idle_rpm:
+	if rpm < idle_rpm and not is_electric:
 		base_torque *= clampf((rpm - idle_rpm * 0.45) / (idle_rpm * 0.55), 0.0, 1.0)
 	return base_torque * boost_multiplier
 
@@ -2401,7 +2408,7 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 		else:
 			engine_drag_total = -t_c * absf(active_gear_ratio) * final_drive_ratio
 	else:
-		if current_gear != 1:
+		if current_gear != 1 and not is_electric:
 			engine_torque += _idle_governor_torque(current_rpm) # idle control keeps pulling at low revs
 		if engine_torque >= 0.0:
 			total_drive_torque = engine_torque * active_gear_ratio * final_drive_ratio * clutch_engagement
