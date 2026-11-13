@@ -83,6 +83,12 @@ func _ready() -> void:
 	option_car_select.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	option_car_select.get_popup().auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	btn_quick_car.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	# Discord Rich Presence (car + place on the player's Discord profile)
+	var discord := Node.new()
+	discord.set_script(load("res://scripts/discord_rpc.gd"))
+	discord.name = "DiscordRPC"
+	discord.set("vehicle", vehicle)
+	get_parent().add_child.call_deferred(discord)
 	# Big map (M) - added after the menu so it sees M / ESC first
 	var big_map := CanvasLayer.new()
 	big_map.set_script(load("res://scripts/full_map.gd"))
