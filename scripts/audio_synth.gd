@@ -110,9 +110,26 @@ const PROFILES: Dictionary = {
 	"gtr":     {"cyl": 6, "tau": 1.1, "irr": 0.10, "r1": 130.0, "q1": 2.2, "g1": 0.9, "r2": 520.0, "q2": 2.5, "g2": 0.55, "lp": 3200.0, "rasp": 0.35, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.55, "drive": 2.2},
 	"v8_sc":   {"cyl": 8, "tau": 1.5, "irr": 0.32, "r1": 85.0, "q1": 2.0, "g1": 1.3, "r2": 300.0, "q2": 2.2, "g2": 0.60, "lp": 2400.0, "rasp": 0.30, "intake": 0.20, "knock": 0.0, "whine": 0.08, "gain": 0.55, "drive": 2.6},
 	"v8_race": {"cyl": 8, "tau": 1.2, "irr": 0.28, "r1": 100.0, "q1": 1.8, "g1": 1.1, "r2": 380.0, "q2": 2.0, "g2": 0.75, "lp": 4200.0, "rasp": 0.55, "intake": 0.35, "knock": 0.0, "whine": 0.0, "gain": 0.52, "drive": 3.0},
-	"w16":     {"cyl": 16, "tau": 0.9, "irr": 0.06, "r1": 110.0, "q1": 1.8, "g1": 1.0, "r2": 330.0, "q2": 2.0, "g2": 0.45, "lp": 2900.0, "rasp": 0.15, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.62, "drive": 1.8},
+	"w16":     {"cyl": 16, "tau": 1.2, "irr": 0.2, "r1": 78.0, "q1": 1.8, "g1": 1.4, "r2": 330.0, "q2": 2.0, "g2": 0.45, "lp": 2400.0, "rasp": 0.15, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.62, "drive": 1.8},
 	"i6_jz":   {"cyl": 6, "tau": 1.0, "irr": 0.05, "r1": 150.0, "q1": 2.4, "g1": 0.9, "r2": 600.0, "q2": 2.6, "g2": 0.65, "lp": 3800.0, "rasp": 0.40, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.52, "drive": 2.3},
 	"v8_big":  {"cyl": 8, "tau": 1.8, "irr": 0.38, "r1": 65.0, "q1": 1.8, "g1": 1.4, "r2": 220.0, "q2": 2.0, "g2": 0.60, "lp": 1900.0, "rasp": 0.35, "intake": 0.25, "knock": 0.0, "whine": 0.10, "gain": 0.58, "drive": 2.8},
+	# crossplane V8 (Mustang Coyote, Chevy 283, 428 / 440 big blocks): deep uneven burble, no blower whine
+	"v8_cross": {"cyl": 8, "tau": 1.6, "irr": 0.36, "r1": 72.0, "q1": 1.8, "g1": 1.35, "r2": 250.0, "q2": 2.0, "g2": 0.6, "lp": 2500.0, "rasp": 0.35, "intake": 0.28, "knock": 0.0, "whine": 0.0, "gain": 0.58, "drive": 2.7},
+	# naturally aspirated V12 (LaFerrari): smooth, full-bodied scream
+	"v12":     {"cyl": 12, "tau": 1.3, "irr": 0.17, "r1": 72.0, "q1": 1.8, "g1": 1.45, "r2": 300.0, "q2": 2.0, "g2": 0.6, "lp": 2900.0, "rasp": 0.25, "intake": 0.35, "knock": 0.0, "whine": 0.0, "gain": 0.6, "drive": 2.2},
+	# twin-turbo V12 (Pagani Huayra / AMG M158): deep, muffled by the turbos
+	"v12_tt":  {"cyl": 12, "tau": 1.5, "irr": 0.19, "r1": 62.0, "q1": 1.7, "g1": 1.55, "r2": 250.0, "q2": 1.9, "g2": 0.5, "lp": 1900.0, "rasp": 0.2, "intake": 0.3, "knock": 0.0, "whine": 0.0, "gain": 0.6, "drive": 2.0},
+	# luxury V12 (Mercedes M120): low, silky hum
+	"v12_lux": {"cyl": 12, "tau": 1.7, "irr": 0.15, "r1": 58.0, "q1": 1.6, "g1": 1.55, "r2": 210.0, "q2": 1.8, "g2": 0.4, "lp": 1300.0, "rasp": 0.12, "intake": 0.2, "knock": 0.0, "whine": 0.0, "gain": 0.56, "drive": 1.7},
+	# twin-turbo flat-plane V8 (McLaren P1, Koenigsegg Jesko): rasp muffled by the turbos
+	"v8_tt":   {"cyl": 8, "tau": 1.5, "irr": 0.45, "r1": 74.0, "q1": 1.8, "g1": 1.3, "r2": 320.0, "q2": 2.0, "g2": 0.6, "lp": 2600.0, "rasp": 0.4, "intake": 0.3, "knock": 0.0, "whine": 0.0, "gain": 0.55, "drive": 2.6},
+	# V6 (Jeep Pentastar): fuller and lower than a straight six
+	"v6":      {"cyl": 6, "tau": 1.4, "irr": 0.14, "r1": 95.0, "q1": 1.9, "g1": 1.1, "r2": 330.0, "q2": 2.1, "g2": 0.5, "lp": 2200.0, "rasp": 0.3, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.55, "drive": 2.2},
+	"v6_diesel": {"cyl": 6, "tau": 1.7, "irr": 0.1, "r1": 85.0, "q1": 1.7, "g1": 1.1, "r2": 290.0, "q2": 1.9, "g2": 0.45, "lp": 1500.0, "rasp": 0.3, "intake": 0.2, "knock": 0.35, "whine": 0.0, "gain": 0.55, "drive": 1.9},
+	# V8 turbo diesel (Land Cruiser 1VD): deep rumble with a little clatter
+	"v8_diesel": {"cyl": 8, "tau": 1.8, "irr": 0.22, "r1": 70.0, "q1": 1.7, "g1": 1.25, "r2": 240.0, "q2": 1.9, "g2": 0.45, "lp": 1300.0, "rasp": 0.3, "intake": 0.2, "knock": 0.4, "whine": 0.0, "gain": 0.57, "drive": 2.0},
+	# small turbo triple (Polaris ProStar, Renault TCe 90): off-beat thrum
+	"i3_turbo": {"cyl": 3, "tau": 1.5, "irr": 0.12, "r1": 105.0, "q1": 1.9, "g1": 1.0, "r2": 360.0, "q2": 2.2, "g2": 0.5, "lp": 1800.0, "rasp": 0.35, "intake": 0.3, "knock": 0.0, "whine": 0.0, "gain": 0.52, "drive": 2.1},
 	# tiny air-cooled 2-cylinder (Fiat 126 "Serce"): uneven, buzzy
 	"i2_small": {"cyl": 2, "tau": 1.6, "irr": 0.14, "r1": 120.0, "q1": 1.8, "g1": 0.9, "r2": 420.0, "q2": 2.2, "g2": 0.5, "lp": 1300.0, "rasp": 0.40, "intake": 0.25, "knock": 0.0, "whine": 0.0, "gain": 0.45, "drive": 2.0},
 	"i4":      {"cyl": 4, "tau": 1.2, "irr": 0.06, "r1": 160.0, "q1": 2.0, "g1": 0.8, "r2": 480.0, "q2": 2.4, "g2": 0.45, "lp": 1500.0, "rasp": 0.25, "intake": 0.30, "knock": 0.0, "whine": 0.0, "gain": 0.50, "drive": 1.8},
@@ -222,6 +239,8 @@ func _update_profile() -> void:
 		key = LEGACY_PROFILE[v_type]
 	elif str(vehicle.get("engine_fuel")) == "dizel":
 		key = "i4_diesel"
+	elif int(vehicle.get("engine_cylinders")) == 3:
+		key = "i3_turbo"
 	elif int(vehicle.get("engine_cylinders")) >= 6:
 		key = "i6_jz"
 	else:
@@ -240,7 +259,8 @@ func _update_profile() -> void:
 	var irr: float = float(_profile["irr"])
 	for i in range(n):
 		# cross-plane V8 style: one bank a bit stronger than the other, plus random spread
-		var bank: float = (0.5 if (i % 2 == 0) else -0.5) * irr if n == 8 else 0.0
+		# (V12 / W16: the two banks' exhausts differ even more - that gives them their low "body")
+		var bank: float = (0.5 if (i % 2 == 0) else -0.5) * irr if n == 8 else ((1.0 if (i % 2 == 0) else -1.0) * irr * 1.6 if n >= 10 else 0.0)
 		_cyl_amp[i] = 1.0 + bank + rng.randf_range(-irr, irr) * 0.6
 		_cyl_tau[i] = 1.0 + rng.randf_range(-irr, irr) * 0.5
 
@@ -477,6 +497,8 @@ func _flutter_sample(dt: float, noise: float) -> float:
 		_flut_t = -1.0
 	return ((voiced + breath * 2.0) * wob + v[13] * chop) * env * 0.9 * _flut_amp
 
+const EV_VOLUME: float = 0.6 # electric motor sound level (user: 60 %)
+
 # Electric motor: a whine at 6x and a gear-mesh tone at 15x the motor speed, a faint inverter
 # tone under load and a breath of air noise - no combustion at all.
 func _ev_sample(dt: float, load: float, noise: float) -> float:
@@ -486,4 +508,4 @@ func _ev_sample(dt: float, load: float, noise: float) -> float:
 	_ev_ph.z = fmod(_ev_ph.z + 7800.0 * TAU * dt, TAU)
 	var k_spd: float = clampf(_rpm_s / 2000.0, 0.0, 1.0)
 	var amp: float = (0.035 + 0.09 * load) * k_spd
-	return (sin(_ev_ph.x) * 0.6 + sin(_ev_ph.y) * 0.25 + sin(_ev_ph.z) * 0.04 * load) * amp + noise * 0.004 * k_spd
+	return ((sin(_ev_ph.x) * 0.6 + sin(_ev_ph.y) * 0.25 + sin(_ev_ph.z) * 0.04 * load) * amp + noise * 0.004 * k_spd) * EV_VOLUME

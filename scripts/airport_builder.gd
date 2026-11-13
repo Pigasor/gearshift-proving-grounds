@@ -1,7 +1,7 @@
 extends RefCounted
 class_name AirportBuilder
 # The proving ground sits on a (closed) airfield, like real test tracks on old airports:
-#  - Runway 18/36 (45 m x 2.3 km) with ICAO-style markings and edge / threshold / approach lights.
+#  - Runway 18/36 (45 m x 3.46 km, crossing the highway ring at both straights) with ICAO-style markings and edge / threshold / approach lights.
 #    The drag-race distance marks are painted on it.
 #  - Parallel taxiway A with five link taxiways and holding-position markings.
 #  - Concrete apron with a terminal + jet bridges, control tower, three drive-in hangars and parked
@@ -9,8 +9,8 @@ class_name AirportBuilder
 # Axes: -Z = north. Everything is built with MapBuilder's helpers so surfaces/grip work as usual.
 
 const RW_W: float = 45.0
-const RW_Z0: float = -1150.0 # north threshold (runway 18)
-const RW_Z1: float = 1150.0 # south threshold (runway 36)
+const RW_Z0: float = -1420.0 # north threshold (runway 18)
+const RW_Z1: float = 2040.0 # south threshold (runway 36): 3460 m, 1.5x the old 2300 m - flat top-speed strip
 const TWY_X: float = 100.0
 const TWY_W: float = 23.0
 const APRON_X0: float = TWY_X + TWY_W * 0.5 # west edge = taxiway edge
@@ -18,7 +18,7 @@ const APRON_X1: float = 340.0
 const APRON_Z0: float = -1070.0
 const APRON_Z1: float = -430.0
 const STANDS_Z: Array[float] = [-920.0, -810.0, -700.0, -590.0]
-const DRAG_START_Z: float = -1090.0
+const DRAG_START_Z: float = RW_Z0 + 60.0
 
 var mb: Node3D
 var mat_runway: StandardMaterial3D
@@ -185,11 +185,16 @@ func _runway() -> void:
 		# approach light bars on poles, out beyond the end (stop before the highway)
 		for k in range(4):
 			var az: float = thr - inward * (65.0 + k * 18.0)
+			if az < MapBuilder.LOCAL_MIN.y + 15.0:
+				continue # past the north wall
 			_visual(_box_mesh(Vector3(0.2, 2.0 + k * 0.4, 0.2)), mat_dark, Vector3(0, 1.0 + k * 0.2, az))
 			_visual(_box_mesh(Vector3(9.0, 0.25, 0.4)), mat_light_white, Vector3(0, 2.1 + k * 0.4, az), Vector3.ZERO, false)
 	# edge lights every 60 m
 	var ez: float = RW_Z0 + 30.0
 	while ez < RW_Z1:
+		if absf(absf(ez) - 1300.0) < 20.0: # not on the highway ring where the runway crosses it
+			ez += 60.0
+			continue
 		for s in [-1.0, 1.0]:
 			_visual(_box_mesh(Vector3(0.35, 0.35, 0.35)), mat_light_white, Vector3(s * (RW_W * 0.5 + 1.0), 0.18, ez), Vector3.ZERO, false)
 			# a soft warm pool of light around each one at night (DayNight switches the group)
@@ -206,7 +211,7 @@ func _runway() -> void:
 		ez += 60.0
 
 	# Drag-race distances from the drag start line (yellow lines across the runway + labels)
-	var marks: Array = [[0.0, "DRAG START"], [201.17, "1/8 MILE"], [402.34, "1/4 MILE"], [804.67, "1/2 MILE"], [1609.34, "1 MILE"]]
+	var marks: Array = [[0.0, "DRAG START"], [201.17, "1/8 MILE"], [402.34, "1/4 MILE"], [804.67, "1/2 MILE"], [1609.34, "1 MILE"], [3218.69, "2 MILE"]]
 	for m in marks:
 		var mz: float = DRAG_START_Z + float(m[0])
 		_paint(0.0, mz, RW_W - 4.0, 1.2 if float(m[0]) > 0.0 else 2.0, mb.mat_road_yellow, 0.055)

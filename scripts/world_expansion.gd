@@ -23,13 +23,13 @@ const F1_POINTS: Array[Vector2] = [
 ]
 const LM_START := Vector3(-1100, 0, 2950) # cars head -Z (north)
 const LM_POINTS: Array[Vector2] = [
-	Vector2(-1100, 3300), Vector2(-1100, 2900), Vector2(-1100, 2500), Vector2(-1100, 2200), Vector2(-1085, 2090), Vector2(-1040, 2010),
-	Vector2(-1010, 1975), Vector2(-1030, 1930), Vector2(-1000, 1880), Vector2(-1020, 1820), Vector2(-980, 1760), Vector2(-920, 1730),
-	Vector2(-850, 1720), Vector2(-560, 1797), Vector2(-289, 1869), Vector2(-241, 1881), Vector2(-194, 1894), Vector2(-147, 1917), Vector2(-93, 1910),
-	Vector2(-48, 1933), Vector2(1, 1946), Vector2(49, 1958), Vector2(339, 2035), Vector2(387, 2048), Vector2(436, 2061),
-	Vector2(481, 2083), Vector2(535, 2077), Vector2(581, 2099), Vector2(629, 2112), Vector2(677, 2125), Vector2(890, 2181), Vector2(1083, 2232),
-	Vector2(1180, 2262), Vector2(1230, 2285), Vector2(1255, 2330), Vector2(1240, 2390), Vector2(1180, 2600), Vector2(1100, 2850),
-	Vector2(1020, 3100), Vector2(960, 3300), Vector2(930, 3400), Vector2(950, 3460), Vector2(925, 3520), Vector2(880, 3560),
+	Vector2(-1100, 3300), Vector2(-1100, 2900), Vector2(-1100, 2620), Vector2(-1085, 2446), Vector2(-1040, 2363), Vector2(-1010, 2326), Vector2(-1030, 2283),
+	Vector2(-1000, 2230), Vector2(-1020, 2172), Vector2(-980, 2109), Vector2(-920, 2075), Vector2(-850, 2060), Vector2(-560, 2117),
+	Vector2(-289, 2170), Vector2(-241, 2178), Vector2(-194, 2188), Vector2(-147, 2208), Vector2(-93, 2197), Vector2(-48, 2217),
+	Vector2(1, 2226), Vector2(49, 2235), Vector2(339, 2292), Vector2(387, 2301), Vector2(436, 2311), Vector2(481, 2330),
+	Vector2(535, 2320), Vector2(581, 2339), Vector2(629, 2348), Vector2(677, 2358), Vector2(890, 2399), Vector2(1083, 2437),
+	Vector2(1180, 2460), Vector2(1230, 2479), Vector2(1255, 2523), Vector2(1240, 2584), Vector2(1180, 2748), Vector2(1100, 2945),
+	Vector2(1020, 3142), Vector2(960, 3300), Vector2(930, 3400), Vector2(950, 3460), Vector2(925, 3520), Vector2(880, 3560),
 	Vector2(820, 3570), Vector2(600, 3580), Vector2(300, 3620), Vector2(100, 3660), Vector2(0, 3720), Vector2(-120, 3730),
 	Vector2(-240, 3700), Vector2(-360, 3740), Vector2(-480, 3800), Vector2(-600, 3800), Vector2(-700, 3770), Vector2(-800, 3760),
 	Vector2(-870, 3742), Vector2(-930, 3762), Vector2(-1000, 3735), Vector2(-1060, 3690), Vector2(-1090, 3600), Vector2(-1100, 3480),
@@ -61,6 +61,7 @@ func build(map: MapBuilder) -> void:
 	_mat_line.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat_shoulder = mb.mat_dirt_dunes.duplicate() as StandardMaterial3D
 	_mat_shoulder.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_runway_clear()
 	_f1()
 	_lemans()
 	_superspeedway()
@@ -100,7 +101,7 @@ func _mark_rect(c: Vector2, half: Vector2) -> void:
 func _free(p: Vector2, r: float = 0.0) -> bool:
 	if p.x < 1500.0 + 40.0 and p.y < 1500.0 + 40.0:
 		return false
-	if p.x < MapBuilder.WORLD_MIN.x + 60.0 + r or p.x > MapBuilder.WORLD_MAX.x - 60.0 - r or p.y < MapBuilder.WORLD_MIN.y + 60.0 + r or p.y > MapBuilder.WORLD_MAX.y - 60.0 - r:
+	if p.x < MapBuilder.LOCAL_MIN.x + 60.0 + r or p.x > MapBuilder.LOCAL_MAX.x - 60.0 - r or p.y < MapBuilder.LOCAL_MIN.y + 60.0 + r or p.y > MapBuilder.LOCAL_MAX.y - 60.0 - r:
 		return false
 	if r <= 0.0:
 		return not _occ.has(_cell(p))
@@ -137,7 +138,7 @@ func _lemans() -> void:
 	# the bridge over the Dunlop curve
 	var bi: int = 0
 	for i in range(pts.size()):
-		if pts[i].distance_to(Vector2(-1062, 2048)) < pts[bi].distance_to(Vector2(-1062, 2048)):
+		if pts[i].distance_to(Vector2(-1062, 2403)) < pts[bi].distance_to(Vector2(-1062, 2403)):
 			bi = i
 	var t: Vector2 = (pts[mini(bi + 1, pts.size() - 1)] - pts[maxi(bi - 1, 0)]).normalized()
 	var yaw: float = rad_to_deg(atan2(t.x, t.y))
@@ -158,6 +159,10 @@ func _lemans() -> void:
 		sign.outline_size = 16
 		sign.transform = Transform3D(rot * Basis(Vector3.UP, 0.0 if face > 0.0 else PI), c + rot * Vector3(0, 9.9, face * 1.55))
 		mb.add_child(sign)
+
+# keep the countryside off the runway's south end (it runs on past the highway ring)
+func _runway_clear() -> void:
+	_mark_rect(Vector2(0, (1300.0 + AirportBuilder.RW_Z1 + 130.0) * 0.5), Vector2(70.0, (AirportBuilder.RW_Z1 + 130.0 - 1300.0) * 0.5))
 
 func _superspeedway() -> void:
 	mb.build_oval(SS_CENTER, SS_STRAIGHT, SS_RADIUS, SS_WIDTH, 24.0, 5.0, "GEARSHIFT SUPERSPEEDWAY", 600.0, 14)

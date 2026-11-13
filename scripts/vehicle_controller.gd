@@ -185,6 +185,7 @@ var _teleport_pending: bool = false
 var _teleport_xform: Transform3D
 var _since_low_thr: float = 10.0 # seconds since the throttle was last below 75% (kickdown trigger)
 var _dir_change_armed: bool = true # auto box: may switch D<->R with the next pedal press
+var _stopped_time: float = 0.0 # auto box: how long the car has stood still off the throttle (-> neutral)
 var _prev_body_pos: Vector3 = Vector3.INF
 var _auto_shift_cooldown: float = 0.0
 var _previous_linear_velocity: Vector3 = Vector3.ZERO
@@ -1918,8 +1919,15 @@ func _read_inputs(delta: float) -> void:
 		elif current_gear == 1: # neutral in auto mode: pick a direction from the pedals
 			if raw_throttle > 0.2:
 				_engage_gear_now(2)
-			elif raw_brake > 0.2:
+			elif raw_brake > 0.2 and _dir_change_armed: # a NEW press (braking to a stop doesn't select R)
 				_engage_gear_now(0)
+		# Standing still off the throttle (a moment, not a launch from a brake stand) -> neutral
+		var pedal_go: float = raw_brake if current_gear == 0 else raw_throttle
+		_stopped_time = _stopped_time + get_physics_process_delta_time() if absf(forward_speed) < 0.3 and pedal_go < 0.1 else 0.0
+		if _stopped_time > 0.12 and current_gear != 1:
+			_engage_gear_now(1)
+			if raw_brake > 0.1:
+				_dir_change_armed = false # still holding the brake that stopped the car
 		if current_gear == 0:
 			_throttle_input = raw_brake # S drives backwards
 			_brake_input = raw_throttle # W brakes while rolling backwards
@@ -2008,7 +2016,8 @@ func _process_automatic_transmission(delta: float) -> void:
 
 	if current_gear > 2:
 		var prev_rpm: float = _ground_rpm(current_gear - 1)
-		var lugging: bool = g_rpm < limiter_rpm * 0.28
+		# with the handbrake pulled the box changes down early (revs high, like a driver dropping gears)
+		var lugging: bool = g_rpm < limiter_rpm * (0.55 if is_handbrake_active else 0.28)
 		# kickdown: pedal just floored -> one jump to the lowest gear that stays clear of the limiter;
 		# a held pedal never re-triggers it, so no 2-3-2-3 hunting after an upshift
 		var kickdown: bool = not _manual_hold and _throttle_input > 0.9 and _since_low_thr < 0.5 and current_rpm < limiter_rpm * 0.75
@@ -2096,6 +2105,10 @@ func _update_drivetrain(delta: float) -> void:
 
 	var active_ratio: float = gear_ratios[current_gear]
 	var transmission_rpm: float = avg_drive_wheel_speed * absf(active_ratio) * final_drive_ratio * (60.0 / TAU)
+	# Handbrake pulled while moving: the locked rear wheels don't drag the engine down to idle - the
+	# revs stay with the car's speed and the gearbox keeps changing down (up to the limiter)
+	if is_handbrake_active and current_gear >= 2 and not is_burnout:
+		transmission_rpm = maxf(transmission_rpm, _ground_rpm(current_gear))
 
 	# Is the drivetrain trying to turn the engine BACKWARDS? (rolling back in a forward gear, or
 	# rolling forward in R). An engine can't run backwards: it holds near idle and its compression
@@ -2439,7 +2452,11 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 	var speed_for_tcs: float = linear_velocity.length()
 	for i in range(4):
 		var want_cut: float = 0.0
-		if tcs_enabled and not is_burnout and _throttle_input > 0.1 and _is_driven(i) and wheel_is_grounded[i]:
+		# (an electric motor's controller always does this - and also when a wheel leaves the ground,
+		# so the motor doesn't flare to its maximum revs over a bump)
+		if is_electric and _is_driven(i) and not wheel_is_grounded[i] and _throttle_input > 0.1:
+			want_cut = 0.95
+		elif (tcs_enabled or is_electric) and not is_burnout and _throttle_input > 0.1 and _is_driven(i) and wheel_is_grounded[i]:
 			var allowed_spin: float = maxf(2.5, 0.15 * speed_for_tcs) # same slip the torque cap below allows
 			want_cut = clampf((_wheel_spin_speed(i) - allowed_spin) / 3.0, 0.0, 0.9)
 			if absf(wheel_slip_lateral[i]) > 0.45 and speed_for_tcs > 8.0:

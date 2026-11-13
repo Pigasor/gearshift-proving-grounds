@@ -9,26 +9,26 @@ extends CanvasLayer
 var vehicle: Node3D
 
 const WORLD_SPAN: float = 6000.0 # metres shown across at the widest zoom (the whole map)
-const WORLD_CENTER := Vector2(1500, 1500)
+const WORLD_CENTER := Vector2(0, 0) # the map's middle is the origin
 const AREAS: Array = [
-	["APRON / PADDOCK", Vector2(225, -620)],
-	["HANGARLAR", Vector2(235, -1100)],
-	["PİST 18", Vector2(0, -1180)],
-	["PİST 36", Vector2(0, 1180)],
-	["YARIŞ PİSTİ", Vector2(-330, 30)],
-	["DRİFT ALANI", Vector2(250, -220)],
-	["STUNT PARKI", Vector2(170, 300)],
-	["OFF-ROAD", Vector2(540, 420)],
-	["TEPE PARKI", Vector2(-800, 0)],
-	["OTOYOL HALKASI", Vector2(0, 1330)],
-	["NASCAR OVALİ", Vector2(620, 930)],
-	["DAĞ", Vector2(-800, -880)],
-	["SÜSPANSİYON YOLU", Vector2(-75, -110)],
-	["F1 PİSTİ", Vector2(2950, 60)],
-	["LE MANS PİSTİ", Vector2(0, 2900)],
-	["SÜPER OVAL", Vector2(3000, 3000)],
-	["KÖY", Vector2(1560, 2350)],
-	["RÜZGAR TEPESİ", Vector2(4050, 1900)],
+	["APRON / PADDOCK", Vector2(-1275, -2120)],
+	["HANGARLAR", Vector2(-1265, -2600)],
+	["PİST 18", Vector2(-1500, -2870)],
+	["PİST 36", Vector2(-1500, 520)],
+	["YARIŞ PİSTİ", Vector2(-1830, -1470)],
+	["DRİFT ALANI", Vector2(-1250, -1720)],
+	["STUNT PARKI", Vector2(-1330, -1200)],
+	["OFF-ROAD", Vector2(-960, -1080)],
+	["TEPE PARKI", Vector2(-2300, -1500)],
+	["OTOYOL HALKASI", Vector2(-1500, -170)],
+	["NASCAR OVALİ", Vector2(-880, -570)],
+	["DAĞ", Vector2(-2300, -2380)],
+	["SÜSPANSİYON YOLU", Vector2(-1575, -1610)],
+	["F1 PİSTİ", Vector2(1450, -1440)],
+	["LE MANS PİSTİ", Vector2(-1500, 1400)],
+	["SÜPER OVAL", Vector2(1500, 1500)],
+	["KÖY", Vector2(60, 850)],
+	["RÜZGAR TEPESİ", Vector2(2550, 400)],
 ]
 
 var _root: Control

@@ -3,10 +3,16 @@ extends Node3D
 
 # The map is 2 x 2 tiles of 3 km: the original proving ground is the north-west tile, the other
 # three (F1 circuit, Le Mans circuit, superspeedway, countryside) are built by WorldExpansion.
-const WORLD_MIN := Vector2(-1500, -1500)
-const WORLD_MAX := Vector2(4500, 4500)
+# World coordinates have (0, 0) in the middle of the map. The builders work in this node's local
+# coordinates (the original tile's centre is local 0, 0), and the node sits at ORIGIN_SHIFT.
+const ORIGIN_SHIFT := Vector3(-1500, 0, -1500)
+const WORLD_MIN := Vector2(-3000, -3000) # world coordinates (UI, teleports, car)
+const WORLD_MAX := Vector2(3000, 3000)
+const LOCAL_MIN := Vector2(-1500, -1500) # the same bounds in the builders' local coordinates
+const LOCAL_MAX := Vector2(4500, 4500)
 
 func _ready() -> void:
+	position = ORIGIN_SHIFT
 	_load_textured_materials()
 	_build_floor_and_perimeter()
 	_build_mega_highway()
@@ -200,15 +206,15 @@ func _create_marking(pos: Vector3, size: Vector3, mat: Material) -> void:
 # --- 1. REALISTIC NATURAL GRASS TERRAIN & PERIMETER ---
 func _build_floor_and_perimeter() -> void:
 	# Meadow grass under the whole map (+100 m past the walls) with triplanar mapping
-	var c := (WORLD_MIN + WORLD_MAX) * 0.5
-	var span: Vector2 = WORLD_MAX - WORLD_MIN
+	var c := (LOCAL_MIN + LOCAL_MAX) * 0.5
+	var span: Vector2 = LOCAL_MAX - LOCAL_MIN
 	_create_static_box(Vector3(c.x, -1.0, c.y), Vector3(span.x + 200.0, 2.0, span.y + 200.0), mat_grass)
 
 	# Concrete boundary walls round the map
 	var wall_h: float = 4.0
 	var wall_t: float = 2.5
-	for w in [[Vector3(c.x, 0, WORLD_MAX.y), Vector3(span.x, 1, wall_t)], [Vector3(c.x, 0, WORLD_MIN.y), Vector3(span.x, 1, wall_t)],
-			[Vector3(WORLD_MAX.x, 0, c.y), Vector3(wall_t, 1, span.y)], [Vector3(WORLD_MIN.x, 0, c.y), Vector3(wall_t, 1, span.y)]]:
+	for w in [[Vector3(c.x, 0, LOCAL_MAX.y), Vector3(span.x, 1, wall_t)], [Vector3(c.x, 0, LOCAL_MIN.y), Vector3(span.x, 1, wall_t)],
+			[Vector3(LOCAL_MAX.x, 0, c.y), Vector3(wall_t, 1, span.y)], [Vector3(LOCAL_MIN.x, 0, c.y), Vector3(wall_t, 1, span.y)]]:
 		var size: Vector3 = w[1]
 		var wall := _create_static_box(w[0] + Vector3(0, wall_h * 0.5, 0), Vector3(size.x, wall_h, size.z), mat_concrete_wall)
 		wall.set_meta("no_climb", true) # the monster truck must not climb out of the map
@@ -269,6 +275,24 @@ func _build_mega_highway() -> void:
 			var t2: float = float(s) / float(straight_steps)
 			samples.append([start_p.lerp(end_p, t2), end_n, 0.0])
 	samples.append(samples[0]) # close the loop
+	# The runway crosses the north and south straights: extra samples exactly at the runway's edges,
+	# and the ring has a gap there (the runway tarmac is the crossing)
+	var cut: float = AirportBuilder.RW_W * 0.5 + 8.0
+	var fine: Array = []
+	for i in range(samples.size()):
+		if i > 0:
+			var a: Vector2 = samples[i - 1][0]
+			var b: Vector2 = samples[i][0]
+			if absf(a.y) > 1000.0 and absf(b.x - a.x) > 0.01:
+				var ts: Array[float] = []
+				for xc in [-cut, cut]:
+					if (a.x - xc) * (b.x - xc) < 0.0:
+						ts.append((xc - a.x) / (b.x - a.x))
+				ts.sort()
+				for t in ts:
+					fine.append([a.lerp(b, t), samples[i][1], samples[i][2]])
+		fine.append(samples[i])
+	samples = fine
 
 	# Edge points
 	var road_in: Array[Vector3] = []
@@ -300,28 +324,36 @@ func _build_mega_highway() -> void:
 	var mat_shoulder: StandardMaterial3D = mat_dirt_dunes.duplicate() as StandardMaterial3D
 	mat_shoulder.cull_mode = BaseMaterial3D.CULL_DISABLED
 
-	# Road: u = 0..1 across the width (lane markings line up), v repeats every 96 m along it
+	# Road: u = 0..1 across the width (lane markings line up), v repeats every 96 m along it.
+	# Built in runs between the runway crossings.
 	var road_faces := PackedVector3Array()
-	_add_strip(road_in, road_out, dist, 0.0, 1.0, 1.0 / 96.0, mat_ribbon, road_faces, 8)
 	var dirt_faces := PackedVector3Array()
-	_add_strip(sh_in, road_in, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
-	_add_strip(road_out, slope_out, dist, 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
+	var runs: Array = []
+	var r0: int = -1
+	for i in range(samples.size() + 1):
+		var gap: bool = i == samples.size() or (absf((samples[i][0] as Vector2).y) > 1000.0 and absf((samples[i][0] as Vector2).x) < cut - 0.01)
+		if not gap and r0 < 0:
+			r0 = i
+		elif gap and r0 >= 0:
+			runs.append([r0, i])
+			r0 = -1
+	for r in runs:
+		var a: int = r[0]
+		var b: int = r[1]
+		_add_strip(road_in.slice(a, b), road_out.slice(a, b), dist.slice(a, b), 0.0, 1.0, 1.0 / 96.0, mat_ribbon, road_faces, 8)
+		_add_strip(sh_in.slice(a, b), road_in.slice(a, b), dist.slice(a, b), 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
+		_add_strip(road_out.slice(a, b), slope_out.slice(a, b), dist.slice(a, b), 0.0, 0.5, 1.0 / 12.0, mat_shoulder, dirt_faces)
 	_add_collision_body(road_faces, "asphalt")
 	_add_collision_body(dirt_faces, "dirt")
-	# street lamps along the inside of the ring, every ~90 m
+	# street lamps along the inside of the ring, every ~90 m (none on the runway)
 	var lamp_d: float = 0.0
 	for i in range(samples.size() - 1):
+		if absf((samples[i][0] as Vector2).y) > 1000.0 and absf((samples[i][0] as Vector2).x) < cut + 15.0:
+			continue
 		if dist[i] >= lamp_d:
 			var lp: Vector2 = (samples[i][0] as Vector2) - (samples[i][1] as Vector2) * (hw_w * 0.5 + 7.5)
 			_street_lamp(Vector3(lp.x, 0.0, lp.y), samples[i][1])
 			lamp_d += 90.0
-
-	# Concrete guardrails along the outer edge of the north & south straights
-	var straight_len: float = (d - corner_r) * 2.0
-	# (the south one has a gap where the road to the south-east tiles leaves the ring)
-	for seg in [Vector2(-straight_len * 0.5, RING_EXIT_X - 40.0), Vector2(RING_EXIT_X + 40.0, straight_len * 0.5)]:
-		_create_static_box(Vector3((seg.x + seg.y) * 0.5, 0.8, d + 19.5), Vector3(seg.y - seg.x, 1.4, 0.8), mat_concrete_wall)
-	_create_static_box(Vector3(0, 0.8, -d - 19.5), Vector3(straight_len, 1.4, 0.8), mat_concrete_wall)
 
 # Street lamp: pole, an arm reaching over the road and a glowing head; its warm light is in the
 # "floodlights" group, so DayNight switches it on at dusk. Far lamps fade out (cheap at night).

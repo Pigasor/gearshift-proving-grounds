@@ -181,6 +181,9 @@ var deck_z: float
 var taper: Callable
 var tire_rad: float = 0.3
 var car_number: String = "24" # race number on stock cars
+var tractor_kind: String = "jd" # tractor brand details (see _build_tractor)
+var trim_col: Color = Color(0.98, 0.82, 0.08) # tractor stripe / badge / trim colour
+var front_r_vis: float = 0.7 # tractor front wheel radius (visual)
 
 func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Array[StandardMaterial3D]:
 	_parent = parent
@@ -197,6 +200,9 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 	hw = W * 0.5 - 0.02
 	tire_rad = tire_r
 	car_number = str(b.get("number", "24"))
+	tractor_kind = str(b.get("tractor", "jd"))
+	trim_col = b.get("trim", Color(0.98, 0.82, 0.08))
+	front_r_vis = float(b.get("setup", {}).get("front_wheel_r", tire_r))
 	_make_materials(b["color"])
 
 	cowl_z = zf - L * float(s["hood"])
@@ -289,7 +295,6 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		_box(Vector3(side * (hw + 0.08), g + cowl_h + 0.12, cowl_z - 0.25), Vector3(0.15, 0.10, 0.10), paint)
 		_box(Vector3(side * (hw + 0.025), g + cowl_h + 0.10, cowl_z - 0.25), Vector3(0.05, 0.05, 0.05), black)
 		_box(Vector3(side * (taper.call(cowl_z - 0.9, 0.8) + 0.008), g + belt_h - 0.14, cowl_z - 0.95), Vector3(0.015, 0.03, 0.15), chrome)
-		_box(Vector3(side * (hw - 0.02), g + 0.24, 0.0), Vector3(0.04, 0.06, wb - arch_r * 2.0 - 0.05), black)
 	_box(Vector3(0, g + 0.175, (zf + zr) * 0.5), Vector3(hw * 1.9, 0.03, L - 0.3), black) # below the floor skin (they used to z-fight)
 	_box(Vector3(0, g + 0.30, zr + 0.03), Vector3(taper.call(zr + 0.1, 0.4) * 1.8, 0.08, 0.06), black)
 
@@ -677,55 +682,93 @@ func _tube(a: Vector3, b: Vector3, r: float, mat: Material) -> void:
 # fenders, front weights, vertical exhaust stack. Rear wheels have tire_r (the small front ones are
 # drawn by the car, see front_wheel_r).
 func _build_tractor(tire_r: float) -> void:
+	# Sized from the body (the John Deere 6R is the 1.0 scale); `tractor_kind` picks the brand's
+	# details: "jd" John Deere, "mf" Massey Ferguson, "nh" New Holland, "fendt", "fiat" (no cab)
+	var kh: float = H / 3.05
+	var kw: float = W / 2.55
 	var zfa: float = wb * 0.5 # front axle
 	var zra: float = -wb * 0.5 # rear axle
-	var tw: float = float(STYLES["tractor"]["cowl"]) # hood top height
+	var tw: float = float(STYLES["tractor"]["cowl"]) * kh # hood top height
 	var cab_f: float = cowl_z
-	var cab_r: float = cab_f - 1.6
+	var cab_r: float = cab_f - 1.6 * kh
 	var cab_z: float = (cab_f + cab_r) * 0.5
-	var yellow := _glow(Color(0.98, 0.82, 0.08), 0.0)
+	var trim := _glow(trim_col, 0.0)
 	var dark := _glow(Color(0.12, 0.12, 0.13), 0.0)
-	_box(Vector3(0, g + 0.95, (cab_f + zf) * 0.5 - 0.3), Vector3(0.8, 0.6, zf - cab_f + 0.4), dark) # engine block / frame
-	_box(Vector3(0, g + 1.6, (cab_f + zf - 0.25) * 0.5), Vector3(0.95, tw - 1.25, zf - 0.25 - cab_f), paint) # hood
+	var open_seat: bool = tractor_kind == "fiat"
+	var hw2: float = 0.475 * kw # hood half width
+	_box(Vector3(0, g + 0.95 * kh, (cab_f + zf) * 0.5 - 0.3), Vector3(0.8 * kw, 0.6 * kh, zf - cab_f + 0.4), dark) # engine block / frame
+	_box(Vector3(0, g + 1.6 * kh, (cab_f + zf - 0.25) * 0.5), Vector3(hw2 * 2.0, tw - 1.25 * kh, zf - 0.25 - cab_f), paint) # hood
+	var hood_mid: float = 1.6 * kh
+	var hood_top: float = tw
+	match tractor_kind:
+		"mf": # dark grey lower bonnet, silver triple-triangle badge, headlights in the grille
+			_box(Vector3(0, g + hood_mid - (tw - 1.25 * kh) * 0.3, (cab_f + zf - 0.25) * 0.5), Vector3(hw2 * 2.0 + 0.02, (tw - 1.25 * kh) * 0.4, zf - 0.3 - cab_f), trim)
+			_box(Vector3(0, g + hood_top - 0.12, zf - 0.205), Vector3(0.2, 0.18, 0.02), chrome)
+		"nh": # white stripe, "cat's eye" lamps high on the grille
+			for sd in [-1.0, 1.0]:
+				_box(Vector3(sd * (hw2 + 0.01), g + hood_mid, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.08, zf - 0.6 - cab_f), trim)
+				_box(Vector3(sd * 0.22 * kw, g + hood_top - 0.1, zf - 0.21), Vector3(0.3, 0.07, 0.04), drl)
+		"fendt": # dark lower bonnet and frame, big grille, red rims (body "rim")
+			_box(Vector3(0, g + hood_mid - (tw - 1.25 * kh) * 0.25, (cab_f + zf - 0.25) * 0.5), Vector3(hw2 * 2.0 + 0.02, (tw - 1.25 * kh) * 0.5, zf - 0.3 - cab_f), trim)
+			_box(Vector3(0, g + hood_top - 0.1, zf - 0.205), Vector3(0.5, 0.07, 0.02), chrome)
+		"fiat": # white grille surround and badge
+			_box(Vector3(0, g + hood_mid, zf - 0.21), Vector3(hw2 * 2.0 + 0.02, (tw - 1.25 * kh) * 0.9, 0.03), trim)
+		_: # John Deere: yellow stripe along the hood, leaping-deer badge
+			for sd in [-1.0, 1.0]:
+				_box(Vector3(sd * (hw2 + 0.01), g + hood_top - 0.18, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.06, zf - 0.6 - cab_f), trim)
+			_box(Vector3(0, g + hood_top - 0.12, zf - 0.205), Vector3(0.22, 0.16, 0.02), trim)
+	_box(Vector3(0, g + hood_mid - 0.05, zf - 0.23), Vector3(hw2 * 1.8, (tw - 1.25 * kh) * 0.6, 0.04), black) # grille
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * 0.485, g + 1.72, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.06, zf - 0.6 - cab_f), yellow) # hood stripe
-	_box(Vector3(0, g + 1.55, zf - 0.23), Vector3(0.85, 0.6, 0.04), black) # grille
-	_box(Vector3(0, g + 1.78, zf - 0.205), Vector3(0.22, 0.16, 0.02), yellow) # leaping-deer badge
+		_box(Vector3(sd * (hw2 + 0.005), g + hood_mid - 0.1, (cab_f + zf) * 0.5 - 0.1), Vector3(0.02, 0.35 * kh, (zf - cab_f) * 0.55), black) # hood side vents
+		_box(Vector3(sd * 0.3 * kw, g + hood_top - 0.17, zf - 0.22), Vector3(0.2, 0.1, 0.05), head)
+	if not open_seat:
+		_box(Vector3(0, g + 0.82 * kh, zf - 0.12), Vector3(1.1 * kw, 0.45 * kh, 0.5), dark) # front weights
+	_box(Vector3(0, g + front_r_vis * 0.9, zfa), Vector3(hw * 1.5, 0.18, 0.22), black) # front axle
 	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * 0.48, g + 1.5, (cab_f + zf) * 0.5 - 0.1), Vector3(0.02, 0.35, (zf - cab_f) * 0.55), black) # hood side vents
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * 0.3, g + 1.78, zf - 0.22), Vector3(0.2, 0.1, 0.05), head)
-	_box(Vector3(0, g + 0.82, zf - 0.12), Vector3(1.1, 0.45, 0.5), dark) # front weights
-	_box(Vector3(0, g + 0.62, zfa), Vector3(hw * 1.5, 0.18, 0.22), black) # front axle
-	for sd in [-1.0, 1.0]:
-		_box(Vector3(sd * hw * 0.75, g + 1.34, zfa), Vector3(0.5, 0.05, 1.0), paint, Vector3(0, 0, sd * -8.0)) # front fenders
-	# cab: floor, four posts, glass all round, roof with work lights
-	_box(Vector3(0, g + 1.45, cab_z), Vector3(1.75, 0.15, 1.65), black)
-	for sx in [-1.0, 1.0]:
-		for z in [cab_f, cab_r]:
-			_box(Vector3(sx * 0.84, g + 2.25, z), Vector3(0.08, 1.5, 0.08), black)
-	_box(Vector3(0, g + 2.25, cab_f), Vector3(1.6, 1.4, 0.03), glass)
-	_box(Vector3(0, g + 2.25, cab_r), Vector3(1.6, 1.4, 0.03), glass)
-	for sx in [-1.0, 1.0]:
-		_box(Vector3(sx * 0.84, g + 2.25, cab_z), Vector3(0.03, 1.4, 1.52), glass)
-	_box(Vector3(0, g + 3.02, cab_z), Vector3(1.95, 0.12, 1.85), paint) # roof
-	for sx in [-1.0, 1.0]:
-		_box(Vector3(sx * 0.6, g + 2.94, cab_f + 0.05), Vector3(0.18, 0.1, 0.06), head) # work lights
-	_box(Vector3(0, g + 1.8, cab_z - 0.2), Vector3(0.5, 0.5, 0.5), black) # seat
-	_box(Vector3(0, g + 2.05, cab_f - 0.35), Vector3(0.35, 0.06, 0.35), black, Vector3(-40, 0, 0)) # steering wheel
+		_box(Vector3(sd * hw * 0.75, g + front_r_vis * 2.0 + 0.1, zfa), Vector3(0.5 * kw, 0.05, front_r_vis * 2.0), paint, Vector3(0, 0, sd * -8.0)) # front fenders
+	if open_seat:
+		# classic open tractor: seat over the gearbox, big steering wheel, roll bar behind the seat
+		_box(Vector3(0, g + 1.1 * kh, cab_z), Vector3(0.75, 0.35, 1.4 * kh), dark) # gearbox / platform
+		_box(Vector3(0, g + 1.45 * kh, cab_z - 0.25), Vector3(0.45, 0.08, 0.42), black) # seat
+		_box(Vector3(0, g + 1.7 * kh, cab_z - 0.45), Vector3(0.45, 0.4, 0.06), black, Vector3(-10, 0, 0)) # backrest
+		_box(Vector3(0, g + 1.9 * kh, cab_f - 0.1), Vector3(0.45, 0.05, 0.45), black, Vector3(-35, 0, 0)) # steering wheel
+		_tube(Vector3(0, g + 1.3 * kh, cab_f + 0.15), Vector3(0, g + 1.88 * kh, cab_f - 0.08), 0.03, black)
+		for sx in [-1.0, 1.0]:
+			_tube(Vector3(sx * 0.6, g + tire_r * 2.0, cab_r + 0.25), Vector3(sx * 0.6, g + H - 0.05, cab_r + 0.25), 0.045, black)
+		_tube(Vector3(-0.6, g + H - 0.05, cab_r + 0.25), Vector3(0.6, g + H - 0.05, cab_r + 0.25), 0.045, black)
+	else:
+		# cab: floor, four posts, glass all round, roof with work lights
+		var cw: float = 0.84 * kw
+		_box(Vector3(0, g + 1.45 * kh, cab_z), Vector3(cw * 2.08, 0.15, 1.65 * kh), black)
+		for sx in [-1.0, 1.0]:
+			for z in [cab_f, cab_r]:
+				_box(Vector3(sx * cw, g + 2.25 * kh, z), Vector3(0.08, 1.5 * kh, 0.08), trim if tractor_kind in ["mf", "fendt"] else black)
+		_box(Vector3(0, g + 2.25 * kh, cab_f), Vector3(cw * 1.9, 1.4 * kh, 0.03), glass)
+		_box(Vector3(0, g + 2.25 * kh, cab_r), Vector3(cw * 1.9, 1.4 * kh, 0.03), glass)
+		for sx in [-1.0, 1.0]:
+			_box(Vector3(sx * cw, g + 2.25 * kh, cab_z), Vector3(0.03, 1.4 * kh, 1.52 * kh), glass)
+		_box(Vector3(0, g + 3.02 * kh, cab_z), Vector3(cw * 2.32, 0.12, 1.85 * kh), paint if tractor_kind != "nh" else trim) # roof
+		for sx in [-1.0, 1.0]:
+			_box(Vector3(sx * 0.6 * kw, g + 2.94 * kh, cab_f + 0.05), Vector3(0.18, 0.1, 0.06), head) # work lights
+		_box(Vector3(0, g + 1.8 * kh, cab_z - 0.2), Vector3(0.5, 0.5, 0.5), black) # seat
+		_box(Vector3(0, g + 2.05 * kh, cab_f - 0.35), Vector3(0.35, 0.06, 0.35), black, Vector3(-40, 0, 0)) # steering wheel
 	# rear fenders over the big wheels, steps / tanks, hitch, lights
 	for sx in [-1.0, 1.0]:
 		var fx: float = sx * (hw * 0.75)
-		_box(Vector3(fx, g + tire_r * 2.0 + 0.12, zra), Vector3(0.8, 0.07, 2.0), paint)
-		_box(Vector3(sx * 0.62, g + tire_r + 0.75, zra), Vector3(0.05, 0.75, 2.0), paint)
-		_box(Vector3(sx * 0.82, g + 1.0, cab_f + 0.15), Vector3(0.3, 0.5, 0.7), black) # tanks / steps
-		_box(Vector3(fx, g + tire_r * 2.0 + 0.05, zra - 1.0), Vector3(0.14, 0.1, 0.05), tail)
-	_box(Vector3(0, g + 0.8, zra - 0.75), Vector3(1.0, 0.15, 0.4), black) # 3-point hitch
+		_box(Vector3(fx, g + tire_r * 2.0 + 0.12, zra), Vector3(0.8 * kw, 0.07, tire_r * 2.15), paint)
+		_box(Vector3(sx * 0.62 * kw, g + tire_r + 0.75 * kh, zra), Vector3(0.05, 0.75 * kh, tire_r * 2.15), paint)
+		if not open_seat:
+			_box(Vector3(sx * 0.82 * kw, g + 1.0 * kh, cab_f + 0.15), Vector3(0.3, 0.5 * kh, 0.7), black) # tanks / steps
+		_box(Vector3(fx, g + tire_r * 2.0 + 0.05, zra - tire_r * 1.05), Vector3(0.14, 0.1, 0.05), tail)
+	_box(Vector3(0, g + 0.8 * kh, zra - 0.75 * kh), Vector3(1.0 * kw, 0.15, 0.4), black) # 3-point hitch
 	for sx in [-1.0, 1.0]:
-		_box(Vector3(sx * 0.4, g + 0.75, zra - 1.05), Vector3(0.08, 0.08, 0.7), black)
+		_box(Vector3(sx * 0.4 * kw, g + 0.75 * kh, zra - 1.05 * kh), Vector3(0.08, 0.08, 0.7 * kh), black)
 	# exhaust stack in front of the cab
-	_cyl(Vector3(0.38, g + 2.55, cab_f + 0.12), 0.07, 1.3, dark)
-	exhausts.append(Vector3(0.38, g + 3.2, cab_f + 0.12))
+	var ex := Vector3(0.38 * kw, g + 2.55 * kh, cab_f + 0.12)
+	if open_seat:
+		ex = Vector3(0.25, g + hood_top + 0.45, zf - 0.6)
+	_cyl(ex, 0.07 * kw, 1.3 * kh if not open_seat else 0.9, dark)
+	exhausts.append(ex + Vector3(0, (1.3 * kh if not open_seat else 0.9) * 0.5, 0))
 	exhaust_up = true
 
 # Dune buggy (tube-frame, like an Ariel Nomad): low yellow side pods and nose with black stripes,
