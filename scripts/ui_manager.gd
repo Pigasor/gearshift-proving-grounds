@@ -72,6 +72,17 @@ func _ready() -> void:
 	menu.name = "SettingsMenu"
 	menu.set("ui_manager", self)
 	get_parent().add_child.call_deferred(menu)
+	# Car picker (top bar car button)
+	car_picker = CanvasLayer.new()
+	car_picker.set_script(load("res://scripts/car_picker.gd"))
+	car_picker.name = "CarPicker"
+	car_picker.set("ui", self)
+	car_picker.set("vehicle", vehicle)
+	get_parent().add_child.call_deferred(car_picker)
+	# names are the same in every language: never run them through the translation
+	option_car_select.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	option_car_select.get_popup().auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	btn_quick_car.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	# Big map (M) - added after the menu so it sees M / ESC first
 	var big_map := CanvasLayer.new()
 	big_map.set_script(load("res://scripts/full_map.gd"))
@@ -282,6 +293,7 @@ func _setup_options() -> void:
 	option_drivetrain.add_item("FWD (Önden Çeker)", 2)
 
 const ACCENT := Color(0.2, 0.65, 1.0)
+var car_picker: CanvasLayer
 var garage_tabs: TabContainer
 var label_car_stats: Label
 
@@ -520,10 +532,10 @@ func _switch_car(idx: int) -> void:
 	_sync_tuning_sliders_from_vehicle()
 
 func _on_btn_quick_car_pressed() -> void:
-	# many cars to pick from: open the garage on its car tab instead of cycling one by one
-	if not is_tuning_open:
+	# many cars to pick from: the car picker (classes, search, cards)
+	if is_tuning_open:
 		toggle_tuning_panel()
-	garage_tabs.current_tab = 0
+	car_picker.call("open")
 
 func _on_slider_hp_value_changed(val: float) -> void:
 	if vehicle.use_torque_curve and vehicle.peak_horsepower > 0.0:
