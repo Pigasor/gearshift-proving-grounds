@@ -107,10 +107,14 @@ const CARS: Array = [
 		"engines": [
 			{ "label": "1.6 i-VTEC Petrol - 125 HP", "cyl": 4, "fuel": "benzin", "hp": 125.0, "torque": 152.0,
 				"tq_from": 4300.0, "tq_to": 4300.0, "power_rpm": 6500.0, "idle": 750.0, "limiter": 6800.0, "max_rpm": 7100.0,
-				"turbo": 0.0, "gears": [-3.60, 0.0, 3.64, 2.08, 1.36, 1.02, 0.83, 0.69], "final": 4.11, "mass_add": 0.0 },
+				"turbo": 0.0, "gears": [-3.60, 0.0, 3.64, 2.08, 1.36, 1.02, 0.83, 0.69], "final": 4.11, "mass_add": 0.0, "vtec": 4800.0 },
 			{ "label": "1.5 VTEC Turbo Petrol - 182 HP", "cyl": 4, "fuel": "benzin", "hp": 182.0, "torque": 220.0,
 				"tq_from": 1700.0, "tq_to": 5500.0, "power_rpm": 5500.0, "idle": 750.0, "limiter": 6500.0, "max_rpm": 6800.0,
 				"turbo": 1.2, "gears": [-3.60, 0.0, 3.64, 2.08, 1.36, 1.02, 0.83, 0.69], "final": 4.35, "mass_add": 35.0 },
+			# the legendary high-revving DOHC VTEC (Civic Type R EK9), swapped in: the cams change over at 5700 rpm
+			{ "label": "1.6 B16B DOHC VTEC - 185 HP", "cyl": 4, "fuel": "benzin", "hp": 185.0, "torque": 160.0,
+				"tq_from": 7300.0, "tq_to": 7500.0, "power_rpm": 8200.0, "idle": 850.0, "limiter": 8600.0, "max_rpm": 8900.0,
+				"turbo": 0.0, "gears": [-3.0, 0.0, 3.23, 2.10, 1.58, 1.21, 0.94, 0.78], "final": 4.4, "mass_add": -10.0, "vtec": 5700.0 },
 		] },
 	{ "id": "megane", "name": "Renolt Megane Sedan", "class": "Sedan",
 		"body": { "length": 4.63, "width": 1.81, "height": 1.44, "wheelbase": 2.71, "track": 1.56,
@@ -604,6 +608,19 @@ const CARS: Array = [
 			{ "label": "2.5 Diesel - 48 HP", "cyl": 4, "fuel": "dizel", "hp": 48.0, "torque": 160.0,
 				"tq_from": 1400.0, "tq_to": 1600.0, "power_rpm": 2250.0, "idle": 700.0, "limiter": 2400.0, "max_rpm": 2500.0,
 				"turbo": 0.0, "gears": [-5.0, 0.0, 7.5, 5.0, 3.4, 2.3, 1.5], "final": 15.0, "vmax": 26.0, "sound": "i4_diesel" },
+		] },
+	# ======== Ford Focus ========
+	{ "id": "focus", "name": "Forde Focus Sedan", "class": "Sedan",
+		"body": { "length": 4.65, "width": 1.83, "height": 1.47, "wheelbase": 2.70, "track": 1.57,
+			"front_overhang": 0.92, "tire_r": 0.32, "mass": 1320.0, "cd_area": 0.41,
+			"color": Color(0.1, 0.25, 0.55), "style": "focus" },
+		"engines": [
+			{ "label": "1.5 EcoBoost Petrol - 150 HP", "cyl": 3, "fuel": "benzin", "hp": 150.0, "torque": 240.0,
+				"tq_from": 1600.0, "tq_to": 4000.0, "power_rpm": 6000.0, "idle": 750.0, "limiter": 6500.0, "max_rpm": 6800.0,
+				"turbo": 1.1, "gears": [-3.82, 0.0, 3.73, 2.05, 1.36, 1.03, 0.82, 0.69], "final": 3.82, "mass_add": 0.0, "sound": "i3_turbo" },
+			{ "label": "1.5 EcoBlue Diesel - 120 HP", "cyl": 4, "fuel": "dizel", "hp": 120.0, "torque": 300.0,
+				"tq_from": 1750.0, "tq_to": 2250.0, "power_rpm": 3600.0, "idle": 800.0, "limiter": 4800.0, "max_rpm": 5000.0,
+				"turbo": 1.4, "gears": [-3.82, 0.0, 3.73, 2.05, 1.30, 0.97, 0.76, 0.62], "final": 3.39, "mass_add": 45.0 },
 		] },
 ]
 

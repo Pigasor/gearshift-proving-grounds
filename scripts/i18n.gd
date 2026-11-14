@@ -112,6 +112,8 @@ const EN: Dictionary = {
 	"%d araç": "%d cars",
 	"Şu an": "Current",
 	"Serbest sürüş": "Free roam",
+	"🔑 Marş...": "🔑 Cranking...",
+	"🔑 Motoru çalıştırmak için %s tuşuna bas": "🔑 Press %s to start the engine",
 	"LE MANS PİSTİ": "LE MANS CIRCUIT",
 	"SÜPER OVAL": "SUPERSPEEDWAY",
 	"KÖY": "VILLAGE",

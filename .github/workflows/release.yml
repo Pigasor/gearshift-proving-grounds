@@ -1,5 +1,5 @@
 # Every push to main: export the Windows build with Godot and publish it as a new GitHub release.
-# Latest exe is always at: https://github.com/<owner>/<repo>/releases/latest/download/GearShiftProvingGrounds.exe
+# Latest exe is always at: https://github.com/<owner>/<repo>/releases/latest/download/GearShiftJoyDrive.exe
 name: Release
 
 on:
@@ -65,9 +65,9 @@ jobs:
           $g = "${{ runner.temp }}/godot/Godot_v$env:GODOT_VERSION-stable_win64_console.exe"
           New-Item -ItemType Directory -Force builds/windows | Out-Null
           & $g --headless --editor --quit --path . | Out-Null # import assets first
-          & $g --headless --path . --export-release "Windows Desktop" builds/windows/GearShiftProvingGrounds.exe
-          if (-not (Test-Path builds/windows/GearShiftProvingGrounds.exe)) { throw "Export failed: no exe" }
-          Get-Item builds/windows/GearShiftProvingGrounds.exe | Format-List Name, Length
+          & $g --headless --path . --export-release "Windows Desktop" builds/windows/GearShiftJoyDrive.exe
+          if (-not (Test-Path builds/windows/GearShiftJoyDrive.exe)) { throw "Export failed: no exe" }
+          Get-Item builds/windows/GearShiftJoyDrive.exe | Format-List Name, Length
 
       - name: Publish release
         shell: pwsh
@@ -78,4 +78,4 @@ jobs:
           $msg = git log -1 --pretty=%B
           $notes = "$msg`n`nCommit: ${{ github.sha }}"
           $notes | Out-File -Encoding utf8 notes.md
-          gh release create $tag builds/windows/GearShiftProvingGrounds.exe --title "Build ${{ github.run_number }}" --notes-file notes.md --latest
+          gh release create $tag builds/windows/GearShiftJoyDrive.exe --title "Build ${{ github.run_number }}" --notes-file notes.md --latest

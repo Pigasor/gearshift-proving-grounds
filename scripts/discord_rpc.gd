@@ -1,5 +1,5 @@
 extends Node
-# Discord Rich Presence: shows "Playing GearShift Proving Grounds" with the car and the place on
+# Discord Rich Presence: shows "Playing GearShift JoyDrive!" with the car and the place on
 # the player's Discord profile, on any PC where the Discord app is running (no setup, no extra DLL).
 # Discord listens on a local named pipe (discord-ipc-N). Godot's file API can't open named pipes, so a
 # hidden PowerShell (on every Windows PC) relays the frames between the game and the pipe. A worker
@@ -7,7 +7,7 @@ extends Node
 # running the relay just waits for it (checking every 10 s).
 # The activity's title is the name of the Discord application whose id is APP_ID.
 
-const APP_ID: String = "" # Discord Developer Portal > Applications > "GearShift Proving Grounds" > Application ID
+const APP_ID: String = "" # Discord Developer Portal > Applications > "GearShift JoyDrive!" > Application ID
 const RETRY_S: float = 20.0
 
 var app_id: String = APP_ID
@@ -48,7 +48,7 @@ func _process(delta: float) -> void:
 		"details": car,
 		"state": _place(),
 		"timestamps": {"start": _start_unix},
-		"assets": {"large_image": "icon", "large_text": "GearShift Proving Grounds"},
+		"assets": {"large_image": "icon", "large_text": "GearShift JoyDrive!"},
 	}
 	_mutex.lock()
 	_want = act

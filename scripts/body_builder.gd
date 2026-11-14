@@ -114,6 +114,10 @@ const STYLES: Dictionary = {
 	# Chevrolet Monte Carlo SS Aerocoupe '87 stock car: long hood, formal roof, big bubble back glass
 	"montecarlo": { "hood": 0.36, "ws": 0.16, "roof": 0.14, "rw": 0.21, "nose": 0.66, "cowl": 0.88, "belt": 0.95,
 		"deck": 0.97, "taper_f": 0.05, "taper_r": 0.04, "tumble": 0.72, "spoiler": "lip" },
+	# Ford Focus (Mk4) sedan: short hood, long arched roof, short raised boot
+	"focus": { "hood": 0.26, "ws": 0.19, "roof": 0.22, "rw": 0.11, "nose": 0.66, "cowl": 0.89, "belt": 0.97,
+		"deck": 1.02, "taper_f": 0.13, "taper_r": 0.08, "tumble": 0.70, "spoiler": "lip",
+		"cowl_f": 0.26, "deck_f": 0.78, "profile": [[0, 0.62], [0.03, 0.72], [0.12, 0.80], [0.22, 0.86], [0.26, 0.89], [0.36, 1.20], [0.44, 1.44], [0.49, 1.47], [0.62, 1.45], [0.70, 1.30], [0.78, 1.06], [0.86, 1.04], [0.96, 1.02], [1, 0.94]] },
 	# ---- Third batch ----
 	# Porsche Taycan: very low nose between raised front wings, long cab-forward fastback
 	"taycan": { "hood": 0.25, "ws": 0.19, "roof": 0.15, "rw": 0.24, "nose": 0.62, "cowl": 0.84, "belt": 0.92,
@@ -409,6 +413,7 @@ func build(parent: Node3D, b: Dictionary, ground_y: float, tire_r: float) -> Arr
 		"gt500": _details_gt500(nose_h, deck_h)
 		"s600": _details_s600(nose_h, deck_h)
 		"rrsport": _details_rrsport(nose_h, deck_h)
+		"focus": _details_focus(nose_h, deck_h)
 	if exhausts.is_empty() and not b.get("ev", false): # models without their own tips (EVs have none): one pipe under the left of the bumper
 		_pipe(Vector3(-hw * 0.55, g + 0.26, zr - 0.02), 0.032)
 	_spoiler(str(s["spoiler"]), deck_h)
@@ -1822,3 +1827,24 @@ func _roof_cap(mat: Material) -> void:
 	var zc: float = (ws_top_z + roof_rear_z) * 0.5
 	var w: float = taper.call(zc, float(s["belt"])) * float(s["tumble"]) * 2.0 - 0.08
 	_box(Vector3(0, g + H + 0.004, zc), Vector3(w, 0.012, maxf(ws_top_z - roof_rear_z - 0.05, 0.2)), mat)
+
+# Ford Focus (Mk4): wide trapezoid grille with the blue oval in the middle, swept headlights with an
+# LED strip, big lower mouth with fog lamps, tail lights running onto the boot lid
+func _details_focus(nose_h: float, deck_h: float) -> void:
+	var fw: float = _fw(0.6)
+	_front_poly(Vector3(0, g + nose_h - 0.17, zf + 0.012), [Vector2(-0.42, 0.10), Vector2(0.42, 0.10), Vector2(0.36, -0.08), Vector2(-0.36, -0.08)], black)
+	for k in range(3):
+		_front(0, nose_h - 0.22 + k * 0.05, Vector3(0.70 - k * 0.04, 0.01, 0.035), lens, Vector3.ZERO, -0.004)
+	var blue := _glow(Color(0.1, 0.25, 0.65), 0.15)
+	_oval(Vector3(0, g + nose_h - 0.15, zf + 0.03), 0.10, 0.045, 0.02, chrome)
+	_oval(Vector3(0, g + nose_h - 0.15, zf + 0.04), 0.085, 0.035, 0.02, blue)
+	_front_poly(Vector3(0, g + 0.36, zf + 0.012), [Vector2(-0.50, 0.10), Vector2(0.50, 0.10), Vector2(0.56, -0.09), Vector2(-0.56, -0.09)], black)
+	for sd in [-1.0, 1.0]:
+		_swept_lamp(sd, nose_h - 0.08, 0.32, 0.08, 0.42, head)
+		_front(sd * (fw - 0.20), nose_h - 0.125, Vector3(0.28, 0.015, 0.035), drl)
+		_front(sd * (fw - 0.14), 0.36, Vector3(0.14, 0.06, 0.035), head)
+		_swept_rear(sd, deck_h - 0.12, 0.34, 0.10, 0.32, tail)
+	_rear(0, deck_h - 0.12, Vector3(0.36, 0.05, 0.03), chrome)
+	_pipe(Vector3(-0.45, g + 0.26, zr - 0.01), 0.035)
+	_plates(0.30, deck_h - 0.30)
+

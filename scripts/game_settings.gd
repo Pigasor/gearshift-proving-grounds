@@ -94,10 +94,19 @@ var bindings: Dictionary = {} # action -> Array of physical keycodes (max 2)
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_migrate_old_user_dir()
 	values = defaults.duplicate(true)
 	_reset_bindings()
 	_register_translations()
 	_load()
+
+# The game used to be "GearShift Proving Grounds" (its own user data folder): bring the settings and
+# lap records over once, so nothing is lost with the new name
+func _migrate_old_user_dir() -> void:
+	var old_dir: String = OS.get_user_data_dir().get_base_dir().path_join("GearShift Proving Grounds")
+	for f in ["settings.cfg", "records.cfg"]:
+		if not FileAccess.file_exists("user://" + f) and FileAccess.file_exists(old_dir.path_join(f)):
+			DirAccess.copy_absolute(old_dir.path_join(f), OS.get_user_data_dir().path_join(f))
 	apply_input_map()
 	apply_language()
 	apply_window()

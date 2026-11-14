@@ -8,12 +8,16 @@ config_version=5
 
 [application]
 
-config/name="GearShift Proving Grounds"
-config/description="Vehicle Physics Sandbox & Mechanical Tuning Proving Grounds"
+config/name="GearShift JoyDrive!"
+config/description="\"GearShift JoyDrive!\" is an automotive simulation that brings half-realistic vehicle physics and driving mechanics together with fun. Explore the manual transmission experience, drift, push your limits on off-road tracks and improve your driving skills on different circuits. Get behind the wheel, start your engine and enjoy the ride! Feel the road. Enjoy the drive!"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
-config/icon="res://assets/icon.svg"
+config/icon="res://assets/icon.png"
 config/windows_native_icon="res://assets/icon.ico"
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/image="res://assets/splash.png"
+boot_splash/fullsize=false
+boot_splash/use_filter=true
 
 [autoload]
 

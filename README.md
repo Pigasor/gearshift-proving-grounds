@@ -1,8 +1,10 @@
-# GearShift Proving Grounds
+# GearShift JoyDrive!
 
-Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik test sahası oyunu.
+"GearShift JoyDrive!" is an automotive simulation that brings half-realistic vehicle physics and driving mechanics together with fun. Explore the manual transmission experience, drift, push your limits on off-road tracks and improve your driving skills on different circuits. Get behind the wheel, start your engine and enjoy the ride!
 
-**[⬇️ Son sürümü indir (Windows .exe)](https://github.com/Pigasor/gearshift-proving-grounds/releases/latest/download/GearShiftProvingGrounds.exe)** — her güncellemede otomatik olarak yeniden derlenir.
+🏁 Feel the road. Enjoy the drive!
+
+**[⬇️ Son sürümü indir (Windows .exe)](https://github.com/Pigasor/gearshift-proving-grounds/releases/latest/download/GearShiftJoyDrive.exe)** — her güncellemede otomatik olarak yeniden derlenir.
 
 ## Özellikler
 
@@ -23,7 +25,7 @@ Godot 4.3 ile geliştirilen, fizik ağırlıklı bir araç sürüş ve mekanik t
 1. [Godot 4.3](https://godotengine.org/download/archive/4.3-stable/) indir.
 2. Godot'yu aç, **Import** ile bu klasördeki `project.godot` dosyasını seç ve çalıştır (F5).
 
-Proje klasöründeki `GearShift Proving Grounds.exe` oyunu doğrudan kaynak koddan açar (`tools/install_local.ps1` oluşturur; Godot motoru `engine/` klasöründe).
+Proje klasöründeki `GearShift JoyDrive!.exe` oyunu doğrudan kaynak koddan açar (`tools/install_local.ps1` oluşturur, oyunun simgesi ve adıyla; Godot motoru `engine/` klasöründe).
 
 Klasörler: `scenes/`, `scripts/` (kod), `assets/` (fontlar, dokular, ikon), `engine/` (Godot 4.3, git'e girmez), `tools/` (kurulum betiği), `builds/` (dışa aktarılan oyun, git'e girmez).
 

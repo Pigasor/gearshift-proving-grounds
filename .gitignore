@@ -5,7 +5,8 @@
 engine/
 Godot_v*.exe
 *.zip
-# the game exe in the project folder (hard link to the engine, made by tools/install_local.ps1)
+# the game exe in the project folder (branded copy of the engine, made by tools/install_local.ps1)
+/GearShift JoyDrive!.exe
 /GearShift Proving Grounds.exe
 
 # Exported builds

@@ -65,6 +65,13 @@ var record_key: int = 0 # lap records: car index, or car*100+engine for non-defa
 var engine_cylinders: int = 6
 var engine_fuel: String = "benzin"
 var is_electric: bool = false # electric motor: no clutch, no idle, full torque from 0 rpm, no exhaust
+# A new car stands with the engine off: the first press of the throttle switches the ignition on and
+# the starter cranks it (an electric car just powers up)
+var engine_running: bool = false
+var vtec_rpm: float = 0.0 # Honda VTEC: the high-lift cams take over above this (0 = no VTEC)
+var vtec_active: bool = false # on the high cams right now (HUD, engine sound)
+var crank_time: float = -1.0 # >= 0 while the starter is turning the engine over
+const CRANK_S: float = 0.9
 
 # Realistic engines (CarDatabase): a real torque curve instead of the legacy hp formula
 const LEGACY_GEARS: Array[float] = [-3.4, 0.0, 3.62, 2.18, 1.54, 1.21, 1.00, 0.81]
@@ -481,8 +488,51 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	angular_velocity = Vector3.ZERO
 	for i in range(4):
 		wheel_angular_velocity[i] = 0.0
-	current_rpm = idle_rpm
 	_engage_gear_now(1) # neutral: the new car must not creep off on its own (auto picks D/R from the pedals)
+	# per-engine calibration so 0-100 and top speed match the real car (CarDatabase "tune":
+	# property -> value, or "property*" -> multiplier, e.g. torque, tyre grip, drag, final drive),
+	# applied over everything above (values found by running each car on the runway)
+	var tune: Dictionary = en.get("tune", {})
+	for k in tune:
+		if str(k).ends_with("*"):
+			var prop: String = str(k).trim_suffix("*")
+			set(prop, float(get(prop)) * float(tune[k]))
+		else:
+			set(k, tune[k])
+	engine_running = false
+	crank_time = -1.0
+	current_rpm = 0.0
+	if is_inside_tree():
+		_settle_on_ground()
+
+# Height of the body origin above the ground when the car stands still: each spring is compressed by
+# its share of the weight (so a new car is placed exactly where it comes to rest - it used to be
+# dropped from the old car's height and bounced)
+func rest_height() -> float:
+	var sag: float = clampf(mass * 9.81 * 0.25 / maxf(spring_stiffness, 1.0), 0.0, suspension_travel)
+	var mount_y: float = 0.0
+	for o in wheel_offsets:
+		mount_y += o.y * 0.25
+	return tire_radius + suspension_rest_length - sag - mount_y
+
+# Put the car on the ground under it at its resting ride height, level with the ground, same heading
+func _settle_on_ground() -> void:
+	var p: Vector3 = global_position
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 4.0, p + Vector3.DOWN * 30.0)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return
+	var n_up: Vector3 = hit.normal if hit.normal.y > 0.5 else Vector3.UP
+	var fwd: Vector3 = global_transform.basis.z
+	var yaw: float = atan2(fwd.x, fwd.z)
+	var b := Basis(Quaternion(Vector3.UP, n_up)) * Basis(Vector3.UP, yaw)
+	global_transform = Transform3D(b, hit.position + n_up * rest_height())
+	_teleport_xform = global_transform
+	_teleport_pending = true
+	_prev_body_pos = Vector3.INF
+	for i in range(4):
+		_prev_raw_compression[i] = 0.0
 
 func _apply_engine(en: Dictionary) -> void:
 	use_torque_curve = true
@@ -501,6 +551,8 @@ func _apply_engine(en: Dictionary) -> void:
 	final_drive_ratio = float(en["final"])
 	current_rpm = idle_rpm
 	speed_limit_kmh = float(en.get("vmax", 0.0))
+	vtec_rpm = float(en.get("vtec", 0.0))
+	vtec_active = false
 	gearbox_type = str(en.get("trans", "tc"))
 	if en.has("drag"):
 		drag_coefficient = float(en["drag"])
@@ -1893,6 +1945,11 @@ func _read_inputs(delta: float) -> void:
 		raw_brake = 0.0
 		raw_handbrake = 0.0
 
+	if not engine_running:
+		if crank_time < 0.0 and raw_throttle > 0.3:
+			crank_time = 0.0 # ignition on, starter turns
+		raw_throttle = 0.0 # pressed again (or still held) once the engine runs it drives off
+
 	_handbrake_input = raw_handbrake
 	is_handbrake_active = (_handbrake_input > 0.1)
 	# Raw pedal positions (keyboard = 0/1, gamepad triggers = analog) for the HUD
@@ -2055,7 +2112,7 @@ func _driver_shift(up: bool) -> void:
 		shift_down()
 
 func shift_up() -> void:
-	if current_gear < gear_ratios.size() - 1 and not _is_shifting:
+	if current_gear < gear_ratios.size() - 1 and not _is_shifting and engine_running:
 		# hard upshift on a petrol car (each car has its own bang, see AudioSynth.BANGS): the ignition cut lights unburnt fuel in the exhaust
 		var red_zone: bool = is_limiter_active or current_rpm >= limiter_rpm - 250.0 # same red zone as the rev bar
 		if engine_fuel == "benzin" and current_gear >= 2 and red_zone and _throttle_input > 0.6 and randf() < 0.67: # petrol only: diesels don't backfire
@@ -2066,7 +2123,7 @@ func shift_up() -> void:
 		_start_shift()
 
 func shift_down() -> void:
-	if current_gear > 0 and not _is_shifting:
+	if current_gear > 0 and not _is_shifting and engine_running:
 		_target_gear = current_gear - 1
 		_start_shift()
 
@@ -2085,6 +2142,21 @@ func _calculate_g_forces(delta: float) -> void:
 
 const RPM_DROP_RATE: float = 6000.0 # rpm per second the engine can lose at most (outside gear changes)
 func _update_drivetrain(delta: float) -> void:
+	if not engine_running:
+		# starter cranking (~200 rpm, uneven), then the engine fires and flares above idle
+		is_limiter_active = false
+		limiter_zone = false
+		if crank_time >= 0.0:
+			crank_time += delta
+			var crank_s: float = 0.35 if is_electric else CRANK_S
+			current_rpm = 0.0 if is_electric else 190.0 + 40.0 * sin(crank_time * 38.0)
+			if crank_time >= crank_s:
+				engine_running = true
+				crank_time = -1.0
+				current_rpm = idle_rpm * (1.0 if is_electric else 1.45)
+		else:
+			current_rpm = 0.0
+		return
 	var rpm_before: float = current_rpm
 	if _is_shifting:
 		_shift_timer -= delta
@@ -2212,6 +2284,15 @@ func _update_drivetrain(delta: float) -> void:
 # Full-load torque (Nm) of a realistic engine: rises from idle to the peak, stays flat over the
 # turbo plateau, then falls to the torque that gives the rated power, and tails off to the limiter.
 func _curve_torque(rpm: float) -> float:
+	if vtec_rpm > 0.0:
+		# VTEC: on the mild low-rpm cams the engine runs out of breath; above the changeover the
+		# high-lift cams give it the full curve - the famous kick
+		vtec_active = rpm >= vtec_rpm
+		if not vtec_active:
+			return _base_curve_torque(rpm) * lerpf(1.0, 0.82, clampf((rpm - vtec_rpm * 0.6) / (vtec_rpm * 0.4), 0.0, 1.0))
+	return _base_curve_torque(rpm)
+
+func _base_curve_torque(rpm: float) -> float:
 	var t_pk: float = torque_peak_nm
 	var t_pw: float = minf(peak_horsepower * 7023.5 / maxf(power_rpm, 1.0), t_pk) # PS -> Nm at power peak
 	# off-boost torque: diesels (big turbo, high compression) are weakest before the turbo wakes up
@@ -2843,14 +2924,15 @@ func teleport_to(ground_pos: Vector3, yaw_deg: float) -> void:
 	if nhit and absf(nhit.normal.y) > 0.5:
 		n_up = nhit.normal if nhit.normal.y > 0.0 else -nhit.normal
 	var b := Basis(Quaternion(Vector3.UP, n_up)) * Basis(Vector3.UP, deg_to_rad(yaw_deg))
-	global_transform = Transform3D(b, Vector3(ground_pos.x, ground_y, ground_pos.z) + n_up * (tire_radius + suspension_rest_length + 0.15))
+	global_transform = Transform3D(b, Vector3(ground_pos.x, ground_y, ground_pos.z) + n_up * (rest_height() + 0.03))
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	_teleport_xform = global_transform
 	_teleport_pending = true
 	_prev_body_pos = Vector3.INF
 	_dir_change_armed = true
-	current_rpm = idle_rpm
+	if engine_running:
+		current_rpm = idle_rpm
 	_engage_gear_now(1) # neutral after a teleport: no creeping away
 	_reset_turbo_boost()
 	for i in range(4):

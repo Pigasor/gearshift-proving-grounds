@@ -170,6 +170,13 @@ func _process(delta: float) -> void:
 	if _flip_label.visible:
 		var k: String = "Y" if GameSettings.input_device == "gamepad" else _key("repair")
 		_flip_label.text = tr("Araç devrildi! Düzeltmek için %s tuşuna bas") % k
+	elif not vehicle.get("engine_running"):
+		_flip_label.visible = true
+		if float(vehicle.get("crank_time")) >= 0.0:
+			_flip_label.text = tr("🔑 Marş...")
+		else:
+			var kt: String = "RT" if GameSettings.input_device == "gamepad" else _key("throttle")
+			_flip_label.text = tr("🔑 Motoru çalıştırmak için %s tuşuna bas") % kt
 	var hb: bool = vehicle.get("high_beam")
 	var lm: int = int(vehicle.get("light_mode"))
 	_lights_label.visible = hb or lm > 0
@@ -191,7 +198,7 @@ func _update_hud() -> void:
 			label_gear.text = mode_prefix + "N"
 			label_gear.modulate = Color(0.8, 0.8, 0.8)
 		_:
-			label_gear.text = mode_prefix + str(vehicle.current_gear - 1)
+			label_gear.text = mode_prefix + str(vehicle.current_gear - 1) + ("  VTEC" if vehicle.get("vtec_active") else "")
 			label_gear.modulate = Color(0.2, 0.85, 1.0)
 
 	_update_control_hints()

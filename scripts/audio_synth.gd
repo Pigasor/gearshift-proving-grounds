@@ -48,6 +48,9 @@ const FLUT_LEN: float = 1.1 # seconds
 var _fv: PackedFloat32Array = PackedFloat32Array([0, 250, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 var _flut_gear: int = -1
 var _ev: bool = false # electric car: motor whine instead of combustion
+var _eng_lvl: float = 0.0 # engine sound level (0 = engine off)
+var _vtec_k: float = 0.0 # 0 low cams .. 1 VTEC engaged
+var _st_ph: float = 0.0 # starter motor whine phase
 var _ev_ph: Vector3 = Vector3.ZERO
 # Upshift backfire bang (the car bumps backfire_count)
 var _last_backfire: int = 0
@@ -289,19 +292,25 @@ func generate(frames_available: int) -> PackedVector2Array:
 	var p: Dictionary = _profile
 	var n_cyl: int = int(p["cyl"])
 	var tau_base: float = float(p["tau"]) * 0.001
-	var rasp: float = float(p["rasp"])
-	var intake: float = float(p["intake"])
+	# VTEC: on the high-lift cams the intake howls and the note hardens
+	_vtec_k = lerpf(_vtec_k, 1.0 if bool(vehicle.get("vtec_active")) else 0.0, 0.5)
+	var rasp: float = float(p["rasp"]) * (1.0 + 0.7 * _vtec_k)
+	var intake: float = float(p["intake"]) * (1.0 + 1.6 * _vtec_k)
 	var knock: float = float(p["knock"])
 	var whine: float = float(p["whine"])
 	var g1: float = float(p["g1"])
 	var g2: float = float(p["g2"])
 	var gain: float = float(p["gain"])
 	var drive: float = float(p["drive"])
-	var lp_a: float = 1.0 - exp(-TAU * float(p["lp"]) / sample_rate)
+	var lp_a: float = 1.0 - exp(-TAU * float(p["lp"]) * (1.0 + 1.0 * _vtec_k) / sample_rate)
 	var dt: float = 1.0 / sample_rate
 	var bq1: Array = _bq[0]
 	var bq2: Array = _bq[1]
-	var target_rpm: float = maxf(_smoothed_rpm, 300.0)
+	# engine off: silent; starter cranking: slow uneven turning with the starter motor's whine
+	var running: bool = bool(vehicle.get("engine_running"))
+	var cranking: bool = not running and float(vehicle.get("crank_time")) >= 0.0
+	var eng_target: float = 1.0 if running else (0.5 if cranking and not _ev else 0.0)
+	var target_rpm: float = maxf(_smoothed_rpm, 150.0 if cranking else 300.0)
 	var target_load: float = _smoothed_throttle
 	# On the limiter (or held right at it, e.g. top speed in top gear) it always sounds like the
 	# limiter bouncing - no switching between "limiter" and "max revs" sounds.
@@ -367,6 +376,11 @@ func generate(frames_available: int) -> PackedVector2Array:
 		_dc_x = _mlp2
 		_dc_y = hp
 		var engine_sample: float = tanh(hp * drive * (0.8 + 0.5 * load)) * gain * 0.42
+		_eng_lvl += (eng_target - _eng_lvl) * 0.002
+		engine_sample *= _eng_lvl
+		if cranking and not _ev:
+			_st_ph = fmod(_st_ph + 950.0 * TAU * dt, TAU)
+			engine_sample += sin(_st_ph) * 0.05 * (0.6 + 0.4 * sin(_cycle_phase * TAU * 2.0)) + noise * 0.01
 		if _ev:
 			engine_sample = _ev_sample(dt, load, noise)
 
