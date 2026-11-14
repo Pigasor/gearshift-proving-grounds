@@ -68,6 +68,7 @@ var is_electric: bool = false # electric motor: no clutch, no idle, full torque 
 # A new car stands with the engine off: the first press of the throttle switches the ignition on and
 # the starter cranks it (an electric car just powers up)
 var engine_running: bool = false
+var perf_mult: float = 1.0 # calibration: engine output so 0-100 / top speed match the real car (CarDatabase "tune")
 var vtec_rpm: float = 0.0 # Honda VTEC: the high-lift cams take over above this (0 = no VTEC)
 var vtec_active: bool = false # on the high cams right now (HUD, engine sound)
 var crank_time: float = -1.0 # >= 0 while the starter is turning the engine over
@@ -551,6 +552,7 @@ func _apply_engine(en: Dictionary) -> void:
 	final_drive_ratio = float(en["final"])
 	current_rpm = idle_rpm
 	speed_limit_kmh = float(en.get("vmax", 0.0))
+	perf_mult = 1.0
 	vtec_rpm = float(en.get("vtec", 0.0))
 	vtec_active = false
 	gearbox_type = str(en.get("trans", "tc"))
@@ -2436,7 +2438,7 @@ func _full_load_torque(rpm: float) -> float:
 	# Below idle the engine labours: torque falls away towards stalling
 	if rpm < idle_rpm and not is_electric:
 		base_torque *= clampf((rpm - idle_rpm * 0.45) / (idle_rpm * 0.55), 0.0, 1.0)
-	return base_torque * boost_multiplier
+	return base_torque * boost_multiplier * perf_mult
 
 # Idle control: an engine at closed throttle still holds its idle speed (modern ECU strongly,
 # old carburettor engines only weakly - their revs sag under load).
