@@ -171,7 +171,7 @@ const CARS: Array = [
 	{ "id": "tractor", "name": "John Dear 6R 155", "class": "Tractor",
 		"body": { "length": 4.95, "width": 2.55, "height": 3.05, "wheelbase": 2.76, "track": 1.95,
 			"front_overhang": 1.55, "tire_r": 1.03, "mass": 7000.0, "cd_area": 1.6, "drive": "AWD",
-			"color": Color(0.21, 0.49, 0.18), "style": "tractor", "rim": Color(0.98, 0.82, 0.08),
+			"color": Color(0.21, 0.49, 0.18), "style": "tractor", 
 			"ground_clearance": 0.55, # clears the rocks on the mountain trail
 			"setup": {"front_wheel_r": 0.72, "offroad_tires": true, "suspension_rest_length": 0.28, "suspension_travel": 0.14,
 				"camera_scale": 1.6, "max_steer_angle_deg": 45.0, "wheel_inertia": 40.0, "engine_inertia": 1.2,
@@ -259,7 +259,7 @@ const CARS: Array = [
 	{ "id": "transam", "name": "Pontiak Trans Am 1977", "class": "Muscle", "classic": true,
 		"body": { "length": 4.99, "width": 1.87, "height": 1.28, "wheelbase": 2.75, "track": 1.55,
 			"front_overhang": 1.05, "tire_r": 0.34, "mass": 1660.0, "cd_area": 0.55, "drive": "RWD",
-			"color": Color(0.04, 0.04, 0.05), "style": "transam", "rim": Color(0.85, 0.66, 0.22),
+			"color": Color(0.04, 0.04, 0.05), "style": "transam", 
 			"setup": {"tire_grip_factor": 0.95, "max_steer_angle_deg": 35.0} },
 		"engines": [
 			{ "label": "6.6 V8 - 200 HP", "cyl": 8, "fuel": "benzin", "hp": 200.0, "torque": 441.0,
@@ -597,7 +597,7 @@ const CARS: Array = [
 	{ "id": "mf8s", "name": "Masey Fergusson 8S.265", "class": "Tractor",
 		"body": { "length": 5.3, "width": 2.55, "height": 3.15, "wheelbase": 2.97, "track": 2.0,
 			"front_overhang": 1.6, "tire_r": 1.03, "mass": 9500.0, "cd_area": 1.7, "drive": "AWD",
-			"color": Color(0.78, 0.07, 0.06), "style": "tractor", "rim": Color(0.55, 0.56, 0.58), "trim": Color(0.2, 0.2, 0.22),
+			"color": Color(0.78, 0.07, 0.06), "style": "tractor", "trim": Color(0.2, 0.2, 0.22),
 			"tractor": "mf", "ground_clearance": 0.55,
 			"setup": {"front_wheel_r": 0.8, "offroad_tires": true, "suspension_rest_length": 0.28, "suspension_travel": 0.15,
 				"camera_scale": 1.65, "max_steer_angle_deg": 45.0, "wheel_inertia": 45.0, "engine_inertia": 1.3,
@@ -610,7 +610,7 @@ const CARS: Array = [
 	{ "id": "nht7", "name": "New Holand T7.315", "class": "Tractor",
 		"body": { "length": 5.25, "width": 2.55, "height": 3.15, "wheelbase": 2.99, "track": 2.0,
 			"front_overhang": 1.55, "tire_r": 1.0, "mass": 9000.0, "cd_area": 1.7, "drive": "AWD",
-			"color": Color(0.05, 0.25, 0.62), "style": "tractor", "rim": Color(0.92, 0.92, 0.9), "trim": Color(0.92, 0.92, 0.9),
+			"color": Color(0.05, 0.25, 0.62), "style": "tractor", "trim": Color(0.92, 0.92, 0.9),
 			"tractor": "nh", "ground_clearance": 0.55,
 			"setup": {"front_wheel_r": 0.78, "offroad_tires": true, "suspension_rest_length": 0.28, "suspension_travel": 0.15,
 				"camera_scale": 1.65, "max_steer_angle_deg": 45.0, "wheel_inertia": 42.0, "engine_inertia": 1.25,
@@ -623,7 +623,7 @@ const CARS: Array = [
 	{ "id": "fendt1050", "name": "Fendd 1050 Vario", "class": "Tractor",
 		"body": { "length": 6.2, "width": 2.75, "height": 3.6, "wheelbase": 3.3, "track": 2.1,
 			"front_overhang": 1.8, "tire_r": 1.15, "mass": 14000.0, "cd_area": 2.0, "drive": "AWD",
-			"color": Color(0.42, 0.62, 0.12), "style": "tractor", "rim": Color(0.75, 0.1, 0.08), "trim": Color(0.2, 0.21, 0.22),
+			"color": Color(0.42, 0.62, 0.12), "style": "tractor", "trim": Color(0.2, 0.21, 0.22),
 			"tractor": "fendt", "ground_clearance": 0.6,
 			"setup": {"front_wheel_r": 1.0, "offroad_tires": true, "suspension_rest_length": 0.3, "suspension_travel": 0.16,
 				"camera_scale": 1.85, "max_steer_angle_deg": 42.0, "wheel_inertia": 60.0, "engine_inertia": 1.6,
@@ -637,7 +637,7 @@ const CARS: Array = [
 	{ "id": "fiat480", "name": "Fiatt 480 Special", "class": "Tractor", "classic": true,
 		"body": { "length": 3.45, "width": 1.75, "height": 2.25, "wheelbase": 2.05, "track": 1.4,
 			"front_overhang": 0.85, "tire_r": 0.7, "mass": 2100.0, "cd_area": 1.2, "drive": "RWD",
-			"color": Color(0.85, 0.2, 0.08), "style": "tractor", "rim": Color(0.92, 0.9, 0.85), "trim": Color(0.92, 0.9, 0.85),
+			"color": Color(0.85, 0.2, 0.08), "style": "tractor", "trim": Color(0.92, 0.9, 0.85),
 			"tractor": "fiat", "ground_clearance": 0.45,
 			"setup": {"front_wheel_r": 0.38, "offroad_tires": true, "suspension_rest_length": 0.24, "suspension_travel": 0.12,
 				"camera_scale": 1.3, "max_steer_angle_deg": 42.0, "wheel_inertia": 18.0, "engine_inertia": 0.9,
@@ -661,6 +661,69 @@ const CARS: Array = [
 				"tq_from": 1750.0, "tq_to": 2250.0, "power_rpm": 3600.0, "idle": 800.0, "limiter": 4800.0, "max_rpm": 5000.0,
 				"turbo": 1.4, "gears": [-3.82, 0.0, 3.73, 2.05, 1.30, 0.97, 0.76, 0.62], "final": 3.39, "mass_add": 45.0 },
 		] },
+]
+
+# Chrome rim design per car (same index as CARS, append a new one with every new car; all different).
+# k: spoke (straight), turbine (swept + twisted blades), twin (spoke pairs), y (Y-spokes), mesh (cross-laced),
+#    dish (holes), steel (pressed steel look), slot (radial slots), aero (swept slots), snowflake,
+#    moon (dome hubcap), bead (beadlock), tractor
+# n: spokes / holes, w: spoke width, sw: sweep (in spoke pitches), cc: concave depth, lug: wheel nuts (1 = centre lock)
+const RIMS: Array = [
+	{"k": "twin", "n": 6, "w": 0.026},                         # 0 GT-R
+	{"k": "y", "n": 5, "w": 0.04, "cc": 0.04},                 # 1 Hellcat
+	{"k": "bead", "n": 6, "lug": 6},                           # 2 F-150 Raptor Trophy
+	{"k": "turbine", "n": 10, "w": 0.03, "sw": 0.3, "cc": 0.03}, # 3 Chiron
+	{"k": "spoke", "n": 5, "w": 0.055},                        # 4 Supra
+	{"k": "bead", "n": 8, "lug": 8},                           # 5 Goliath
+	{"k": "spoke", "n": 6, "w": 0.032, "lug": 4},              # 6 Accent
+	{"k": "twin", "n": 5, "w": 0.024, "lug": 4},               # 7 Egea
+	{"k": "turbine", "n": 5, "w": 0.045, "sw": 0.3},           # 8 Civic
+	{"k": "spoke", "n": 7, "w": 0.035, "cc": 0.02, "lug": 4},  # 9 Megane
+	{"k": "slot", "n": 8, "lug": 4},                           # 10 Sahin
+	{"k": "steel", "n": 0, "lug": 1},                          # 11 Camaro Cup
+	{"k": "tractor", "n": 8},                                  # 12 John Deere
+	{"k": "twin", "n": 4, "w": 0.03, "lug": 4},                # 13 Nomad
+	{"k": "spoke", "n": 10, "w": 0.022, "cc": 0.03, "lug": 1}, # 14 911 Turbo S
+	{"k": "y", "n": 6, "w": 0.035},                            # 15 M4
+	{"k": "spoke", "n": 9, "w": 0.028},                        # 16 Z Nismo
+	{"k": "spoke", "n": 5, "w": 0.04, "sw": 0.2},              # 17 Mustang GT
+	{"k": "twin", "n": 7, "w": 0.022, "cc": 0.02},             # 18 Camaro ZL1
+	{"k": "snowflake", "n": 8},                                # 19 Trans Am
+	{"k": "dish", "n": 5, "lug": 5},                           # 20 Wrangler
+	{"k": "slot", "n": 6, "lug": 6},                           # 21 Land Cruiser 70
+	{"k": "bead", "n": 7, "lug": 4},                           # 22 RZR
+	{"k": "turbine", "n": 12, "w": 0.02, "sw": 0.5, "cc": 0.03, "lug": 1}, # 23 Jesko
+	{"k": "spoke", "n": 8, "w": 0.025, "sw": 0.12, "lug": 1},  # 24 P1
+	{"k": "y", "n": 7, "w": 0.03, "cc": 0.04},                 # 25 LaFerrari
+	{"k": "bead", "n": 10, "lug": 8},                          # 26 Grave Digga
+	{"k": "bead", "n": 12, "lug": 10},                         # 27 Maxx-D
+	{"k": "bead", "n": 5, "lug": 8},                           # 28 El Toro Loko
+	{"k": "turbine", "n": 8, "w": 0.03, "sw": 0.15},           # 29 Corolla
+	{"k": "mesh", "n": 8, "w": 0.016},                         # 30 Passat
+	{"k": "steel", "n": 6, "lug": 4},                          # 31 Logan
+	{"k": "moon", "n": 0},                                     # 32 Dogan SLX
+	{"k": "dish", "n": 12, "lug": 4},                          # 33 Murat 131
+	{"k": "steel", "n": 4, "lug": 4},                          # 34 R12 Toros
+	{"k": "slot", "n": 10, "lug": 1},                          # 35 Mustang Cup
+	{"k": "steel", "n": 8, "lug": 1},                          # 36 Camry Cup
+	{"k": "steel", "n": 0, "lug": 5},                          # 37 Monte Carlo
+	{"k": "turbine", "n": 7, "w": 0.06, "sw": 0.2},            # 38 Taycan
+	{"k": "aero", "n": 6},                                     # 39 Model S
+	{"k": "turbine", "n": 9, "w": 0.035, "sw": 0.25},          # 40 Model 3
+	{"k": "twin", "n": 9, "w": 0.018},                         # 41 TOGG
+	{"k": "turbine", "n": 14, "w": 0.018, "sw": 0.4, "cc": 0.02, "lug": 1}, # 42 Huayra
+	{"k": "moon", "n": 6},                                     # 43 Serce
+	{"k": "dish", "n": 6, "lug": 4},                           # 44 Kartal
+	{"k": "moon", "n": 3},                                     # 45 Bel Air (spinner)
+	{"k": "slot", "n": 5, "lug": 5},                           # 46 Charger R/T (Magnum 500)
+	{"k": "spoke", "n": 10, "w": 0.03, "lug": 5},              # 47 GT500
+	{"k": "dish", "n": 8, "lug": 5},                           # 48 S 600
+	{"k": "mesh", "n": 5, "w": 0.024},                         # 49 Range Rover Sport
+	{"k": "tractor", "n": 10},                                 # 50 MF 8S
+	{"k": "tractor", "n": 12},                                 # 51 New Holland T7
+	{"k": "tractor", "n": 6},                                  # 52 Fendt 1050
+	{"k": "tractor", "n": 4},                                  # 53 Fiat 480
+	{"k": "turbine", "n": 6, "w": 0.04, "sw": 0.15, "lug": 4}, # 54 Focus
 ]
 
 static func count() -> int:

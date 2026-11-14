@@ -16,7 +16,7 @@ var cam_bumper: Vector3 = Vector3.ZERO
 var exhaust_smokes: Array[ExhaustSmoke] = [] # one per tailpipe
 var engine_sound: String = "" # AudioSynth profile picked by the car (CarDatabase "sound"), "" = by engine type
 var front_wheel_r: float = 0.0 # smaller front wheels (tractor), visual only; 0 = same as the rear
-var _rim_mat: StandardMaterial3D # shared by all four rims: chrome, or painted per car (body "rim")
+var _rim_mat: StandardMaterial3D # chrome, shared by all four rims
 var _coilovers: Array = [] # per-wheel coil-over springs (buggy): chassis to wheel, follow the suspension
 var backfire_count: int = 0 # bumped on every backfire; the audio plays a bang when it changes
 # Rotational inertia (kg*m^2): one wheel+tyre, and the engine's flywheel/crank
@@ -269,7 +269,7 @@ func _ready() -> void:
 	apply_car(current_vehicle_type, 0)
 
 # Realistic wheel inside each RollNode (axle = X): open tyre tread + rounded sidewalls, chrome rim
-# lip, dark rim barrel, 5 chrome spokes, chrome centre cap & lug nuts, brake disc behind the spokes.
+# lip, dark rim barrel, brake disc; the rim face (spokes, cap, nuts) is per car: _build_rim_face().
 func _wheel_mat(c: Color, metal: float, rough: float, two_sided: bool = false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
@@ -333,18 +333,6 @@ func _build_wheel_details() -> void:
 	disc.height = 0.025
 	disc.radial_segments = 32
 	disc.material = disc_mat
-	var cap := CylinderMesh.new()
-	cap.top_radius = 0.045
-	cap.bottom_radius = 0.06
-	cap.height = 0.04
-	cap.radial_segments = 20
-	cap.material = chrome
-	var nut := CylinderMesh.new()
-	nut.top_radius = 0.009
-	nut.bottom_radius = 0.011
-	nut.height = 0.02
-	nut.radial_segments = 6
-	nut.material = chrome
 	_stripe_mat = _wheel_mat(Color.BLACK, 0.0, 0.6)
 	var stripe := TorusMesh.new() # coloured tyre-type marking on the outer sidewall
 	stripe.inner_radius = 0.262
@@ -352,9 +340,6 @@ func _build_wheel_details() -> void:
 	stripe.rings = 40
 	stripe.ring_segments = 6
 	stripe.material = _stripe_mat
-	var spoke := BoxMesh.new()
-	spoke.size = Vector3(0.026, 0.15, 0.045) # x = depth along the axle, y = radial length
-	spoke.material = chrome
 
 	for i in range(wheel_mounts.size()):
 		var mount: Node3D = wheel_mounts[i]
@@ -376,16 +361,6 @@ func _build_wheel_details() -> void:
 		_wheel_part(roll, barrel, Vector3(0.0, 0, 0))
 		_wheel_part(roll, back, Vector3(-side * 0.06, 0, 0))
 		_wheel_part(roll, disc, Vector3(side * 0.0, 0, 0))
-		_wheel_part(roll, cap, Vector3(side * 0.1, 0, 0)).rotation_degrees.z = -90.0 * side
-		for k in range(5):
-			var a: float = k * TAU / 5.0
-			var s := MeshInstance3D.new()
-			s.mesh = spoke
-			s.position = Vector3(side * 0.095, 0.12 * cos(a), 0.12 * sin(a))
-			s.rotation.x = a
-			roll.add_child(s)
-			var n_a: float = a + TAU / 10.0
-			_wheel_part(roll, nut, Vector3(side * 0.112, 0.07 * cos(n_a), 0.07 * sin(n_a)))
 
 		# Red brake caliper on the mount (does NOT roll with the wheel), inside the rim barrel
 		var caliper := MeshInstance3D.new()
@@ -403,6 +378,173 @@ func _build_wheel_details() -> void:
 		caliper.rotation_degrees = Vector3(25.0, 0.0, 0.0)
 		mount.add_child(caliper)
 	set_tire_type(tire_type) # show the picked type's sidewall marking
+	_build_rim_face(_rim_style)
+
+# --- Rim face: every car has its own chrome design (CarDatabase.RIMS) ---
+# Roll-node space: axle = X, the outer face is at x = side * 0.1, the face spans radius 0.05..0.19.
+var _rim_style: Dictionary = {}
+var _rim_dark: StandardMaterial3D # "holes": the dark barrel / brake seen through the rim
+
+# Bar from p0 to p1 (w wide, t thick along the axle), optionally twisted about its own length
+func _rim_box(parent: Node3D, p0: Vector3, p1: Vector3, w: float, t: float, mat: Material, twist: float = 0.0) -> void:
+	var d: Vector3 = p1 - p0
+	var y: Vector3 = d.normalized()
+	var x: Vector3 = (Vector3.RIGHT - y * y.x).normalized()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(t, d.length(), w)
+	bm.material = mat
+	var mi := MeshInstance3D.new()
+	mi.mesh = bm
+	mi.transform = Transform3D(Basis(x, y, x.cross(y)) * Basis(Vector3.UP, twist), (p0 + p1) * 0.5)
+	parent.add_child(mi)
+
+# Round part (disc, hole, cap, nut) facing out of the wheel; r2 = outer-end radius (-1: same)
+func _rim_cyl(parent: Node3D, side: float, pos: Vector3, r: float, h: float, mat: Material, seg: int = 24, r2: float = -1.0) -> void:
+	var cm := CylinderMesh.new()
+	cm.top_radius = r if r2 < 0.0 else r2
+	cm.bottom_radius = r
+	cm.height = h
+	cm.radial_segments = seg
+	cm.rings = 1
+	cm.material = mat
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	mi.transform = Transform3D(Basis(Vector3(0, -side, 0), Vector3(side, 0, 0), Vector3(0, 0, 1)), pos)
+	parent.add_child(mi)
+
+func _rim_pt(side: float, x: float, r: float, a: float) -> Vector3:
+	return Vector3(side * x, r * cos(a), r * sin(a))
+
+func _build_rim_face(st: Dictionary) -> void:
+	_rim_style = st
+	if _rim_mat == null or st.is_empty():
+		return
+	if _rim_dark == null:
+		_rim_dark = _wheel_mat(Color(0.035, 0.035, 0.04), 0.3, 0.75)
+	var chrome: StandardMaterial3D = _rim_mat
+	var kind: String = str(st["k"])
+	var n: int = int(st.get("n", 5))
+	var w: float = float(st.get("w", 0.04))
+	var sw: float = float(st.get("sw", 0.0)) # spoke sweep, in spoke pitches
+	var cc: float = float(st.get("cc", 0.0)) # concave: the hub sits this much deeper
+	var pitch: float = TAU / maxf(n, 1)
+	for i in range(wheel_rolls.size()):
+		var roll: Node3D = wheel_rolls[i]
+		if roll == null:
+			continue
+		var old := roll.get_node_or_null("RimFace")
+		if old:
+			roll.remove_child(old)
+			old.free()
+		var f := Node3D.new()
+		f.name = "RimFace"
+		roll.add_child(f)
+		var sd: float = -1.0 if i % 2 == 0 else 1.0
+		var lugs: int = int(st.get("lug", 5))
+		var xo: float = 0.1 # outer face
+		var xh: float = xo - cc # hub
+		var solid: bool = false
+		match kind:
+			"spoke", "turbine":
+				for k in n:
+					var a: float = k * pitch
+					_rim_box(f, _rim_pt(sd, xh, 0.05, a), _rim_pt(sd, xo, 0.19, a + sw * pitch), w, 0.024, chrome, deg_to_rad(28.0) * sd if kind == "turbine" else 0.0)
+			"twin":
+				for k in n:
+					var a: float = k * pitch
+					for s2 in [-1.0, 1.0]:
+						_rim_box(f, _rim_pt(sd, xh, 0.05, a + s2 * 0.05), _rim_pt(sd, xo, 0.19, a + s2 * 0.16 * pitch + sw * pitch), w, 0.022, chrome)
+			"y":
+				for k in n:
+					var a: float = k * pitch
+					var m: Vector3 = _rim_pt(sd, lerpf(xh, xo, 0.5), 0.115, a)
+					_rim_box(f, _rim_pt(sd, xh, 0.05, a), m, w * 1.3, 0.024, chrome)
+					for s2 in [-1.0, 1.0]:
+						_rim_box(f, m, _rim_pt(sd, xo, 0.19, a + s2 * 0.24 * pitch), w * 0.8, 0.022, chrome)
+			"mesh": # cross-laced (BBS style): every spoke crosses its neighbours
+				for k in n:
+					var a: float = k * pitch
+					for s2 in [-1.0, 1.0]:
+						_rim_box(f, _rim_pt(sd, xh, 0.055, a), _rim_pt(sd, xo, 0.19, a + s2 * 0.5 * pitch), w, 0.016 + 0.004 * (s2 + 1.0), chrome)
+			_:
+				solid = true
+		if solid:
+			_rim_cyl(f, sd, Vector3(sd * (xo - 0.012), 0, 0), 0.19, 0.018, chrome, 40)
+			var xs: float = sd * xo
+			match kind:
+				"dish", "steel", "bead", "tractor": # round holes
+					var hr: float = minf(0.034, 0.125 * sin(pitch * 0.5) * 0.7)
+					var rr: float = 0.12 if kind == "bead" else 0.135
+					if kind == "tractor":
+						hr = minf(0.03, hr)
+					for k in n:
+						_rim_cyl(f, sd, Vector3(xs, rr * cos(k * pitch), rr * sin(k * pitch)), hr, 0.004, _rim_dark, 16)
+					if kind == "steel": # pressed ring around the hub
+						var t := TorusMesh.new()
+						t.inner_radius = 0.085
+						t.outer_radius = 0.1
+						t.rings = 32
+						t.ring_segments = 8
+						t.material = chrome
+						var mi := MeshInstance3D.new()
+						mi.mesh = t
+						mi.transform = Transform3D(Basis(Vector3(0, -sd, 0), Vector3(sd, 0, 0), Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1, 0.5, 1)), Vector3(xs, 0, 0))
+						f.add_child(mi)
+					if kind == "bead": # beadlock ring bolted all round the rim
+						var ring := TorusMesh.new()
+						ring.inner_radius = 0.158
+						ring.outer_radius = 0.19
+						ring.rings = 40
+						ring.ring_segments = 8
+						ring.material = chrome
+						var rm := MeshInstance3D.new()
+						rm.mesh = ring
+						rm.transform = Transform3D(Basis(Vector3(0, -sd, 0), Vector3(sd, 0, 0), Vector3(0, 0, 1)) * Basis.from_scale(Vector3(1, 0.4, 1)), Vector3(xs, 0, 0))
+						f.add_child(rm)
+						for k in 24:
+							var a: float = k * TAU / 24.0
+							_rim_cyl(f, sd, Vector3(xs + sd * 0.006, 0.174 * cos(a), 0.174 * sin(a)), 0.007, 0.012, chrome, 6)
+					if kind == "tractor": # big centre with a ring of wheel nuts
+						_rim_cyl(f, sd, Vector3(xs + sd * 0.006, 0, 0), 0.085, 0.014, chrome, 32)
+						lugs = 8
+				"slot": # radial slots (Magnum 500 / hubcap style)
+					for k in n:
+						var a: float = k * pitch
+						_rim_box(f, _rim_pt(sd, xo, 0.085, a), _rim_pt(sd, xo, 0.165, a), minf(0.024, 0.11 * sin(pitch * 0.5)), 0.004, _rim_dark)
+				"aero": # solid aero face with swept slots
+					for k in n:
+						var a: float = k * pitch
+						_rim_box(f, _rim_pt(sd, xo, 0.07, a), _rim_pt(sd, xo, 0.175, a + 0.35 * pitch), 0.018, 0.004, _rim_dark)
+				"snowflake": # tapered petal windows
+					for k in n:
+						var a: float = k * pitch
+						_rim_box(f, _rim_pt(sd, xo, 0.07, a), _rim_pt(sd, xo, 0.13, a), 0.014, 0.004, _rim_dark)
+						_rim_box(f, _rim_pt(sd, xo, 0.12, a), _rim_pt(sd, xo, 0.175, a), 0.034, 0.004, _rim_dark)
+				"moon": # chrome dome hubcap with n spinner bars / ribs
+					var sm := SphereMesh.new()
+					sm.radius = 0.15
+					sm.height = 0.07
+					sm.radial_segments = 32
+					sm.rings = 8
+					sm.material = chrome
+					var mi := MeshInstance3D.new()
+					mi.mesh = sm
+					mi.transform = Transform3D(Basis(Vector3(0, -sd, 0), Vector3(sd, 0, 0), Vector3(0, 0, 1)), Vector3(xs - sd * 0.01, 0, 0))
+					f.add_child(mi)
+					for k in n:
+						var a: float = k * pitch
+						_rim_box(f, _rim_pt(sd, xo + 0.022, 0.02, a), _rim_pt(sd, xo + 0.008, 0.13, a), 0.012, 0.01, chrome)
+					lugs = 0
+		# hub: centre cap and wheel nuts (lug 1 = one centre-lock nut)
+		var hx: float = (xo if solid else xh) + 0.004
+		if kind != "moon":
+			_rim_cyl(f, sd, Vector3(sd * hx, 0, 0), 0.06, 0.03, chrome, 24, 0.045)
+		if lugs == 1:
+			_rim_cyl(f, sd, Vector3(sd * (hx + 0.025), 0, 0), 0.032, 0.025, chrome, 6)
+		else:
+			for k in lugs:
+				var a: float = k * TAU / lugs + 0.3
+				_rim_cyl(f, sd, Vector3(sd * (hx + 0.016), 0.042 * cos(a), 0.042 * sin(a)), 0.009, 0.02, chrome, 6, 0.007)
 
 func trigger_turbo_boost() -> bool:
 	if not turbo_boost_enabled or current_gear == 0: # no boost in reverse
@@ -468,7 +610,7 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 	cam_hood = Vector3.ZERO
 	cam_bumper = Vector3.ZERO
 	front_wheel_r = 0.0
-	_set_rims(Color(0.93, 0.94, 0.96), false)
+	_build_rim_face(CarDatabase.RIMS[index])
 	for roll in wheel_rolls:
 		if roll != null:
 			roll.position = Vector3.ZERO
@@ -612,14 +754,6 @@ func set_tire_type(t: int) -> void:
 		for st in _tire_stripes:
 			st.visible = ty.has("stripe")
 
-# Rims: chrome, or painted in the car's colour (e.g. a tractor's yellow wheels)
-func _set_rims(col: Color, painted: bool) -> void:
-	if _rim_mat == null:
-		return
-	_rim_mat.albedo_color = col
-	_rim_mat.metallic = 0.25 if painted else 1.0
-	_rim_mat.roughness = 0.45 if painted else 0.07
-
 # Family sedan: front-wheel drive, soft road suspension, eco tyres.
 func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var b: Dictionary = c["body"]
@@ -650,8 +784,6 @@ func _apply_sedan(c: Dictionary, en: Dictionary) -> void:
 	var setup: Dictionary = b.get("setup", {})
 	for k in setup:
 		set(k, setup[k])
-	if b.has("rim"):
-		_set_rims(b["rim"], true)
 	var wb: float = float(b["wheelbase"])
 	var tr: float = float(b["track"])
 	wheel_offsets = [Vector3(-tr * 0.5, 0.0, wb * 0.5), Vector3(tr * 0.5, 0.0, wb * 0.5), Vector3(-tr * 0.5, 0.0, -wb * 0.5), Vector3(tr * 0.5, 0.0, -wb * 0.5)]

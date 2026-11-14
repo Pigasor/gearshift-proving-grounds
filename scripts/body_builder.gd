@@ -781,7 +781,7 @@ func _build_tractor(tire_r: float) -> void:
 			for sd in [-1.0, 1.0]:
 				_box(Vector3(sd * (hw2 + 0.01), g + hood_mid, (cab_f + zf - 0.25) * 0.5), Vector3(0.02, 0.08, zf - 0.6 - cab_f), trim)
 				_box(Vector3(sd * 0.22 * kw, g + hood_top - 0.1, zf - 0.21), Vector3(0.3, 0.07, 0.04), drl)
-		"fendt": # dark lower bonnet and frame, big grille, red rims (body "rim")
+		"fendt": # dark lower bonnet and frame, big grille
 			_box(Vector3(0, g + hood_mid - (tw - 1.25 * kh) * 0.25, (cab_f + zf - 0.25) * 0.5), Vector3(hw2 * 2.0 + 0.02, (tw - 1.25 * kh) * 0.5, zf - 0.3 - cab_f), trim)
 			_box(Vector3(0, g + hood_top - 0.1, zf - 0.205), Vector3(0.5, 0.07, 0.02), chrome)
 		"fiat": # white grille surround and badge
@@ -960,7 +960,14 @@ func _details_porsche(nose_h: float, deck_h: float) -> void:
 		_oval(Vector3(sd * (fw - 0.30), g + _hood_y(zf - 0.38) + 0.05, zf - 0.33), 0.10, 0.12, 0.04, head, Vector3(-55, 0, 0))
 		_front(sd * (fw - 0.24), 0.33, Vector3(0.30, 0.14, 0.03), black)
 		_front(sd * (fw - 0.24), 0.43, Vector3(0.26, 0.025, 0.035), drl)
-		_box(Vector3(sd * (taper.call(-wb * 0.5, 0.7) + 0.03), g + 0.70, -wb * 0.5 + 0.05), Vector3(0.08, 0.32, 1.3), paint)
+		# wide rear haunch, cut around the wheel arch (a solid one covered the top of the rear wheel)
+		var hx: float = sd * (taper.call(-wb * 0.5, 0.7) + 0.03)
+		var gap: float = tire_rad + 0.07
+		for e in [-1.0, 1.0]:
+			_box(Vector3(hx, g + 0.70, -wb * 0.5 + 0.05 + e * (gap + (0.65 - gap) * 0.5)), Vector3(0.08, 0.32, 0.65 - gap), paint)
+		var top: float = tire_rad * 2.0 + 0.07
+		if top < 0.86:
+			_box(Vector3(hx, g + (top + 0.86) * 0.5, -wb * 0.5 + 0.05), Vector3(0.08, 0.86 - top, gap * 2.0), paint)
 		for k in range(2):
 			_pipe(Vector3(sd * (0.40 + k * 0.13), g + 0.27, zr - 0.01), 0.04)
 	_front(0, 0.33, Vector3(0.50, 0.12, 0.03), black)
