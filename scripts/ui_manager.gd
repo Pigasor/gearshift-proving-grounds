@@ -285,6 +285,23 @@ func _setup_options() -> void:
 				first = false
 			option_car_select.add_item(c["name"], i)
 
+	# Tyre type row right under the grip row (kept across car changes and sessions)
+	if option_tire == null:
+		var grid: GridContainer = option_car_select.get_parent()
+		var lbl := Label.new()
+		lbl.text = "Lastik Tipi:"
+		option_tire = OptionButton.new()
+		for t in vehicle.TIRE_TYPES.size():
+			option_tire.add_item(str(vehicle.TIRE_TYPES[t]["name"]), t)
+		option_tire.item_selected.connect(_on_option_tire_selected)
+		label_tire_val = Label.new()
+		var at: int = label_grip_val.get_index() + 1
+		for n in [lbl, option_tire, label_tire_val]:
+			grid.add_child(n)
+			grid.move_child(n, at)
+			at += 1
+		vehicle.set_tire_type(int(GameSettings.get_value("tire_type")))
+
 	# Engine choice row (label | dropdown | spacer) right under the car row of the 3-column grid
 	if option_engine == null:
 		var grid: GridContainer = option_car_select.get_parent()
@@ -307,6 +324,8 @@ func _setup_options() -> void:
 
 const ACCENT := Color(0.2, 0.65, 1.0)
 var car_picker: CanvasLayer
+var option_tire: OptionButton
+var label_tire_val: Label
 var garage_tabs: TabContainer
 var label_car_stats: Label
 
@@ -335,6 +354,7 @@ const HELP: Array = [
 	"Amortisörlerin yayın hareketini frenleme gücü. Az sönümleme: araba tümsekten sonra salınır, zıplar. Fazla sönümleme: sert ve tepkili, ama tümsekleri iyi yutmaz.",
 	"Ön tekerlerin önden bakınca içe yatma açısı (eksi = tekerin üstü içeri). Biraz eksi kamber virajda lastiğin yere tam basmasını sağlar ve viraj tutuşunu artırır; fazlası düz yolda fren ve çekiş tutuşunu azaltır.",
 	"Lastiklerin yol tutuş katsayısı. 1.00 = normal yol lastiği; yüksek = yarış lastiği, düşük = kaygan ya da yıpranmış lastik.",
+	"Lastik tipi, araba değişince de takılı kalır. Fabrika: aracın kendi lastiği. Spor: biraz daha fazla tutuş. Slick: yarış lastiği, asfaltta en çok tutuş ama toprakta ve çimde çok kaygan. Drift: az tutuş, kayma yavaş ve kontrollü başlar. Arazi (A/T) ve Çamur (M/T): toprak, çim ve kumda çok daha iyi, asfaltta daha az tutuş.",
 	"Motor gücünün hangi tekerlere gittiği. RWD: arkadan itiş (gazla arkası kayar), FWD: önden çekiş (dengeli, önden kayar), AWD: dört çeker (en iyi çekiş).",
 	"ABS: sert frende tekerlerin kilitlenmesini önler, böylece fren yaparken direksiyon hâkimiyeti kaybolmaz.",
 	"Çekiş kontrolü: gaza basınca tekerlerin patinaj yapmasını engeller. Kapalıyken güçlü arabalar patinaj çeker ve gazla arkadan kayar.",
@@ -403,12 +423,12 @@ func _build_garage_layout() -> void:
 	vbox.move_child(garage_tabs, 1)
 
 	# The old grid holds rows of 3 (label | control | value): car, engine, hp, turbo, springs,
-	# dampers, camber, grip, drivetrain. Move them row by row into the tabs.
+	# dampers, camber, grip, tyre type, drivetrain. Move them row by row into the tabs.
 	var rows: Array = []
 	var kids: Array = grid.get_children()
 	for i in range(0, kids.size(), 3):
 		rows.append(kids.slice(i, i + 3))
-	var pages: Array = [["🚗 Araç", 0, 2], ["⚙️ Motor", 2, 4], ["🔧 Süspansiyon", 4, 8], ["🛡️ Sürüş", 8, 9]]
+	var pages: Array = [["🚗 Araç", 0, 2], ["⚙️ Motor", 2, 4], ["🔧 Süspansiyon / Lastik", 4, 9], ["🛡️ Sürüş", 9, 10]]
 	for p in pages:
 		var page := VBoxContainer.new()
 		page.add_theme_constant_override("separation", 14)
@@ -428,7 +448,7 @@ func _build_garage_layout() -> void:
 		garage_tabs.set_tab_title(garage_tabs.get_tab_count() - 1, p[0])
 	check_abs.get_parent().reparent(garage_tabs.get_child(3))
 	for k in 3:
-		_add_help([check_abs, check_tcs, check_auto_trans][k], HELP[9 + k])
+		_add_help([check_abs, check_tcs, check_auto_trans][k], HELP[10 + k])
 	vbox.get_node("HSeparator").queue_free()
 	grid.queue_free()
 
@@ -506,6 +526,8 @@ func _sync_tuning_sliders_from_vehicle() -> void:
 
 	slider_grip.set_value_no_signal(vehicle.tire_grip_factor)
 	label_grip_val.text = "%1.2f" % vehicle.tire_grip_factor
+	option_tire.selected = vehicle.tire_type
+	label_tire_val.text = "x%1.2f" % float(vehicle.TIRE_TYPES[vehicle.tire_type]["grip"])
 
 	match vehicle.drivetrain_mode:
 		"RWD": option_drivetrain.selected = 0
@@ -577,6 +599,12 @@ func _on_slider_camber_value_changed(val: float) -> void:
 func _on_slider_grip_value_changed(val: float) -> void:
 	vehicle.tire_grip_factor = val
 	label_grip_val.text = "%1.2f" % val
+
+func _on_option_tire_selected(index: int) -> void:
+	vehicle.set_tire_type(index)
+	GameSettings.values["tire_type"] = index
+	GameSettings.save()
+	_sync_tuning_sliders_from_vehicle() # grip slider shows the new tyre's grip
 
 func _on_option_drivetrain_item_selected(index: int) -> void:
 	match index:

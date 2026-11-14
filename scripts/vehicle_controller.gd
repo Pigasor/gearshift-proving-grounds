@@ -29,6 +29,25 @@ const SURFACE_GRIP_OFFROAD: Dictionary = {"asphalt": 0.92, "concrete": 0.9, "ker
 # Extra rolling resistance (fraction of wheel load) on soft ground
 const SURFACE_ROLLING_DRAG: Dictionary = {"dirt": 0.025, "grass": 0.035, "sand": 0.09}
 var offroad_tires: bool = false
+# Tyre types picked in the garage; they stay on when the car changes. Grip is relative to the car's
+# own (stock) tyre, so a supercar on sport tyres still out-grips a sedan on them.
+#   grip: x stock grip, loose: x grip on dirt/grass/sand, slip: x tyre stiffness (lower = a slide
+#   builds up later and more gently), offroad: off-road surface table, stripe: sidewall marking
+const TIRE_TYPES: Array = [
+	{"name": "Fabrika lastiği", "grip": 1.0},
+	{"name": "Spor lastik", "grip": 1.08, "loose": 0.9, "slip": 1.08, "stripe": Color(1.0, 0.82, 0.1)},
+	{"name": "Slick (yarış lastiği)", "grip": 1.2, "loose": 0.7, "slip": 1.18, "stripe": Color(0.95, 0.12, 0.1)},
+	{"name": "Drift lastiği", "grip": 0.84, "slip": 0.7, "stripe": Color(0.2, 0.65, 1.0)},
+	{"name": "Arazi lastiği (A/T)", "grip": 0.96, "offroad": true, "stripe": Color(0.92, 0.92, 0.92)},
+	{"name": "Çamur lastiği (M/T)", "grip": 0.88, "loose": 1.1, "slip": 0.9, "offroad": true, "stripe": Color(0.95, 0.5, 0.1)},
+]
+var tire_type: int = 0
+var tire_loose_mult: float = 1.0
+var tire_slip_mult: float = 1.0
+var _stock_grip: float = -1.0
+var _stock_offroad: bool = false
+var _stripe_mat: StandardMaterial3D
+var _tire_stripes: Array = []
 var wheel_surface: Array[String] = ["asphalt", "asphalt", "asphalt", "asphalt"]
 # Tyre contact data for TyreFX (skid marks, smoke, flying grass): world point, ground normal,
 # wheelspin (m/s, + = wheel faster than the ground) and sideways slide (m/s)
@@ -326,6 +345,13 @@ func _build_wheel_details() -> void:
 	nut.height = 0.02
 	nut.radial_segments = 6
 	nut.material = chrome
+	_stripe_mat = _wheel_mat(Color.BLACK, 0.0, 0.6)
+	var stripe := TorusMesh.new() # coloured tyre-type marking on the outer sidewall
+	stripe.inner_radius = 0.262
+	stripe.outer_radius = 0.274
+	stripe.rings = 40
+	stripe.ring_segments = 6
+	stripe.material = _stripe_mat
 	var spoke := BoxMesh.new()
 	spoke.size = Vector3(0.026, 0.15, 0.045) # x = depth along the axle, y = radial length
 	spoke.material = chrome
@@ -344,6 +370,9 @@ func _build_wheel_details() -> void:
 		for sd in [-1.0, 1.0]:
 			_wheel_part(roll, sidewall, Vector3(sd * 0.105, 0, 0), 0.45)
 		_wheel_part(roll, lip, Vector3(side * 0.118, 0, 0), 0.5)
+		var st := _wheel_part(roll, stripe, Vector3(side * 0.128, 0, 0), 0.5)
+		st.visible = false
+		_tire_stripes.append(st)
 		_wheel_part(roll, barrel, Vector3(0.0, 0, 0))
 		_wheel_part(roll, back, Vector3(-side * 0.06, 0, 0))
 		_wheel_part(roll, disc, Vector3(side * 0.0, 0, 0))
@@ -373,6 +402,7 @@ func _build_wheel_details() -> void:
 		caliper.position = Vector3(side * 0.045, 0.12, 0.06)
 		caliper.rotation_degrees = Vector3(25.0, 0.0, 0.0)
 		mount.add_child(caliper)
+	set_tire_type(tire_type) # show the picked type's sidewall marking
 
 func trigger_turbo_boost() -> bool:
 	if not turbo_boost_enabled or current_gear == 0: # no boost in reverse
@@ -500,6 +530,9 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 			set(prop, float(get(prop)) * float(tune[k]))
 		else:
 			set(k, tune[k])
+	_stock_grip = tire_grip_factor
+	_stock_offroad = offroad_tires
+	set_tire_type(tire_type)
 	engine_running = false
 	crank_time = -1.0
 	current_rpm = 0.0
@@ -564,6 +597,20 @@ func _apply_engine(en: Dictionary) -> void:
 		shift_delay_seconds = float(en["shift"])
 	if current_gear >= gear_ratios.size():
 		_engage_gear_now(2)
+
+func set_tire_type(t: int) -> void:
+	tire_type = clampi(t, 0, TIRE_TYPES.size() - 1)
+	if _stock_grip < 0.0: # no car applied yet: apply_car() fits it
+		return
+	var ty: Dictionary = TIRE_TYPES[tire_type]
+	tire_grip_factor = _stock_grip * float(ty["grip"])
+	offroad_tires = bool(ty.get("offroad", false)) if tire_type > 0 else _stock_offroad
+	tire_loose_mult = float(ty.get("loose", 1.0))
+	tire_slip_mult = float(ty.get("slip", 1.0))
+	if _stripe_mat:
+		_stripe_mat.albedo_color = ty.get("stripe", Color.BLACK)
+		for st in _tire_stripes:
+			st.visible = ty.has("stripe")
 
 # Rims: chrome, or painted in the car's colour (e.g. a tractor's yellow wheels)
 func _set_rims(col: Color, painted: bool) -> void:
@@ -2657,7 +2704,9 @@ func _simulate_suspension_and_tires(delta: float) -> void:
 			# Loose ground (grass, dirt, sand) gives way: the tyre needs a bigger slip angle for its (lower)
 			# grip, so the car visibly slides and the tail steps out sooner than on tarmac.
 			var loose: bool = SURFACE_ROLLING_DRAG.has(surface)
-			var magic: float = sin(1.55 * atan((10.0 if not loose else (9.0 if offroad_tires else 7.75)) * slip_angle))
+			var magic: float = sin(1.55 * atan((10.0 if not loose else (9.0 if offroad_tires else 7.75)) * tire_slip_mult * slip_angle))
+			if loose:
+				grip_mult *= tire_loose_mult
 			if loose and i >= 2 and not offroad_tires:
 				grip_mult *= 0.965
 			# Front tyres get a little extra cornering grip: a more neutral balance, so the car turns in
