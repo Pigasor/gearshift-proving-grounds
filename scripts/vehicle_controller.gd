@@ -83,6 +83,10 @@ var current_engine_index: int = 0
 var record_key: int = 0 # lap records: car index, or car*100+engine for non-default engines
 var engine_cylinders: int = 6
 var engine_fuel: String = "benzin"
+# Fuel: tank in litres (electric: battery kWh), use right now in L/h (electric: kW, < 0 = regen)
+var tank_capacity: float = 50.0
+var fuel_level: float = 50.0
+var fuel_rate: float = 0.0
 var is_electric: bool = false # electric motor: no clutch, no idle, full torque from 0 rpm, no exhaust
 # A new car stands with the engine off: the first press of the throttle switches the ignition on and
 # the starter cranks it (an electric car just powers up)
@@ -672,6 +676,8 @@ func apply_car(index: int, engine_index: int = 0) -> void:
 			set(prop, float(get(prop)) * float(tune[k]))
 		else:
 			set(k, tune[k])
+	tank_capacity = float(CarDatabase.TANKS[index])
+	fuel_level = tank_capacity
 	_stock_grip = tire_grip_factor
 	_stock_offroad = offroad_tires
 	set_tire_type(tire_type)
@@ -1901,6 +1907,7 @@ func _physics_process(delta: float) -> void:
 	_apply_aerodynamics(delta)
 	_process_automatic_transmission(delta)
 	_update_drivetrain(delta)
+	_update_fuel(delta)
 	_simulate_suspension_and_tires(delta)
 	_monster_wall_climb()
 	_update_wheel_visuals(delta)
@@ -2127,7 +2134,7 @@ func _read_inputs(delta: float) -> void:
 		raw_handbrake = 0.0
 
 	if not engine_running:
-		if crank_time < 0.0 and raw_throttle > 0.3:
+		if crank_time < 0.0 and raw_throttle > 0.3 and fuel_level > 0.0:
 			crank_time = 0.0 # ignition on, starter turns
 		raw_throttle = 0.0 # pressed again (or still held) once the engine runs it drives off
 
@@ -2625,6 +2632,27 @@ func _idle_governor_torque(rpm: float) -> float:
 	var peak: float = peak_horsepower * 7120.0 / 5252.0 if not use_torque_curve else torque_peak_nm
 	var strength: float = 0.10 if engine_classic else 0.30
 	return peak * strength * clampf((idle_rpm + 60.0 - rpm) / 250.0, 0.0, 1.0)
+
+# Fuel use from the power the engine makes: fuel (L/h) = (brake power + internal losses) x specific
+# consumption. Losses (friction, pumping, pumps) grow with revs, so an engine burns fuel even at idle
+# and more when revved; off-throttle above idle the ECU cuts fuel (0 L/h). Electric: battery kW,
+# coasting / engine-braking feeds some energy back (regen).
+func _update_fuel(delta: float) -> void:
+	fuel_rate = 0.0
+	if not engine_running:
+		return
+	var tq: float = _get_engine_torque_nm()
+	var p_kw: float = tq * current_rpm * TAU / 60000.0
+	if is_electric:
+		fuel_rate = (p_kw / 0.9 if p_kw > 0.0 else p_kw * 0.6) + 0.4 # 0.4 kW: climate, electronics
+	elif tq >= 0.0 or current_rpm < idle_rpm * 1.3:
+		var r: float = current_rpm / maxf(max_rpm, 1.0)
+		var loss_kw: float = peak_horsepower * 0.7457 * (0.015 + 0.10 * r * r)
+		fuel_rate = (maxf(p_kw, 0.0) + loss_kw) * (0.24 if engine_fuel == "dizel" else 0.30)
+	fuel_level = clampf(fuel_level - fuel_rate * delta / 3600.0, 0.0, tank_capacity)
+	if fuel_level <= 0.0:
+		engine_running = false # ran dry: the engine dies
+		crank_time = -1.0
 
 func _get_engine_torque_nm() -> float:
 	var full: float = _full_load_torque(current_rpm)
@@ -3132,6 +3160,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		state.angular_velocity = Vector3.ZERO
 
 func reset_vehicle() -> void:
+	fuel_level = tank_capacity
 	global_transform = _initial_transform
 	global_position += Vector3.UP * maxf(tire_radius + suspension_rest_length - DEFAULT_RIDE, 0.0)
 	linear_velocity = Vector3.ZERO
@@ -3158,6 +3187,7 @@ func _reset_turbo_boost() -> void:
 # again - no cooldown. If the spot is blocked (e.g. wedged against a wall) it uses the nearest
 # open spot.
 func repair_vehicle() -> void:
+	fuel_level = tank_capacity # shortcut: recover also refills the tank; real fuel stations would be the upgrade
 	var fwd: Vector3 = global_transform.basis.z
 	fwd.y = 0.0
 	if fwd.length() < 0.2: # nose straight up/down: use the roof direction instead

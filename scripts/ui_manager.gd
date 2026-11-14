@@ -53,6 +53,8 @@ var _rpm_bands: Array = [] # yellow / red zone strips under the rev bar
 var _flip_label: Label # "car is upside down - press R" (after a second on its roof / side)
 var _flip_t: float = 0.0
 var _lights_label: Label # which lights are on
+var _fuel_label: Label # instant consumption + tank
+var _fuel_shown: float = 0.0
 
 func _ready() -> void:
 	panel_tuning.visible = false
@@ -172,7 +174,10 @@ func _process(delta: float) -> void:
 		_flip_label.text = tr("Araç devrildi! Düzeltmek için %s tuşuna bas") % k
 	elif not vehicle.get("engine_running"):
 		_flip_label.visible = true
-		if float(vehicle.get("crank_time")) >= 0.0:
+		if vehicle.fuel_level <= 0.0:
+			var rk: String = "Y" if GameSettings.input_device == "gamepad" else _key("repair")
+			_flip_label.text = tr("⛽ Yakıt bitti! Depoyu doldurmak için %s tuşuna bas") % rk
+		elif float(vehicle.get("crank_time")) >= 0.0:
 			_flip_label.text = tr("🔑 Marş...")
 		else:
 			var kt: String = "RT" if GameSettings.input_device == "gamepad" else _key("throttle")
@@ -181,6 +186,35 @@ func _process(delta: float) -> void:
 	var lm: int = int(vehicle.get("light_mode"))
 	_lights_label.visible = hb or lm > 0
 	_lights_label.text = tr("🔦 UZUN FAR") if hb else (tr("💡 KISA FAR") if lm == 2 else tr("🅿️ PARK LAMBALARI"))
+
+# Instant consumption (per 100 km / mpg when moving, per hour when standing) and what's left in the tank
+func _update_fuel_label() -> void:
+	if _fuel_label == null:
+		_fuel_label = Label.new()
+		_fuel_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_fuel_label.add_theme_font_size_override("font_size", 13)
+		label_gforce.get_parent().add_child(_fuel_label)
+		label_gforce.get_parent().move_child(_fuel_label, label_gforce.get_index())
+	var ev: bool = vehicle.is_electric
+	# smoothed like a trip computer (the raw value jumps with every throttle twitch / gear change)
+	_fuel_shown = lerpf(_fuel_shown, vehicle.fuel_rate, clampf(get_process_delta_time() * 3.0, 0.0, 1.0))
+	var rate: float = _fuel_shown
+	var kmh: float = vehicle.current_speed_kmh
+	var now: String
+	if kmh > 5.0:
+		var per100: float = rate / kmh * 100.0
+		if ev:
+			now = "%+.1f kWh/100 km" % per100 if per100 < 0.0 else "%.1f kWh/100 km" % per100
+		elif speed_mph:
+			now = "%.1f MPG" % (235.2 / per100) if per100 > 0.5 else "99+ MPG"
+		else:
+			now = "%.1f L/100 km" % minf(per100, 99.9)
+	else:
+		now = ("%.1f kW" if ev else "%.1f L/h") % rate
+	var pct: float = vehicle.fuel_level / maxf(vehicle.tank_capacity, 0.001)
+	var left: String = (tr("Batarya %d%%") % int(round(pct * 100.0))) if ev else (tr("Depo %d / %d L") % [int(ceil(vehicle.fuel_level)), int(vehicle.tank_capacity)])
+	_fuel_label.text = ("🔋 " if ev else "⛽ ") + now + "  |  " + left
+	_fuel_label.modulate = Color(1.0, 0.35, 0.3) if pct < 0.1 else Color(0.85, 0.9, 0.95)
 
 func _update_hud() -> void:
 	# Speed
@@ -262,6 +296,7 @@ func _update_hud() -> void:
 		label_turbo.modulate = Color(0.25, 0.95, 1.0)
 
 	label_gforce.text = "G-LAT: %+1.2f G  |  G-LONG: %+1.2f G" % [vehicle.g_force_lateral, vehicle.g_force_longitudinal]
+	_update_fuel_label()
 
 	# Handbrake & Slowmo
 	label_handbrake.visible = vehicle.is_handbrake_active

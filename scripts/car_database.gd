@@ -726,6 +726,17 @@ const RIMS: Array = [
 	{"k": "turbine", "n": 6, "w": 0.04, "sw": 0.15, "lug": 4}, # 54 Focus
 ]
 
+# Fuel tank (litres) per car, same index as CARS (append one with every new car).
+# Electric cars: battery capacity in kWh.
+const TANKS: Array = [
+	74, 70, 136, 100, 70, 110, 43, 50, 47, 50,      # 0-9   GT-R .. Megane
+	45, 68, 250, 41, 67, 59, 62, 61, 72, 80,        # 10-19 Sahin .. Trans Am
+	81, 130, 36, 72, 64, 86, 110, 110, 110, 50,     # 20-29 Wrangler .. Corolla
+	66, 50, 45, 50, 50, 68, 68, 83, 93, 100,        # 30-39 Passat .. Model S (kWh)
+	82, 88.5, 85, 21, 45, 76, 72, 64, 100, 105,     # 40-49 Model 3 (kWh), T10X (kWh) .. RR Sport
+	430, 630, 800, 50, 52,                          # 50-54 MF 8S .. Focus
+]
+
 static func count() -> int:
 	return CARS.size()
 
