@@ -11,7 +11,8 @@ $name = "GearShift JoyDrive!"
 $engine = Join-Path $root "engine\Godot_v4.3-stable_win64.exe"
 $ico = Join-Path $root "assets\icon.ico"
 $brand = Join-Path $PSScriptRoot "brand_exe.ps1"
-$version = ((Get-Content (Join-Path $root "export_presets.cfg")) -match '^application/file_version=' -replace '.*="(.*)"', '$1')
+$version = [string](Get-Content (Join-Path $root "export_presets.cfg") | Where-Object { $_ -match '^application/file_version=' } | Select-Object -First 1)
+$version = $version -replace '.*="(.*)"', '$1'
 if (-not $version) { $version = "0.1.0.0" }
 
 # the old name's install, shortcut and project-folder exe
