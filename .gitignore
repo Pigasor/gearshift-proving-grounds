@@ -21,3 +21,7 @@ desktop.ini
 *.tmp
 .vscode/
 .idea/
+
+# scratch test scripts run from the project folder
+/_*.gd
+/_*.gd.uid
